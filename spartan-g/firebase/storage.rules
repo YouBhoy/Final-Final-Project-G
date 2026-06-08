@@ -62,5 +62,12 @@ service firebase.storage {
       allow read: if isActiveUser();
       allow write, delete: if isFacilitatorOrAdmin();
     }
+
+    // Message attachments
+    match /messages/{conversationId}/{fileName} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser() && isValidDocument();
+      allow delete: if isFacilitatorOrAdmin();
+    }
   }
 }

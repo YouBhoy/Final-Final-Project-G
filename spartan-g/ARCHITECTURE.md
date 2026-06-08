@@ -1,114 +1,122 @@
 # SPARTAN-G Architecture
 
-React Native (Expo) + TypeScript learning platform with Firebase backend and role-based access control.
+Multi-platform learning platform monorepo with shared Firebase backend and role-based access control.
 
-## Tech Stack
+## Deployment Targets
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Expo SDK 52, React Native 0.76 |
-| Language | TypeScript (strict) |
-| Navigation | React Navigation 7 (native stack + bottom tabs) |
-| State | Zustand |
-| Auth | Firebase Authentication |
-| Database | Cloud Firestore |
-| Files | Firebase Storage |
-| Push | Expo Notifications + FCM (via EAS) |
+| # | Platform | Runtime | Role | Package |
+|---|----------|---------|------|---------|
+| 1 | Student Mobile App | Expo (iOS/Android) | `student` | `apps/mobile` |
+| 2 | Student Web Portal | React + Vite | `student` | `apps/web` |
+| 3 | Facilitator Mobile App | Expo (iOS/Android) | `facilitator` | `apps/mobile` |
+| 4 | Facilitator Web Portal | React + Vite | `facilitator` | `apps/web` |
+| 5 | Super Admin Web Portal | React + Vite | `super_admin` | `apps/web` (web only) |
 
-## Folder Structure
+All platforms share Firebase Authentication, Firestore, Storage, and FCM.
+
+## Monorepo Structure
 
 ```
 spartan-g/
-├── app.config.ts              # Expo configuration
-├── index.ts                   # App entry point
-├── firebase/
-│   ├── firestore.rules        # Firestore security rules
-│   ├── storage.rules          # Storage security rules
-│   └── firestore.indexes.json # Composite indexes
-├── src/
-│   ├── app/                   # Root app + providers
-│   ├── auth/                  # Auth provider, RBAC, hooks
-│   ├── components/            # Reusable UI, layout, guards
-│   ├── config/                # Environment configuration
-│   ├── constants/             # Roles, permissions, collections
-│   ├── firebase/              # Firebase SDK initialization
-│   ├── hooks/                 # Shared hooks
-│   ├── navigation/            # Role-based navigators
-│   ├── repositories/          # Firestore data access (repository pattern)
-│   ├── services/              # Business logic layer
-│   ├── store/                 # Zustand global state
-│   ├── theme/                 # Design tokens + ThemeProvider
-│   ├── types/                 # TypeScript domain types
-│   └── utils/                 # Errors, validators
+├── apps/
+│   ├── mobile/          # Expo — Student + Facilitator mobile
+│   └── web/             # Vite React — Student + Facilitator + Super Admin web
+├── packages/
+│   ├── shared-types/    # Types, constants, schemas, RBAC, navigation types
+│   ├── shared-services/ # Firebase, repositories, services, Zustand store
+│   └── shared-ui/       # Design tokens, theme, cross-platform guards
+├── firebase/            # Security rules + indexes
+└── package.json         # npm workspaces root
 ```
 
 ## Architecture Layers
 
 ```
-┌─────────────────────────────────────────────┐
-│  Navigation (role-based routing)          │
-├─────────────────────────────────────────────┤
-│  Components + Hooks + Guards                │
-├─────────────────────────────────────────────┤
-│  Zustand Store (auth, app)                  │
-├─────────────────────────────────────────────┤
-│  Services (business logic)                  │
-├─────────────────────────────────────────────┤
-│  Repositories (Firestore CRUD)              │
-├─────────────────────────────────────────────┤
-│  Firebase SDK (auth, firestore, storage,    │
-│               messaging)                    │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  apps/mobile          │  apps/web                        │
+│  (React Navigation)   │  (React Router)                  │
+├───────────────────────┴──────────────────────────────────┤
+│  Platform adapters (Expo FCM / Web FCM)                  │
+├──────────────────────────────────────────────────────────┤
+│  packages/shared-ui (theme tokens, role guard logic)     │
+├──────────────────────────────────────────────────────────┤
+│  packages/shared-services                                │
+│    ├── Zustand store (auth, app)                         │
+│    ├── Services (business logic)                         │
+│    └── Repositories (Firestore CRUD)                     │
+├──────────────────────────────────────────────────────────┤
+│  packages/shared-types (types, RBAC, schemas)            │
+├──────────────────────────────────────────────────────────┤
+│  Firebase (Auth, Firestore, Storage, FCM)                │
+└──────────────────────────────────────────────────────────┘
 ```
 
-## Roles & RBAC
+## Platform Access (RBAC)
 
-| Role | Key | Hierarchy |
-|------|-----|-----------|
-| Student | `student` | 1 |
-| Facilitator | `facilitator` | 2 |
-| Super Admin | `super_admin` | 3 |
+| Role | Mobile | Web |
+|------|--------|-----|
+| `student` | ✅ | ✅ |
+| `facilitator` | ✅ | ✅ |
+| `super_admin` | ❌ (redirect to web) | ✅ |
 
-Permissions are defined in `src/constants/permissions.ts` and mapped to roles. Use:
+Platform enforcement:
+- `PLATFORM_ROLE_ACCESS` in `shared-types`
+- `authService.assertPlatformAccess()` on sign-in
+- Mobile `RootNavigator` blocks `super_admin`
+- Web `AppRouter` routes all three roles
 
-- `hasPermission(role, permission)` — check single permission
-- `hasMinimumRole(userRole, requiredRole)` — hierarchy check
-- `<RoleGuard>` — conditional UI rendering
-- `usePermissions()` — hook for components
-
-## Navigation Structure
+## Mobile Navigation (`apps/mobile`)
 
 ```
-RootNavigator (auth-gated)
-├── AuthNavigator (unauthenticated)
-│   ├── Login
-│   ├── Register
-│   └── ForgotPassword
-├── StudentNavigator (role: student)
-│   ├── StudentTabs (bottom tabs)
-│   │   ├── StudentHome
-│   │   ├── StudentCourses
-│   │   ├── StudentAssignments
-│   │   └── StudentProfile
-│   ├── CourseDetail
-│   └── AssignmentDetail
-├── FacilitatorNavigator (role: facilitator)
-│   ├── FacilitatorTabs
-│   │   ├── FacilitatorDashboard
-│   │   ├── FacilitatorCourses
-│   │   ├── FacilitatorStudents
-│   │   └── FacilitatorProfile
-│   ├── ManageCourse
-│   └── GradeSubmission
-└── SuperAdminNavigator (role: super_admin)
-    ├── SuperAdminTabs
-    │   ├── AdminDashboard
-    │   ├── AdminUsers
-    │   ├── AdminAnalytics
-    │   └── AdminSettings
-    ├── UserDetail
-    └── PlatformSettings
+RootNavigator
+├── Auth (Login, Register, ForgotPassword, WebOnlyRedirect)
+├── Student (role: student)
+│   ├── Tabs: Home, Courses, Assignments, Messages, Profile
+│   └── Stack: CourseDetail, AssignmentDetail, ConversationDetail
+└── Facilitator (role: facilitator)
+    ├── Tabs: Dashboard, RiskAlerts, Appointments, Messaging, WorkHoursSchedule, Profile
+    └── Stack: RiskAlertDetail, AppointmentDetail, ConversationDetail, ManageCourse, GradeSubmission
 ```
+
+## Web Navigation (`apps/web`)
+
+```
+AppRouter
+├── /login, /register, /forgot-password
+├── /student/*     → Student Web Portal
+├── /facilitator/* → Facilitator Web Portal
+└── /admin/*       → Super Admin Web Portal (web only)
+```
+
+## Facilitator Features
+
+| Feature | Mobile Tab | Web Route | Service |
+|---------|-----------|-----------|---------|
+| Risk Alerts | `RiskAlerts` | `/facilitator/risk-alerts` | `riskAlertService` |
+| Appointment Notifications | `Appointments` | `/facilitator/appointments` | `appointmentService` |
+| Messaging | `Messaging` | `/facilitator/messages` | `messagingService` |
+| Work Hours Scheduling | `WorkHoursSchedule` | `/facilitator/work-hours` | `workHoursService` |
+
+## Shared Packages
+
+### `@spartan-g/shared-types`
+- Domain types, Firestore document interfaces
+- Roles, permissions, platform access matrix
+- Firestore collection schemas
+- Mobile + web navigation type definitions
+- RBAC pure functions
+
+### `@spartan-g/shared-services`
+- Firebase SDK initialization
+- `MessagingAdapter` interface (platform-injected)
+- Repository pattern (`BaseRepository` + concrete repos)
+- Business services (auth, user, notifications, facilitator features)
+- Zustand global state (`useAuthStore`, `useAppStore`)
+
+### `@spartan-g/shared-ui`
+- Design tokens (colors, typography, spacing)
+- `createTheme()` factory
+- `evaluateRoleGuard()` cross-platform guard logic
 
 ## Firestore Collections
 
@@ -119,27 +127,43 @@ RootNavigator (auth-gated)
 | `courses` | Course catalog |
 | `enrollments` | Student-course relationships |
 | `assignments` | Course assignments |
-| `submissions` | Student assignment submissions |
-| `notifications` | In-app notifications |
-| `device_tokens` | FCM push tokens |
+| `submissions` | Student submissions |
+| `notifications` | In-app + push notifications |
+| `device_tokens` | FCM tokens per deployment target |
+| `risk_alerts` | Facilitator risk alerts |
+| `appointments` | Scheduled appointments |
+| `conversations` | Messaging threads |
+| `messages` | Individual messages |
+| `work_hours_schedules` | Facilitator work hours + notification scheduling |
 | `announcements` | Platform announcements |
 | `audit_logs` | Admin audit trail |
 
-## Authentication Flow
+## FCM / Push Notifications
 
-1. `AuthProvider` subscribes to Firebase `onAuthStateChanged`
-2. On sign-in, `authService.buildSession()` loads user doc from Firestore
-3. Session (uid, email, role) stored in `useAuthStore`
-4. `RootNavigator` routes to role-specific navigator
-5. Push token registered via `notificationService` on auth
+Platform-specific adapters implement `MessagingAdapter`:
 
-## Environment Setup
+- **Mobile**: `apps/mobile/src/adapters/expo-messaging.adapter.ts` (Expo Notifications)
+- **Web**: `apps/web/src/adapters/web-messaging.adapter.ts` (Firebase Messaging Web SDK)
 
-1. Copy `.env.example` → `.env`
-2. Fill Firebase config from Firebase Console
-3. Add `google-services.json` (Android) and `GoogleService-Info.plist` (iOS)
-4. Deploy rules: `firebase deploy --only firestore:rules,storage`
+Tokens stored in `device_tokens` with `deploymentTarget` field.
 
-## Next Phase (Screens)
+## Getting Started
 
-Replace `PlaceholderScreen` routes in navigators with real screen components under `src/screens/`.
+```bash
+# Install all workspaces
+npm install
+
+# Mobile (Student + Facilitator)
+cp .env.example apps/mobile/.env
+npm run mobile
+
+# Web (Student + Facilitator + Super Admin)
+cp .env.example apps/web/.env
+npm run web
+```
+
+## Next Phase
+
+Replace placeholder routes with real screens:
+- `apps/mobile/src/screens/`
+- `apps/web/src/pages/`

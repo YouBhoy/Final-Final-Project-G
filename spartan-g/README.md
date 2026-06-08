@@ -1,35 +1,47 @@
 # SPARTAN-G
 
-Learning platform built with React Native (Expo), TypeScript, and Firebase.
+Multi-platform learning platform monorepo — React Native (Expo) + React Web + Firebase.
+
+## Platforms
+
+| Platform | App | Command |
+|----------|-----|---------|
+| Student Mobile | `apps/mobile` | `npm run mobile` |
+| Student Web | `apps/web` | `npm run web` |
+| Facilitator Mobile | `apps/mobile` | `npm run mobile` |
+| Facilitator Web | `apps/web` | `npm run web` |
+| Super Admin Web | `apps/web` | `npm run web` |
+
+## Monorepo Layout
+
+```
+spartan-g/
+├── apps/
+│   ├── mobile/              # Expo — Student + Facilitator
+│   └── web/                 # Vite React — all web portals
+├── packages/
+│   ├── shared-types/        # Types, schemas, RBAC
+│   ├── shared-services/     # Firebase, repos, services, store
+│   └── shared-ui/           # Theme tokens, guards
+└── firebase/                # Security rules
+```
 
 ## Quick Start
 
 ```bash
-cd spartan-g
 npm install
-cp .env.example .env
-# Fill in Firebase credentials in .env
-npm start
+cp .env.example apps/mobile/.env
+cp .env.example apps/web/.env
+# Fill in Firebase credentials
+npm run mobile   # or npm run web
 ```
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for the complete system design.
+See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
-## Firebase Setup
-
-1. Create a Firebase project
-2. Enable Authentication (Email/Password)
-3. Create Firestore database
-4. Enable Storage
-5. Deploy security rules:
+## Firebase
 
 ```bash
 firebase deploy --only firestore:rules,storage
 ```
-
-## Roles
-
-- **student** — enroll, submit assignments
-- **facilitator** — manage courses, grade submissions
-- **super_admin** — full platform administration
