@@ -1,0 +1,98 @@
+/**
+ * Firestore collection schema reference.
+ * Used for documentation, validation, and repository typing.
+ */
+import { Role } from './roles';
+
+export const FIRESTORE_SCHEMAS = {
+  users: {
+    uid: 'string',
+    email: 'string',
+    displayName: 'string',
+    role: 'student | facilitator | super_admin' as Role,
+    photoURL: 'string?',
+    isActive: 'boolean',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  profiles: {
+    uid: 'string',
+    bio: 'string?',
+    phone: 'string?',
+    institution: 'string?',
+    avatarUrl: 'string?',
+    metadata: 'map?',
+    updatedAt: 'timestamp',
+  },
+  courses: {
+    title: 'string',
+    description: 'string',
+    facilitatorId: 'string',
+    isPublished: 'boolean',
+    tags: 'string[]',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  enrollments: {
+    courseId: 'string',
+    studentId: 'string',
+    status: 'active | completed | dropped',
+    enrolledAt: 'timestamp',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  assignments: {
+    courseId: 'string',
+    title: 'string',
+    description: 'string',
+    dueAt: 'timestamp',
+    maxScore: 'number',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  submissions: {
+    assignmentId: 'string',
+    studentId: 'string',
+    fileUrl: 'string?',
+    content: 'string?',
+    score: 'number?',
+    feedback: 'string?',
+    submittedAt: 'timestamp',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  notifications: {
+    userId: 'string',
+    title: 'string',
+    body: 'string',
+    type: 'info | alert | assignment | grade',
+    isRead: 'boolean',
+    data: 'map?',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  device_tokens: {
+    uid: 'string',
+    token: 'string',
+    platform: 'ios | android | web',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  announcements: {
+    title: 'string',
+    body: 'string',
+    authorId: 'string',
+    targetRoles: 'string[]',
+    isActive: 'boolean',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  audit_logs: {
+    actorId: 'string',
+    action: 'string',
+    resource: 'string',
+    resourceId: 'string',
+    metadata: 'map?',
+    createdAt: 'timestamp',
+  },
+} as const;

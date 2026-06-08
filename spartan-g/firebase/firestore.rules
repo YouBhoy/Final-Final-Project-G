@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ───────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() && userDoc().data.isActive == true;
+    }
+
+    function userRole() {
+      return userDoc().data.role;
+    }
+
+    function isStudent() {
+      return isActiveUser() && userRole() == 'student';
+    }
+
+    function isFacilitator() {
+      return isActiveUser() && userRole() == 'facilitator';
+    }
+
+    function isSuperAdmin() {
+      return isActiveUser() && userRole() == 'super_admin';
+    }
+
+    function isFacilitatorOrAdmin() {
+      return isFacilitator() || isSuperAdmin();
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // ─── Users ─────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isFacilitatorOrAdmin();
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.role == 'student'
+        && request.resource.data.isActive == true;
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])
+        || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ─── Profiles ──────────────────────────────────────────────
+    match /profiles/{userId} {
+      allow read: if isOwner(userId) || isFacilitatorOrAdmin();
+      allow create, update: if isOwner(userId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ─── Courses ─────────────────────────────────────────────
+    match /courses/{courseId} {
+      allow read: if isActiveUser()
+        && (resource.data.isPublished == true || isFacilitatorOrAdmin());
+      allow create, update, delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Enrollments ───────────────────────────────────────────
+    match /enrollments/{enrollmentId} {
+      allow read: if isActiveUser()
+        && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid;
+      allow update: if isFacilitatorOrAdmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Assignments ───────────────────────────────────────────
+    match /assignments/{assignmentId} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Submissions ───────────────────────────────────────────
+    match /submissions/{submissionId} {
+      allow read: if isActiveUser()
+        && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid;
+      allow update: if isFacilitatorOrAdmin()
+        || (isStudent()
+          && resource.data.studentId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'feedback']));
+      allow delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Notifications ───────────────────────────────────────
+    match /notifications/{notificationId} {
+      allow read, update: if isOwner(resource.data.userId);
+      allow create: if isFacilitatorOrAdmin();
+      allow delete: if isOwner(resource.data.userId) || isSuperAdmin();
+    }
+
+    // ─── Device Tokens (FCM) ───────────────────────────────────
+    match /device_tokens/{tokenId} {
+      allow read: if isOwner(resource.data.uid) || isSuperAdmin();
+      allow create, update: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if isOwner(resource.data.uid) || isSuperAdmin();
+    }
+
+    // ─── Announcements ─────────────────────────────────────────
+    match /announcements/{announcementId} {
+      allow read: if isActiveUser()
+        && (resource.data.isActive == true
+          || userRole() in resource.data.targetRoles
+          || isFacilitatorOrAdmin());
+      allow create, update, delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Audit Logs ────────────────────────────────────────────
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isFacilitatorOrAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() && userDoc().data.isActive == true;
+    }
+
+    function isFacilitatorOrAdmin() {
+      return isActiveUser()
+        && userDoc().data.role in ['facilitator', 'super_admin'];
+    }
+
+    function isSuperAdmin() {
+      return isActiveUser() && userDoc().data.role == 'super_admin';
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isValidImage() {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    function isValidDocument() {
+      return request.resource.contentType in [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ] && request.resource.size < 20 * 1024 * 1024;
+    }
+
+    // User avatars — owner only
+    match /avatars/{userId}/{fileName} {
+      allow read: if isActiveUser();
+      allow write: if isOwner(userId) && isValidImage();
+      allow delete: if isOwner(userId) || isSuperAdmin();
+    }
+
+    // Assignment submissions — students upload, facilitators read
+    match /assignments/{courseId}/{assignmentId}/{userId}/{fileName} {
+      allow read: if isActiveUser();
+      allow write: if isOwner(userId) && isValidDocument();
+      allow delete: if isOwner(userId) || isFacilitatorOrAdmin();
+    }
+
+    // Course media — facilitators and admins only
+    match /courses/{courseId}/{allPaths=**} {
+      allow read: if isActiveUser();
+      allow write, delete: if isFacilitatorOrAdmin();
+    }
+  }
+}
