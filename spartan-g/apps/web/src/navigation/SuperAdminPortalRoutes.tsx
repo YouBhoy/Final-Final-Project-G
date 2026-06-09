@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
+import { AssessmentTemplatesPage } from "../pages/admin/AssessmentTemplatesPage";
+import { TemplateFormPage } from "../pages/admin/TemplateFormPage";
 import { adminNavItems } from "./navConfigs";
 
 /** Super Admin is web-only — no mobile counterpart. */
@@ -33,12 +35,15 @@ export function SuperAdminPortalRoutes() {
         />
         <Route
           path="assessment-templates"
-          element={
-            <PlaceholderPage
-              title="Assessment Templates"
-              description="Create, edit, and version assessment instruments."
-            />
-          }
+          element={<AssessmentTemplatesPage />}
+        />
+        <Route
+          path="assessment-templates/new"
+          element={<TemplateFormPage />}
+        />
+        <Route
+          path="assessment-templates/:id/edit"
+          element={<TemplateFormPage />}
         />
         <Route
           path="resources"

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
+import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
 import { studentNavItems } from "./navConfigs";
 
 export function StudentPortalRoutes() {
@@ -23,12 +24,7 @@ export function StudentPortalRoutes() {
         />
         <Route
           path="assessments"
-          element={
-            <PlaceholderPage
-              title="Assessments"
-              description="Complete and review standardized wellbeing assessments."
-            />
-          }
+          element={<StudentAssessmentsPage />}
         />
         <Route
           path="checkins"

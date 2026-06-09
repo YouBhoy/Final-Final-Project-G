@@ -105,3 +105,43 @@ export interface WorkHoursScheduleDocument extends FirestoreDocument {
   isActive: boolean;
   notifyBeforeMinutes: number;
 }
+
+/** Phase 3A — Assessment feature documents. */
+export type AssessmentCategory = string;
+
+export type AssessmentQuestionType =
+  | 'short_text'
+  | 'long_text'
+  | 'single_choice'
+  | 'multi_choice'
+  | 'scale_1_5'
+  | 'scale_1_10'
+  | 'yes_no';
+
+export interface AssessmentTemplateDocument extends FirestoreDocument {
+  title: string;
+  description: string;
+  category: AssessmentCategory;
+  version: number;
+  isActive: boolean;
+  createdBy: string;
+  /** Denormalized count of questions for fast list rendering. */
+  questionCount: number;
+}
+
+export interface AssessmentQuestionDocument extends FirestoreDocument {
+  templateId: string;
+  order: number;
+  prompt: string;
+  type: AssessmentQuestionType;
+  options?: string[];
+  isRequired: boolean;
+}
+
+export interface AssessmentDocument extends FirestoreDocument {
+  templateId: string;
+  studentId: string;
+  status: 'in_progress' | 'submitted';
+  submittedAt?: Timestamp;
+  responseCount: number;
+}

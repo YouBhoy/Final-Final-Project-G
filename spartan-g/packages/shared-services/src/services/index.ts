@@ -6,3 +6,9 @@ export { riskAlertService } from './risk-alert.service';
 export { appointmentService } from './appointment.service';
 export { messagingService } from './messaging.service';
 export { workHoursService } from './work-hours.service';
+export {
+  assessmentTemplateService,
+  type CreateAssessmentTemplatePayload,
+  type UpdateAssessmentTemplatePayload,
+} from './assessment-template.service';
+export { assessmentService } from './assessment.service';
