@@ -1,17 +1,73 @@
-import { Routes, Route } from 'react-router-dom';
-import { PlaceholderPage } from '../components/PlaceholderPage';
+import { Routes, Route, Navigate } from "react-router-dom";
+import { PortalLayout } from "../components/layout/PortalLayout";
+import { PlaceholderPage } from "../components/PlaceholderPage";
+import { studentNavItems } from "./navConfigs";
 
 export function StudentPortalRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<PlaceholderPage title="Student Home" portal="Student Web Portal" />} />
-      <Route path="/courses" element={<PlaceholderPage title="Courses" portal="Student Web Portal" />} />
-      <Route path="/courses/:courseId" element={<PlaceholderPage title="Course Detail" portal="Student Web Portal" />} />
-      <Route path="/assignments" element={<PlaceholderPage title="Assignments" portal="Student Web Portal" />} />
-      <Route path="/assignments/:assignmentId" element={<PlaceholderPage title="Assignment Detail" portal="Student Web Portal" />} />
-      <Route path="/messages" element={<PlaceholderPage title="Messages" portal="Student Web Portal" />} />
-      <Route path="/messages/:conversationId" element={<PlaceholderPage title="Conversation" portal="Student Web Portal" />} />
-      <Route path="/profile" element={<PlaceholderPage title="Profile" portal="Student Web Portal" />} />
-    </Routes>
+    <PortalLayout
+      portalName="Student Portal"
+      portalTagline="Track your wellbeing journey"
+      navItems={studentNavItems}
+    >
+      <Routes>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route
+          path="dashboard"
+          element={
+            <PlaceholderPage
+              title="Dashboard"
+              description="Overview of your wellbeing, upcoming check-ins, and recent activity."
+            />
+          }
+        />
+        <Route
+          path="assessments"
+          element={
+            <PlaceholderPage
+              title="Assessments"
+              description="Complete and review standardized wellbeing assessments."
+            />
+          }
+        />
+        <Route
+          path="checkins"
+          element={
+            <PlaceholderPage
+              title="Check-ins"
+              description="Daily and weekly self-reported check-ins."
+            />
+          }
+        />
+        <Route
+          path="resources"
+          element={
+            <PlaceholderPage
+              title="Resources"
+              description="Curated articles, videos, and self-help materials."
+            />
+          }
+        />
+        <Route
+          path="appointments"
+          element={
+            <PlaceholderPage
+              title="Appointments"
+              description="Schedule and manage appointments with facilitators."
+            />
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <PlaceholderPage
+              title="Profile"
+              description="Manage your personal information and preferences."
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
+      </Routes>
+    </PortalLayout>
   );
 }

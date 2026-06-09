@@ -1,21 +1,82 @@
-import { Routes, Route } from 'react-router-dom';
-import { PlaceholderPage } from '../components/PlaceholderPage';
+import { Routes, Route, Navigate } from "react-router-dom";
+import { PortalLayout } from "../components/layout/PortalLayout";
+import { PlaceholderPage } from "../components/PlaceholderPage";
+import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<PlaceholderPage title="Facilitator Dashboard" portal="Facilitator Web Portal" />} />
-      <Route path="/courses" element={<PlaceholderPage title="Courses" portal="Facilitator Web Portal" />} />
-      <Route path="/courses/:courseId" element={<PlaceholderPage title="Manage Course" portal="Facilitator Web Portal" />} />
-      <Route path="/students" element={<PlaceholderPage title="Students" portal="Facilitator Web Portal" />} />
-      <Route path="/risk-alerts" element={<PlaceholderPage title="Risk Alerts" portal="Facilitator Web Portal" />} />
-      <Route path="/risk-alerts/:alertId" element={<PlaceholderPage title="Risk Alert Detail" portal="Facilitator Web Portal" />} />
-      <Route path="/appointments" element={<PlaceholderPage title="Appointments" portal="Facilitator Web Portal" />} />
-      <Route path="/appointments/:appointmentId" element={<PlaceholderPage title="Appointment Detail" portal="Facilitator Web Portal" />} />
-      <Route path="/messages" element={<PlaceholderPage title="Messages" portal="Facilitator Web Portal" />} />
-      <Route path="/messages/:conversationId" element={<PlaceholderPage title="Conversation" portal="Facilitator Web Portal" />} />
-      <Route path="/work-hours" element={<PlaceholderPage title="Work Hours Schedule" portal="Facilitator Web Portal" />} />
-      <Route path="/profile" element={<PlaceholderPage title="Profile" portal="Facilitator Web Portal" />} />
-    </Routes>
+    <PortalLayout
+      portalName="Facilitator Portal"
+      portalTagline="Support your students' wellbeing"
+      navItems={facilitatorNavItems}
+    >
+      <Routes>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route
+          path="dashboard"
+          element={
+            <PlaceholderPage
+              title="Dashboard"
+              description="Overview of caseload, alerts, and upcoming sessions."
+            />
+          }
+        />
+        <Route
+          path="students"
+          element={
+            <PlaceholderPage
+              title="Students"
+              description="List of students under your care with risk indicators."
+            />
+          }
+        />
+        <Route
+          path="assessments"
+          element={
+            <PlaceholderPage
+              title="Assessments"
+              description="Review student-submitted assessments and risk scores."
+            />
+          }
+        />
+        <Route
+          path="referrals"
+          element={
+            <PlaceholderPage
+              title="Referrals"
+              description="Create and track referrals to specialist support."
+            />
+          }
+        />
+        <Route
+          path="appointments"
+          element={
+            <PlaceholderPage
+              title="Appointments"
+              description="Schedule and review appointments with students."
+            />
+          }
+        />
+        <Route
+          path="resources"
+          element={
+            <PlaceholderPage
+              title="Resources"
+              description="Curated resources you can share with students."
+            />
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <PlaceholderPage
+              title="Profile"
+              description="Manage your profile and availability."
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
+      </Routes>
+    </PortalLayout>
   );
 }

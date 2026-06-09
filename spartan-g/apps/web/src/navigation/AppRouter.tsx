@@ -3,8 +3,10 @@ import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
-import { DashboardPage } from "../pages/DashboardPage";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
+import { StudentPortalRoutes } from "./StudentPortalRoutes";
+import { FacilitatorPortalRoutes } from "./FacilitatorPortalRoutes";
+import { SuperAdminPortalRoutes } from "./SuperAdminPortalRoutes";
 import type { ReactNode } from "react";
 
 function LoadingScreen() {
@@ -115,65 +117,32 @@ function AppRoutes() {
         }
       />
 
-      {/* Student routes */}
+      {/* Student portal — role-gated, with its own layout */}
       <Route
         path="/student/*"
         element={
           <ProtectedRoute allowedRoles={["student"]}>
-            <Routes>
-              <Route
-                path="dashboard"
-                element={
-                  <DashboardPage
-                    title="Student Dashboard"
-                    portalName="Student Portal"
-                  />
-                }
-              />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <StudentPortalRoutes />
           </ProtectedRoute>
         }
       />
 
-      {/* Facilitator routes */}
+      {/* Facilitator portal — role-gated, with its own layout */}
       <Route
         path="/facilitator/*"
         element={
           <ProtectedRoute allowedRoles={["facilitator"]}>
-            <Routes>
-              <Route
-                path="dashboard"
-                element={
-                  <DashboardPage
-                    title="Facilitator Dashboard"
-                    portalName="Facilitator Portal"
-                  />
-                }
-              />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <FacilitatorPortalRoutes />
           </ProtectedRoute>
         }
       />
 
-      {/* Admin routes */}
+      {/* Super Admin portal — role-gated, with its own layout */}
       <Route
         path="/admin/*"
         element={
           <ProtectedRoute allowedRoles={["super_admin"]}>
-            <Routes>
-              <Route
-                path="dashboard"
-                element={
-                  <DashboardPage
-                    title="Admin Dashboard"
-                    portalName="Super Admin Portal"
-                  />
-                }
-              />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <SuperAdminPortalRoutes />
           </ProtectedRoute>
         }
       />
