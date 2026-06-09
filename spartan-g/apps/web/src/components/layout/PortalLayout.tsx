@@ -17,13 +17,14 @@ interface PortalLayoutProps {
  * PortalLayout is the reusable shell for role-based portals (Student, Facilitator, Admin).
  *
  * It is composed of:
- *  - a fixed/collapsible Sidebar with role-specific navigation
+ *  - a fixed Sidebar with role-specific navigation (visible on desktop, hidden on mobile)
+ *  - a slide-in drawer version of the same Sidebar for mobile (controlled by Header)
  *  - a top Header with the current user, role badge, and logout
  *  - a main content area that renders the matched route
  *
  * Responsive behavior:
- *  - On mobile (< md), the sidebar is rendered as a slide-in drawer controlled by a hamburger button in the header.
- *  - On tablet/desktop, the sidebar is permanently visible on the left.
+ *  - On mobile (< md), the desktop sidebar is hidden and the Header shows a hamburger that opens a drawer.
+ *  - On tablet/desktop (>= md), the sidebar is fixed to the left edge and the content is offset with left padding.
  */
 export function PortalLayout({
   portalName,
@@ -35,14 +36,16 @@ export function PortalLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Desktop sidebar */}
-      <div className="hidden md:block">
+      {/* Desktop sidebar (fixed, full height) */}
+      <div className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
         <Sidebar items={navItems} />
       </div>
 
-      {/* Mobile sidebar (drawer) */}
+      {/* Mobile drawer */}
       <div
-        className={`md:hidden fixed inset-0 z-40 ${mobileOpen ? "" : "pointer-events-none"}`}
+        className={`md:hidden fixed inset-0 z-40 ${
+          mobileOpen ? "" : "pointer-events-none"
+        }`}
         aria-hidden={!mobileOpen}
       >
         {/* Backdrop */}
@@ -62,7 +65,7 @@ export function PortalLayout({
         </div>
       </div>
 
-      {/* Content column */}
+      {/* Content column — offset on desktop to make room for the fixed sidebar */}
       <div className="md:pl-64">
         <Header
           portalName={portalName}
