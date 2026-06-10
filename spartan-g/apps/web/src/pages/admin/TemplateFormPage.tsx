@@ -11,7 +11,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useAssessmentQuestions } from "../../hooks/useAssessmentQuestions";
 import { createTemplate, updateTemplate } from "../../lib/assessments";
 import { assessmentTemplateRepository } from "@spartan-g/shared-services";
-import { getErrorMessage, type AssessmentQuestionType } from "@spartan-g/shared-types";
+import { getErrorMessage, ROLES, type AssessmentQuestionType } from "@spartan-g/shared-types";
 
 const QUESTION_TYPES: { value: AssessmentQuestionType; label: string; needsOptions: boolean }[] = [
   { value: "short_text", label: "Short text", needsOptions: false },
@@ -189,7 +189,6 @@ export function TemplateFormPage() {
           },
           user.role,
         );
-        navigate("/admin/assessment-templates");
       } else {
         await createTemplate(
           {
@@ -201,8 +200,12 @@ export function TemplateFormPage() {
           },
           user.role,
         );
-        navigate("/admin/assessment-templates");
       }
+      navigate(
+        user.role === ROLES.FACILITATOR
+          ? "/facilitator/assessments"
+          : "/admin/assessment-templates",
+      );
     } catch (e) {
       setSubmitError(getErrorMessage(e));
     } finally {
@@ -228,7 +231,7 @@ export function TemplateFormPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link
-            to="/admin/assessment-templates"
+            to={user?.role === ROLES.FACILITATOR ? "/facilitator/assessments" : "/admin/assessment-templates"}
             className="text-sm text-indigo-600 hover:text-indigo-500"
           >
             ← Back to templates
@@ -416,7 +419,7 @@ export function TemplateFormPage() {
             })}
           </CardBody>
           <CardFooter>
-            <Link to="/admin/assessment-templates">
+            <Link to={user?.role === ROLES.FACILITATOR ? "/facilitator/assessments" : "/admin/assessment-templates"}>
               <Button type="button" variant="outline" disabled={busy}>
                 Cancel
               </Button>

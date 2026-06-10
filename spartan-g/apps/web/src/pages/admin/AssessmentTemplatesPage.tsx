@@ -9,8 +9,8 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
 import { disableTemplate, reenableTemplate } from "../../lib/assessments";
-import { ROLES } from "@spartan-g/shared-types";
 import { getErrorMessage } from "@spartan-g/shared-types";
+import { hasPermission, PERMISSIONS } from "@spartan-g/shared-types";
 
 type StatusFilter = "all" | "active" | "disabled";
 
@@ -156,7 +156,7 @@ export function AssessmentTemplatesPage() {
                         >
                           Edit
                         </Link>
-                        {user?.role === ROLES.SUPER_ADMIN && (
+                        {user && hasPermission(user.role, PERMISSIONS.MANAGE_ASSESSMENT_TEMPLATES) && (
                           <button
                             type="button"
                             onClick={() => {

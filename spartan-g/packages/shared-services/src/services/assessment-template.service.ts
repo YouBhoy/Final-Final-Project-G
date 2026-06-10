@@ -1,6 +1,5 @@
 import {
   PERMISSIONS,
-  ROLES,
   Role,
   PermissionError,
   hasPermission,
@@ -69,9 +68,6 @@ class AssessmentTemplateService {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_ASSESSMENT_TEMPLATES)) {
       throw new PermissionError();
     }
-    if (actorRole !== ROLES.SUPER_ADMIN) {
-      throw new PermissionError('Only Super Admins can create assessment templates');
-    }
 
     const id = `atpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -102,9 +98,6 @@ class AssessmentTemplateService {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_ASSESSMENT_TEMPLATES)) {
       throw new PermissionError();
     }
-    if (actorRole !== ROLES.SUPER_ADMIN) {
-      throw new PermissionError('Only Super Admins can edit assessment templates');
-    }
 
     const { questions, ...scalar } = payload;
     const update: Partial<AssessmentTemplateDocument> = { ...scalar } as Partial<AssessmentTemplateDocument>;
@@ -128,9 +121,6 @@ class AssessmentTemplateService {
   async disableTemplate(templateId: string, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_ASSESSMENT_TEMPLATES)) {
       throw new PermissionError();
-    }
-    if (actorRole !== ROLES.SUPER_ADMIN) {
-      throw new PermissionError('Only Super Admins can disable assessment templates');
     }
     await assessmentTemplateRepository.update(templateId, { isActive: false } as Partial<AssessmentTemplateDocument>);
   }

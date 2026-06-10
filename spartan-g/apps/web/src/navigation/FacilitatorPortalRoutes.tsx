@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
+import { AssessmentTemplatesPage } from "../pages/admin/AssessmentTemplatesPage";
+import { TemplateFormPage } from "../pages/admin/TemplateFormPage";
 import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
@@ -32,12 +34,15 @@ export function FacilitatorPortalRoutes() {
         />
         <Route
           path="assessments"
-          element={
-            <PlaceholderPage
-              title="Assessments"
-              description="Review student-submitted assessments and risk scores."
-            />
-          }
+          element={<AssessmentTemplatesPage />}
+        />
+        <Route
+          path="assessments/new"
+          element={<TemplateFormPage />}
+        />
+        <Route
+          path="assessments/:id/edit"
+          element={<TemplateFormPage />}
         />
         <Route
           path="referrals"
