@@ -12,3 +12,4 @@ export {
   type UpdateAssessmentTemplatePayload,
 } from './assessment-template.service';
 export { assessmentService } from './assessment.service';
+export { assessmentResponseService, type SaveResponsePayload } from './assessment-response.service';

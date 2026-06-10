@@ -10,7 +10,7 @@ import { Badge } from "../../components/ui/Badge";
 import { useAuth } from "../../hooks/useAuth";
 import { useAssessmentQuestions } from "../../hooks/useAssessmentQuestions";
 import { createTemplate, updateTemplate } from "../../lib/assessments";
-import { assessmentTemplateRepository } from "@spartan-g/shared-services";
+import { assessmentTemplateService } from "@spartan-g/shared-services";
 import { getErrorMessage, ROLES, type AssessmentQuestionType } from "@spartan-g/shared-types";
 
 const QUESTION_TYPES: { value: AssessmentQuestionType; label: string; needsOptions: boolean }[] = [
@@ -59,7 +59,7 @@ export function TemplateFormPage() {
     let cancelled = false;
     (async () => {
       try {
-        const tpl = await assessmentTemplateRepository.getById(id);
+        const tpl = await assessmentTemplateService.getTemplate(id, user?.role ?? ROLES.SUPER_ADMIN);
         if (cancelled || !tpl) return;
         setTitle(tpl.title);
         setDescription(tpl.description);

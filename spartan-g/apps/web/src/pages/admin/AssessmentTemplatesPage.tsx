@@ -10,7 +10,7 @@ import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
 import { disableTemplate, reenableTemplate } from "../../lib/assessments";
 import { getErrorMessage } from "@spartan-g/shared-types";
-import { hasPermission, PERMISSIONS } from "@spartan-g/shared-types";
+import { hasPermission, PERMISSIONS, ROLES } from "@spartan-g/shared-types";
 
 type StatusFilter = "all" | "active" | "disabled";
 
@@ -21,6 +21,10 @@ export function AssessmentTemplatesPage() {
   const [pending, setPending] = useState<TemplateWithId | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const basePath = user?.role === ROLES.FACILITATOR
+    ? "/facilitator/assessments"
+    : "/admin/assessment-templates";
 
   const filtered = data.filter((t) =>
     filter === "all" ? true : filter === "active" ? t.isActive : !t.isActive,
@@ -71,7 +75,7 @@ export function AssessmentTemplatesPage() {
             Create and manage the assessments available to students.
           </p>
         </div>
-        <Link to="/admin/assessment-templates/new">
+        <Link to={`${basePath}/new`}>
           <Button>+ New template</Button>
         </Link>
       </div>
@@ -98,7 +102,7 @@ export function AssessmentTemplatesPage() {
           title="No templates yet"
           description="Create your first assessment template to publish it to students."
           action={
-            <Link to="/admin/assessment-templates/new">
+            <Link to={`${basePath}/new`}>
               <Button>Create template</Button>
             </Link>
           }
@@ -151,7 +155,7 @@ export function AssessmentTemplatesPage() {
                     <td className="px-6 py-4 text-right text-sm">
                       <div className="flex items-center justify-end gap-2">
                         <Link
-                          to={`/admin/assessment-templates/${t.id}/edit`}
+                          to={`${basePath}/${t.id}/edit`}
                           className="rounded-md px-2.5 py-1 text-indigo-600 hover:bg-indigo-50"
                         >
                           Edit

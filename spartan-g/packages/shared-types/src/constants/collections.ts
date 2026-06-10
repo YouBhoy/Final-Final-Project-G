@@ -19,6 +19,7 @@ export const COLLECTIONS = {
   ASSESSMENT_TEMPLATES: 'assessment_templates',
   ASSESSMENT_QUESTIONS: 'assessment_questions',
   ASSESSMENTS: 'assessments',
+  ASSESSMENT_RESPONSES: 'assessment_responses',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

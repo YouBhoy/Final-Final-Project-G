@@ -118,6 +118,8 @@ export type AssessmentQuestionType =
   | 'scale_1_10'
   | 'yes_no';
 
+export type AssessmentStatus = 'in_progress' | 'submitted';
+
 export interface AssessmentTemplateDocument extends FirestoreDocument {
   title: string;
   description: string;
@@ -141,7 +143,24 @@ export interface AssessmentQuestionDocument extends FirestoreDocument {
 export interface AssessmentDocument extends FirestoreDocument {
   templateId: string;
   studentId: string;
-  status: 'in_progress' | 'submitted';
+  status: AssessmentStatus;
   submittedAt?: Timestamp;
   responseCount: number;
+  /** Future: facilitatorId for Phase 3C review assignment. */
+  reviewedBy?: string;
+  reviewStatus?: 'pending_review' | 'reviewed';
+  reviewNotes?: string;
+}
+
+/** Phase 3B — Assessment response capture. */
+export type AssessmentResponseValue = string | string[] | number;
+
+export interface AssessmentResponseDocument extends FirestoreDocument {
+  assessmentId: string;
+  questionId: string;
+  studentId: string;
+  value: AssessmentResponseValue;
+  /** Future: per-question scoring for facilitator review (Phase 3C). */
+  score?: number;
+  feedback?: string;
 }
