@@ -31,6 +31,9 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
     startedAt: new Date(),
   });
 
+  // Resume state
+  const [isResuming, setIsResuming] = useState(false);
+
   // Confirmation
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -44,6 +47,7 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
       try {
         setIsLoading(true);
         setError(null);
+        setIsResuming(false);
 
         const assessmentData = await assessmentService.getAssessment(assessmentId);
         if (!assessmentData) {
@@ -51,17 +55,64 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
           return;
         }
 
+        // Check attempt count — but only count submitted/graded attempts
         const attemptCount = await assessmentService.getAttemptCount(assessmentId, session.uid);
-        if (attemptCount >= assessmentData.maxAttempts) {
+        const hasReachedLimit = attemptCount >= assessmentData.maxAttempts;
+
+        // Check for in-progress attempt (this can bypass the limit)
+        const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, session.uid);
+
+        if (hasReachedLimit && !existingAttemptId) {
           setError(`You have used all ${assessmentData.maxAttempts} attempt(s) for this assessment.`);
           return;
         }
 
-        const newAttemptId = await assessmentService.startAttempt(assessmentId, session.uid);
+        if (existingAttemptId) {
+          // Resume existing attempt
+          const existingAttempt = await assessmentService.getAttempt(existingAttemptId);
+          if (!existingAttempt) {
+            setError('Failed to load your previous attempt.');
+            return;
+          }
 
-        if (!cancelled) {
-          setAssessment(assessmentData);
-          setAttemptId(newAttemptId);
+          // Restore answers from saved attempt data
+          const restoredAnswers: Record<string, string> = {};
+          for (const answer of existingAttempt.answers) {
+            restoredAnswers[answer.questionId] = answer.value;
+          }
+
+          // Find first unanswered question index
+          const sortedQuestions = [...assessmentData.questions].sort((a, b) => a.order - b.order);
+          let firstUnanswered = sortedQuestions.findIndex(
+            (q) => restoredAnswers[q.id] === undefined || restoredAnswers[q.id] === '',
+          );
+          if (firstUnanswered === -1) firstUnanswered = sortedQuestions.length; // all answered → review screen
+
+          if (!cancelled) {
+            setAssessment(assessmentData);
+            setAttemptId(existingAttemptId);
+            setWizard({
+              currentStep: firstUnanswered,
+              answers: restoredAnswers,
+              isSubmitting: false,
+              startedAt: new Date(),
+            });
+            setIsResuming(true);
+          }
+        } else {
+          // Start a new attempt
+          const newAttemptId = await assessmentService.startAttempt(assessmentId, session.uid);
+
+          if (!cancelled) {
+            setAssessment(assessmentData);
+            setAttemptId(newAttemptId);
+            setWizard({
+              currentStep: 0,
+              answers: {},
+              isSubmitting: false,
+              startedAt: new Date(),
+            });
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -195,6 +246,18 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* Resume banner */}
+      {isResuming && (
+        <View style={styles.resumeBanner}>
+          <Text style={styles.resumeBannerText}>
+            Resuming your previous attempt — your answers have been restored.
+          </Text>
+          <TouchableOpacity onPress={() => setIsResuming(false)}>
+            <Text style={styles.resumeBannerDismiss}>Dismiss</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Instructions on first step */}
       {wizard.currentStep === 0 && assessment.instructions && (
         <View style={styles.instructionsCard}>
@@ -336,6 +399,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  resumeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  resumeBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+  },
+  resumeBannerDismiss: {
+    marginLeft: 12,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
   },
   instructionsCard: {
     backgroundColor: '#EEF2FF',

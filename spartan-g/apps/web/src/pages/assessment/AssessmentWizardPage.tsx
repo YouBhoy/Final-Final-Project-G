@@ -29,6 +29,9 @@ export function AssessmentWizardPage() {
     startedAt: new Date(),
   });
 
+  // Resume state
+  const [isResuming, setIsResuming] = useState(false);
+
   // Confirmation state
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -43,6 +46,7 @@ export function AssessmentWizardPage() {
       try {
         setIsLoading(true);
         setError(null);
+        setIsResuming(false);
 
         const assessmentData = await assessmentService.getAssessment(assessmentId);
         if (!assessmentData) {
@@ -50,19 +54,64 @@ export function AssessmentWizardPage() {
           return;
         }
 
-        // Check attempt count
+        // Check attempt count — but only count submitted/graded attempts
         const attemptCount = await assessmentService.getAttemptCount(assessmentId, user.uid);
-        if (attemptCount >= assessmentData.maxAttempts) {
+        const hasReachedLimit = attemptCount >= assessmentData.maxAttempts;
+
+        // Check for in-progress attempt (this can bypass the limit)
+        const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, user.uid);
+
+        if (hasReachedLimit && !existingAttemptId) {
           setError(`You have used all ${assessmentData.maxAttempts} attempt(s) for this assessment.`);
           return;
         }
 
-        // Start a new attempt
-        const newAttemptId = await assessmentService.startAttempt(assessmentId, user.uid);
+        if (existingAttemptId) {
+          // Resume existing attempt
+          const existingAttempt = await assessmentService.getAttempt(existingAttemptId);
+          if (!existingAttempt) {
+            setError('Failed to load your previous attempt.');
+            return;
+          }
 
-        if (!cancelled) {
-          setAssessment(assessmentData);
-          setAttemptId(newAttemptId);
+          // Restore answers from saved attempt data
+          const restoredAnswers: Record<string, string> = {};
+          for (const answer of existingAttempt.answers) {
+            restoredAnswers[answer.questionId] = answer.value;
+          }
+
+          // Find first unanswered question index
+          const sortedQuestions = [...assessmentData.questions].sort((a, b) => a.order - b.order);
+          let firstUnanswered = sortedQuestions.findIndex(
+            (q) => restoredAnswers[q.id] === undefined || restoredAnswers[q.id] === '',
+          );
+          if (firstUnanswered === -1) firstUnanswered = sortedQuestions.length; // all answered → review screen
+
+          if (!cancelled) {
+            setAssessment(assessmentData);
+            setAttemptId(existingAttemptId);
+            setWizard({
+              currentStep: firstUnanswered,
+              answers: restoredAnswers,
+              isSubmitting: false,
+              startedAt: new Date(),
+            });
+            setIsResuming(true);
+          }
+        } else {
+          // Start a new attempt
+          const newAttemptId = await assessmentService.startAttempt(assessmentId, user.uid);
+
+          if (!cancelled) {
+            setAssessment(assessmentData);
+            setAttemptId(newAttemptId);
+            setWizard({
+              currentStep: 0,
+              answers: {},
+              isSubmitting: false,
+              startedAt: new Date(),
+            });
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -297,6 +346,19 @@ export function AssessmentWizardPage() {
       {/* Wizard content */}
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="space-y-6">
+          {/* Resume banner */}
+          {isResuming && (
+            <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span>Resuming your previous attempt — your answers have been restored.</span>
+              <button
+                onClick={() => setIsResuming(false)}
+                className="ml-4 font-medium hover:text-amber-900"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* Instructions — shown only on first step */}
           {wizard.currentStep === 0 && assessment.instructions && (
             <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800">

@@ -3,7 +3,7 @@ import {
   AssessmentAttemptDocument,
   AssessmentAnswer,
 } from '@spartan-g/shared-types';
-import { serverTimestamp, Timestamp } from '../firebase/firestore';
+import { serverTimestamp, Timestamp, where } from '../firebase/firestore';
 import { assessmentRepository } from '../repositories/assessment.repository';
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
 
@@ -23,8 +23,17 @@ class AssessmentService {
     return assessmentAttemptRepository.getAttemptsForStudent(assessmentId, studentId);
   }
 
+  async getInProgressAttempt(assessmentId: string, studentId: string): Promise<string | null> {
+    const attempt = await assessmentAttemptRepository.getInProgressAttempt(assessmentId, studentId);
+    return attempt?.id ?? null;
+  }
+
   async getAttemptCount(assessmentId: string, studentId: string): Promise<number> {
-    const attempts = await this.getStudentAttempts(assessmentId, studentId);
+    const attempts = await assessmentAttemptRepository.getAll([
+      where('assessmentId', '==', assessmentId),
+      where('studentId', '==', studentId),
+      where('status', 'in', ['submitted', 'graded']),
+    ]);
     return attempts.length;
   }
 
