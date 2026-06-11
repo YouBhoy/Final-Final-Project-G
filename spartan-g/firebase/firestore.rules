@@ -169,5 +169,27 @@ service cloud.firestore {
       allow create, update, delete: if isFacilitator()
         && request.resource.data.facilitatorId == request.auth.uid;
     }
+
+    // ─── Assessments ───────────────────────────────────────────────
+    match /assessments/{assessmentId} {
+      allow read: if isActiveUser()
+        && (resource.data.isPublished == true || isFacilitatorOrAdmin());
+      allow create, update, delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Assessment Attempts ───────────────────────────────────────
+    match /assessment_attempts/{attemptId} {
+      allow read: if isFacilitatorOrAdmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status == 'in_progress';
+      allow update: if isFacilitatorOrAdmin()
+        || (isStudent()
+          && resource.data.studentId == request.auth.uid
+          && resource.data.status == 'in_progress'
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'feedback', 'status']));
+      allow delete: if isFacilitatorOrAdmin();
+    }
   }
 }

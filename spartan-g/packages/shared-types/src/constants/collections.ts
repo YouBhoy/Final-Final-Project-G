@@ -15,6 +15,10 @@ export const COLLECTIONS = {
   CONVERSATIONS: 'conversations',
   MESSAGES: 'messages',
   WORK_HOURS_SCHEDULES: 'work_hours_schedules',
+
+  // Assessment collections
+  ASSESSMENTS: 'assessments',
+  ASSESSMENT_ATTEMPTS: 'assessment_attempts',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

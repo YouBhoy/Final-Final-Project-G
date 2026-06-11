@@ -7,3 +7,5 @@ export { appointmentRepository } from './appointment.repository';
 export { conversationRepository } from './conversation.repository';
 export { messageRepository } from './message.repository';
 export { workHoursRepository } from './work-hours.repository';
+export { assessmentRepository } from './assessment.repository';
+export { assessmentAttemptRepository } from './assessment-attempt.repository';

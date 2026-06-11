@@ -22,6 +22,9 @@ export const PERMISSIONS = {
   SEND_MESSAGES: 'send_messages',
   MANAGE_WORK_HOURS: 'manage_work_hours',
 
+  // Assessment
+  SUBMIT_ASSESSMENT: 'submit_assessment',
+
   // Administration
   MANAGE_USERS: 'manage_users',
   MANAGE_ROLES: 'manage_roles',
@@ -39,6 +42,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     PERMISSIONS.ENROLL_COURSE,
     PERMISSIONS.SUBMIT_ASSIGNMENT,
     PERMISSIONS.SEND_MESSAGES,
+    PERMISSIONS.SUBMIT_ASSESSMENT,
   ],
   [ROLES.FACILITATOR]: [
     PERMISSIONS.VIEW_OWN_PROFILE,

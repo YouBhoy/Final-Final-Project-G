@@ -4,6 +4,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import type { ReactNode } from "react";
 
@@ -129,6 +130,10 @@ function AppRoutes() {
                     portalName="Student Portal"
                   />
                 }
+              />
+              <Route
+                path="assessments/:assessmentId"
+                element={<AssessmentWizardPage />}
               />
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Routes>
