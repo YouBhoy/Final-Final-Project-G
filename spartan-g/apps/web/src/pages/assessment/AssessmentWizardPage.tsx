@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { assessmentService } from '@spartan-g/shared-services';
-import type { AssessmentDocument, AssessmentQuestion, WizardState, AssessmentAnswer } from '@spartan-g/shared-types';
+import type { AssessmentDefinitionDocument, AssessmentQuestion, WizardState, AssessmentAnswer } from '@spartan-g/shared-types';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { WizardProgressBar } from '../../components/assessment/WizardProgressBar';
 import { QuestionCard } from '../../components/assessment/QuestionCard';
@@ -16,7 +16,7 @@ export function AssessmentWizardPage() {
   const navigate = useNavigate();
 
   // Data state
-  const [assessment, setAssessment] = useState<AssessmentDocument & { id: string } | null>(null);
+  const [assessment, setAssessment] = useState<AssessmentDefinitionDocument & { id: string } | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function AssessmentWizardPage() {
         setError(null);
         setIsResuming(false);
 
-        const assessmentData = await assessmentService.getAssessment(assessmentId);
+        const assessmentData = await assessmentService.getAssessmentDefinition(assessmentId);
         if (!assessmentData) {
           setError('Assessment not found. It may have been removed or unpublished.');
           return;

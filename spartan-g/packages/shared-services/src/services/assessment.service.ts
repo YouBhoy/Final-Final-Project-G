@@ -6,6 +6,7 @@ import {
   AssessmentDocument,
   AssessmentAttemptDocument,
   AssessmentAnswer,
+  AssessmentDefinitionDocument,
 } from '@spartan-g/shared-types';
 import { Timestamp, serverTimestamp, where } from '../firebase/firestore';
 import { assessmentRepository } from '../repositories/assessment.repository';
@@ -117,7 +118,12 @@ class AssessmentService {
     } as Partial<AssessmentDocument>);
   }
 
-  // =================== Phase 3B Methods (Attempt-based assessments) ===================
+  // =================== Phase 3B Methods (Course-based assessment attempts) ===================
+
+  /** Get a Phase 3B assessment definition document. */
+  async getAssessmentDefinition(assessmentId: string): Promise<(AssessmentDefinitionDocument & { id: string }) | null> {
+    return this.getAssessment(assessmentId, 'student' as Role) as unknown as (AssessmentDefinitionDocument & { id: string }) | null;
+  }
 
   async getAttempt(attemptId: string): Promise<(AssessmentAttemptDocument & { id: string }) | null> {
     return assessmentAttemptRepository.getById(attemptId);
