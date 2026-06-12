@@ -5,6 +5,7 @@ import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
+import { SeederPage } from "../pages/dev/SeederPage";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import type { ReactNode } from "react";
 
@@ -182,6 +183,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* Dev routes */}
+      <Route path="/dev/seed" element={<SeederPage />} />
 
       {/* Default redirect */}
       <Route

@@ -156,8 +156,8 @@ export function AssessmentWizardPage() {
           answeredAt: now,
         };
         await assessmentService.saveAnswer(attemptId, answer);
-      } catch {
-        // Silently fail — answer is still in local state
+      } catch (err) {
+        console.error("saveAnswer failed:", err);
       }
     },
     [attemptId, assessment, questions, wizard.currentStep],
@@ -339,6 +339,12 @@ export function AssessmentWizardPage() {
           </div>
           <div className="flex items-center space-x-4">
             <p className="text-right text-sm font-medium text-gray-700">{user?.displayName}</p>
+            <button
+              onClick={() => navigate('/student/dashboard')}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Back to Dashboard
+            </button>
           </div>
         </div>
       </header>

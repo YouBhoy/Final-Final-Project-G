@@ -72,6 +72,12 @@ class AssessmentService {
       throw new Error('Cannot modify a submitted or graded attempt');
     }
 
+    // Replace serverTimestamp() sentinel with a plain Date (serverTimestamp() is not supported inside arrays)
+    const safeAnswer: AssessmentAnswer = {
+      ...answer,
+      answeredAt: new Date() as unknown as Timestamp,
+    };
+
     // Upsert: replace answer if question already answered, append if new
     const existingIndex = attempt.answers.findIndex(
       (a: AssessmentAnswer) => a.questionId === answer.questionId,
@@ -80,9 +86,9 @@ class AssessmentService {
     let updatedAnswers: AssessmentAnswer[];
     if (existingIndex >= 0) {
       updatedAnswers = [...attempt.answers];
-      updatedAnswers[existingIndex] = answer;
+      updatedAnswers[existingIndex] = safeAnswer;
     } else {
-      updatedAnswers = [...attempt.answers, answer];
+      updatedAnswers = [...attempt.answers, safeAnswer];
     }
 
     await assessmentAttemptRepository.update(attemptId, {
