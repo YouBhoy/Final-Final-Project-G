@@ -11,3 +11,4 @@ export { assessmentTemplateRepository } from './assessment-template.repository';
 export { assessmentQuestionRepository } from './assessment-question.repository';
 export { assessmentRepository } from './assessment.repository';
 export { assessmentResponseRepository } from './assessment-response.repository';
+export { assessmentAttemptRepository } from './assessment-attempt.repository';

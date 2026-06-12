@@ -138,6 +138,7 @@ export const FIRESTORE_SCHEMAS = {
     createdAt: 'timestamp',
     updatedAt: 'timestamp',
   },
+  // Phase 3A - Assessment template & question schemas
   assessment_templates: {
     title: 'string',
     description: 'string',
@@ -159,6 +160,7 @@ export const FIRESTORE_SCHEMAS = {
     createdAt: 'timestamp',
     updatedAt: 'timestamp',
   },
+  // Phase 3A - Assessment response schemas
   assessments: {
     templateId: 'string',
     studentId: 'string',
@@ -178,6 +180,20 @@ export const FIRESTORE_SCHEMAS = {
     value: 'string | string[] | number',
     score: 'number?',
     feedback: 'string?',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
+  // Phase 3B - Assessment attempt schemas
+  assessment_attempts: {
+    assessmentId: 'string',
+    studentId: 'string',
+    answers: 'array',
+    status: 'in_progress | submitted | graded',
+    startedAt: 'timestamp',
+    submittedAt: 'timestamp?',
+    score: 'number?',
+    feedback: 'string?',
+    attemptNumber: 'number',
     createdAt: 'timestamp',
     updatedAt: 'timestamp',
   },

@@ -29,6 +29,7 @@ export type StudentMobileStackParamList = {
   CourseDetail: { courseId: string };
   AssignmentDetail: { assignmentId: string };
   ConversationDetail: { conversationId: string };
+  AssessmentWizard: { assessmentId: string };
 };
 
 // ─── Facilitator Mobile ──────────────────────────────────────

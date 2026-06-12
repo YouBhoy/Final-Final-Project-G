@@ -3,6 +3,9 @@ import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
+import { DashboardPage } from "../pages/DashboardPage";
+import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
+import { SeederPage } from "../pages/dev/SeederPage";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { StudentPortalRoutes } from "./StudentPortalRoutes";
 import { FacilitatorPortalRoutes } from "./FacilitatorPortalRoutes";
@@ -122,7 +125,22 @@ function AppRoutes() {
         path="/student/*"
         element={
           <ProtectedRoute allowedRoles={["student"]}>
-            <StudentPortalRoutes />
+            <Routes>
+              <Route
+                path="dashboard"
+                element={
+                  <DashboardPage
+                    title="Student Dashboard"
+                    portalName="Student Portal"
+                  />
+                }
+              />
+              <Route
+                path="assessments/:assessmentId"
+                element={<AssessmentWizardPage />}
+              />
+              <Route path="*" element={<Navigate to="dashboard" replace />} />
+            </Routes>
           </ProtectedRoute>
         }
       />
@@ -146,6 +164,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* Dev routes */}
+      <Route path="/dev/seed" element={<SeederPage />} />
 
       {/* Default redirect */}
       <Route
