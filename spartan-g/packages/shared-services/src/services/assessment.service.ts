@@ -122,7 +122,8 @@ class AssessmentService {
 
   /** Get a Phase 3B assessment definition document. */
   async getAssessmentDefinition(assessmentId: string): Promise<(AssessmentDefinitionDocument & { id: string }) | null> {
-    return this.getAssessment(assessmentId, 'student' as Role) as unknown as (AssessmentDefinitionDocument & { id: string }) | null;
+    // Phase 3B: read directly from the assessments collection (bypass role-based permission check)
+    return assessmentRepository.getById(assessmentId) as unknown as (AssessmentDefinitionDocument & { id: string }) | null;
   }
 
   async getAttempt(attemptId: string): Promise<(AssessmentAttemptDocument & { id: string }) | null> {
@@ -151,7 +152,7 @@ class AssessmentService {
   }
 
   async startAttempt(assessmentId: string, studentId: string): Promise<string> {
-    const assessment = await this.getAssessment(assessmentId, studentId as unknown as Role);
+    const assessment = await assessmentRepository.getById(assessmentId) as unknown as AssessmentDocument & { id: string } | null;
     if (!assessment) {
       throw new Error('Assessment not found');
     }
@@ -171,7 +172,7 @@ class AssessmentService {
       status: 'in_progress',
       startedAt: now,
       attemptNumber: attemptCount + 1,
-    } as AssessmentAttemptDocument);
+    } as unknown as AssessmentAttemptDocument);
 
     return attemptId;
   }

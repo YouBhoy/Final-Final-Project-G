@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useActiveAssessmentTemplates, type TemplateWithId } from "../../hooks/useAssessmentTemplates";
 import { useAssessmentQuestions } from "../../hooks/useAssessmentQuestions";
 import { useAuth } from "../../hooks/useAuth";
@@ -23,28 +24,27 @@ const QUESTION_TYPE_LABEL: Record<string, string> = {
 
 export function StudentAssessmentsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data, loading, error } = useActiveAssessmentTemplates();
   const [selected, setSelected] = useState<TemplateWithId | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
 
-  async function handleStart() {
+  const handleStart = useCallback(async () => {
     if (!selected || !user) return;
     setBusy(true);
     setActionError(null);
     try {
       const assessmentId = await startAssessment(selected.id, user.uid, user.role);
       setSelected(null);
-      setConfirmation(
-        `Started "${selected.title}". Assessment ID: ${assessmentId}. (Responses are not yet recorded in Phase 3A.)`,
-      );
+      // Navigate to the answer-taking wizard
+      navigate(`/student/assessment/${assessmentId}`);
     } catch (e) {
       setActionError(getErrorMessage(e));
     } finally {
       setBusy(false);
     }
-  }
+  }, [selected, user, navigate]);
 
   if (loading) {
     return (
@@ -119,17 +119,6 @@ export function StudentAssessmentsPage() {
         error={actionError}
       />
 
-      <Modal
-        open={!!confirmation}
-        onClose={() => setConfirmation(null)}
-        title="Assessment started"
-        size="md"
-      >
-        <p className="text-sm text-gray-700">{confirmation}</p>
-        <div className="mt-5 flex justify-end">
-          <Button onClick={() => setConfirmation(null)}>Got it</Button>
-        </div>
-      </Modal>
     </div>
   );
 }

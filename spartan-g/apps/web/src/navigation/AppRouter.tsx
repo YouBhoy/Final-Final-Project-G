@@ -5,6 +5,8 @@ import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
+import { TemplateAssessmentPage } from "../pages/assessment/TemplateAssessmentPage";
+import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
 import { SeederPage } from "../pages/dev/SeederPage";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { StudentPortalRoutes } from "./StudentPortalRoutes";
@@ -120,7 +122,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Student portal — role-gated, with its own layout */}
+      {/* Student portal — role-gated, standalone pages (no sidebar layout) */}
       <Route
         path="/student/*"
         element={
@@ -135,6 +137,17 @@ function AppRoutes() {
                   />
                 }
               />
+              {/* Phase 3A: Template-based check-in assessment list */}
+              <Route
+                path="assessments"
+                element={<StudentAssessmentsPage />}
+              />
+              {/* Phase 3A: Answer-taking wizard for template assessments */}
+              <Route
+                path="assessment/:assessmentId"
+                element={<TemplateAssessmentPage />}
+              />
+              {/* Phase 3B: Course-based assessment wizard */}
               <Route
                 path="assessments/:assessmentId"
                 element={<AssessmentWizardPage />}
