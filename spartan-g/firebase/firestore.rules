@@ -234,7 +234,8 @@ service cloud.firestore {
         || (isStudent()
           && resource.data.studentId == request.auth.uid
           && resource.data.status == 'in_progress'
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'feedback', 'status']));
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'feedback'])
+          && (request.resource.data.status == 'in_progress' || request.resource.data.status == 'submitted'));
       allow delete: if isFacilitatorOrAdmin();
     }
   }
