@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
 import { FacilitatorAssessmentsPage } from "../pages/facilitator/FacilitatorAssessmentsPage";
+import { FacilitatorStudentsPage } from "../pages/facilitator/FacilitatorStudentsPage";
 import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
@@ -24,12 +25,7 @@ export function FacilitatorPortalRoutes() {
         />
         <Route
           path="students"
-          element={
-            <PlaceholderPage
-              title="Students"
-              description="List of students under your care with risk indicators."
-            />
-          }
+          element={<FacilitatorStudentsPage />}
         />
         <Route
           path="assessments"
