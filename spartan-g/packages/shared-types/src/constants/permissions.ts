@@ -30,6 +30,11 @@ export const PERMISSIONS = {
   MANAGE_ROLES: 'manage_roles',
   VIEW_SYSTEM_ANALYTICS: 'view_system_analytics',
   MANAGE_PLATFORM_SETTINGS: 'manage_platform_settings',
+
+  // Assessment feature (Phase 3A)
+  MANAGE_ASSESSMENT_TEMPLATES: 'manage_assessment_templates',
+  VIEW_ASSESSMENTS: 'view_assessments',
+  TAKE_ASSESSMENTS: 'take_assessments',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -42,6 +47,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     PERMISSIONS.ENROLL_COURSE,
     PERMISSIONS.SUBMIT_ASSIGNMENT,
     PERMISSIONS.SEND_MESSAGES,
+    PERMISSIONS.VIEW_ASSESSMENTS,
+    PERMISSIONS.TAKE_ASSESSMENTS,
     PERMISSIONS.SUBMIT_ASSESSMENT,
   ],
   [ROLES.FACILITATOR]: [
@@ -56,6 +63,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     PERMISSIONS.MANAGE_APPOINTMENTS,
     PERMISSIONS.SEND_MESSAGES,
     PERMISSIONS.MANAGE_WORK_HOURS,
+    PERMISSIONS.MANAGE_ASSESSMENT_TEMPLATES,
   ],
   [ROLES.SUPER_ADMIN]: Object.values(PERMISSIONS),
 };

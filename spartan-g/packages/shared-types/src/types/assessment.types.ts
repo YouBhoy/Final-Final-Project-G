@@ -18,7 +18,8 @@ export interface AssessmentQuestion {
   order: number;
 }
 
-export interface AssessmentDocument extends FirestoreDocument {
+/** Phase 3B — A course-based assessment definition (distinct from Phase 3A's AssessmentDocument). */
+export interface AssessmentDefinitionDocument extends FirestoreDocument {
   courseId: string;
   title: string;
   description: string;
