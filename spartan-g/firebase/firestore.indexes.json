@@ -91,6 +91,47 @@
         { "fieldPath": "isActive", "order": "ASCENDING" },
         { "fieldPath": "dayOfWeek", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "assessment_templates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "title", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessment_templates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "title", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessment_questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "templateId", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "templateId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

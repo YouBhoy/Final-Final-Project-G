@@ -105,3 +105,62 @@ export interface WorkHoursScheduleDocument extends FirestoreDocument {
   isActive: boolean;
   notifyBeforeMinutes: number;
 }
+
+/** Phase 3A — Assessment feature documents. */
+export type AssessmentCategory = string;
+
+export type AssessmentQuestionType =
+  | 'short_text'
+  | 'long_text'
+  | 'single_choice'
+  | 'multi_choice'
+  | 'scale_1_5'
+  | 'scale_1_10'
+  | 'yes_no';
+
+export type AssessmentStatus = 'in_progress' | 'submitted';
+
+export interface AssessmentTemplateDocument extends FirestoreDocument {
+  title: string;
+  description: string;
+  category: AssessmentCategory;
+  version: number;
+  isActive: boolean;
+  createdBy: string;
+  /** Denormalized count of questions for fast list rendering. */
+  questionCount: number;
+}
+
+export interface AssessmentQuestionDocument extends FirestoreDocument {
+  templateId: string;
+  order: number;
+  prompt: string;
+  type: AssessmentQuestionType;
+  options?: string[];
+  isRequired: boolean;
+}
+
+export interface AssessmentDocument extends FirestoreDocument {
+  templateId: string;
+  studentId: string;
+  status: AssessmentStatus;
+  submittedAt?: Timestamp;
+  responseCount: number;
+  /** Future: facilitatorId for Phase 3C review assignment. */
+  reviewedBy?: string;
+  reviewStatus?: 'pending_review' | 'reviewed';
+  reviewNotes?: string;
+}
+
+/** Phase 3B — Assessment response capture. */
+export type AssessmentResponseValue = string | string[] | number;
+
+export interface AssessmentResponseDocument extends FirestoreDocument {
+  assessmentId: string;
+  questionId: string;
+  studentId: string;
+  value: AssessmentResponseValue;
+  /** Future: per-question scoring for facilitator review (Phase 3C). */
+  score?: number;
+  feedback?: string;
+}

@@ -17,6 +17,7 @@ import {
   Timestamp,
   DocumentData,
   QueryConstraint,
+  writeBatch,
 } from 'firebase/firestore';
 
 import { getFirebaseApp } from './app';
@@ -45,6 +46,7 @@ export {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  writeBatch,
 };
 
 export type { DocumentData, QueryConstraint, Unsubscribe } from 'firebase/firestore';

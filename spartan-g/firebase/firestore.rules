@@ -170,14 +170,60 @@ service cloud.firestore {
         && request.resource.data.facilitatorId == request.auth.uid;
     }
 
-    // ─── Assessments ───────────────────────────────────────────────
-    match /assessments/{assessmentId} {
+    // ─── Assessment Templates (Phase 3A) ──────────────────────────
+    match /assessment_templates/{templateId} {
       allow read: if isActiveUser()
-        && (resource.data.isPublished == true || isFacilitatorOrAdmin());
+        && (resource.data.isActive == true || isFacilitatorOrAdmin());
       allow create, update, delete: if isFacilitatorOrAdmin();
     }
 
-    // ─── Assessment Attempts ───────────────────────────────────────
+    // ─── Assessment Questions (Phase 3A) ──────────────────────────
+    match /assessment_questions/{questionId} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Assessments (Phase 3A + Phase 3B) ──────────────────────────
+    // Phase 3A: student attempt shells (has studentId + templateId + status)
+    // Phase 3B: course-based assessment definitions (has courseId + facilitatorId + isPublished + questions)
+    // Students can read:
+    //   - Phase 3A: their own assessment attempts (studentId matches)
+    //   - Phase 3B: published assessment definitions (isPublished == true)
+    // Facilitators/admins can read/create/update/delete all.
+    match /assessments/{assessmentId} {
+      allow read: if isActiveUser()
+        && (
+          // Phase 3A: student's own attempt
+          resource.data.studentId == request.auth.uid
+          // Phase 3B: published assessment definition (any active user)
+          || resource.data.isPublished == true
+          // Facilitator/admin override
+          || isFacilitatorOrAdmin()
+        );
+      // Phase 3A: students creating their own attempt shells
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid;
+      // Phase 3B: only super admins can create assessment definitions
+      allow create: if isSuperAdmin();
+      allow update: if isFacilitatorOrAdmin()
+        || (isStudent()
+          && resource.data.studentId == request.auth.uid
+          && resource.data.status == 'in_progress');
+      allow delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Assessment Responses (Phase 3A) ────────────────────────────
+    match /assessment_responses/{responseId} {
+      allow read: if isActiveUser()
+        && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid;
+      allow update: if isStudent()
+        && resource.data.studentId == request.auth.uid;
+      allow delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Assessment Attempts (Phase 3B) ─────────────────────────────
     match /assessment_attempts/{attemptId} {
       allow read: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid);
