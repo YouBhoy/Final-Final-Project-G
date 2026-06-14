@@ -20,6 +20,16 @@ class UserRepository extends BaseRepository<UserDocument> {
   async setActive(uid: string, isActive: boolean) {
     return this.update(uid, { isActive } as Partial<UserDocument>);
   }
+
+  /** Fetch all active student users, sorted in-memory by displayName to avoid composite index requirement. */
+  async getAllStudents(): Promise<(UserDocument & { id: string })[]> {
+    const results = await this.getAll([
+      where('role', '==', 'student'),
+      where('isActive', '==', true),
+    ]);
+    results.sort((a, b) => (a.displayName ?? '').localeCompare(b.displayName ?? ''));
+    return results;
+  }
 }
 
 export const userRepository = new UserRepository();

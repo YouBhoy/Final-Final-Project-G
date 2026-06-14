@@ -10,7 +10,7 @@ import { ReviewScreen } from '../../components/assessment/ReviewScreen';
 import { WizardNavigation } from '../../components/assessment/WizardNavigation';
 import { Button } from '../../components/ui/Button';
 
-type WizardPhase = 'select' | 'questions' | 'review';
+type WizardPhase = 'select' | 'questions' | 'review' | 'final-review';
 type SectionKey = 'phq' | 'gad' | 'dass';
 
 const SECTIONS: { key: SectionKey; label: string; fullTitle: string; description: string; icon: string; color: string; bgColor: string; borderColor: string; textColor: string; darkBg: string }[] = [
@@ -112,8 +112,13 @@ export function AssessmentWizardPage() {
         const hasReachedLimit = attemptCount >= assessmentData.maxAttempts;
         const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, user.uid);
 
+        // If no in-progress attempt but attempts exist, the student already submitted — show success
         if (hasReachedLimit && !existingAttemptId) {
-          setError(`You have used all ${assessmentData.maxAttempts} attempt(s) for this assessment.`);
+          if (!cancelled) {
+            setAssessment(assessmentData);
+            setIsSubmitted(true);
+            setIsLoading(false);
+          }
           return;
         }
 
@@ -196,12 +201,6 @@ export function AssessmentWizardPage() {
   const isLastStep = wizard.currentStep >= totalSteps - 1;
   const isOnReviewStep = wizard.currentStep >= totalSteps;
 
-  // All answers for review (cross-section)
-  const allAnswersForReview = useMemo(() => {
-    if (!selectedSection) return sortedAllQuestions;
-    return sortedAllQuestions;
-  }, [sortedAllQuestions, selectedSection]);
-
   const handleSectionSelect = useCallback((sectionKey: SectionKey) => {
     setSelectedSection(sectionKey);
     setWizard((prev) => ({ ...prev, currentStep: 0 }));
@@ -224,7 +223,7 @@ export function AssessmentWizardPage() {
   }, [selectedSection, sortedAllQuestions, wizard.answers]);
 
   const handleAllSectionsComplete = useCallback(() => {
-    setPhase('review');
+    setPhase('final-review');
   }, []);
 
   const handleAnswer = useCallback(
@@ -280,18 +279,18 @@ export function AssessmentWizardPage() {
     setWizard((prev) => ({ ...prev, isSubmitting: true }));
     setSubmissionError(null);
 
-    try {
-      const now = serverTimestamp() as Timestamp;
-      const finalAnswers: AssessmentAnswer[] = sortedAllQuestions
-        .filter((q) => wizard.answers[q.id] !== undefined && wizard.answers[q.id] !== '')
-        .map((q) => ({
-          questionId: q.id,
-          value: wizard.answers[q.id],
-          answeredAt: now,
-        }));
+      try {
+        const now = new Date() as unknown as Timestamp;
+        const finalAnswers: AssessmentAnswer[] = sortedAllQuestions
+          .filter((q) => wizard.answers[q.id] !== undefined && wizard.answers[q.id] !== '')
+          .map((q) => ({
+            questionId: q.id,
+            value: wizard.answers[q.id],
+            answeredAt: now,
+          }));
 
-      await assessmentService.submitAttempt(attemptId, finalAnswers);
-      setIsSubmitted(true);
+        await assessmentService.submitAttempt(attemptId, finalAnswers);
+        setIsSubmitted(true);
     } catch (err) {
       setSubmissionError(err instanceof Error ? err.message : 'Failed to submit assessment');
     } finally {
@@ -388,7 +387,7 @@ export function AssessmentWizardPage() {
               </svg>
             </div>
             <h2 className="mt-4 text-2xl font-bold text-gray-900">Assessment Submitted!</h2>
-            <p className="mt-2 text-sm text-gray-500">Your answers have been submitted successfully. Your score will be available after grading.</p>
+            <p className="mt-2 text-sm text-gray-500">Thank you for completing the assessment. Your responses have been recorded.</p>
             <div className="mt-8">
               <Button variant="primary" onClick={() => navigate('/student/dashboard')}>Return to Dashboard</Button>
             </div>
@@ -518,10 +517,136 @@ export function AssessmentWizardPage() {
     );
   }
 
+  // ─── Final Review & Submit ─────────────────────────────
+  if (phase === 'final-review') {
+    const answeredCount = sortedAllQuestions.filter(
+      (q) => wizard.answers[q.id] !== undefined && wizard.answers[q.id] !== ''
+    ).length;
+    const totalCount = sortedAllQuestions.length;
+    const allAnswered = answeredCount === totalCount;
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="border-b border-gray-200 bg-white shadow-sm">
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center space-x-4">
+              <button onClick={() => setPhase('select')} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                ← Back
+              </button>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600">
+                <span className="text-sm font-bold text-white">SG</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">Review & Submit</h1>
+                <p className="text-xs text-gray-500">{assessment.title}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <p className="text-right text-sm font-medium text-gray-700">{user?.displayName}</p>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="space-y-6">
+            {/* Summary header */}
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900">Review All Answers</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Please review your answers before submitting. You can go back to any section to make changes.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <span className={`text-sm font-semibold ${allAnswered ? 'text-green-600' : 'text-amber-600'}`}>
+                  {answeredCount} of {totalCount} answered
+                </span>
+                {!allAnswered && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    {totalCount - answeredCount} unanswered
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Questions grouped by section */}
+            {SECTIONS.map((section) => {
+              const sectionQs = sortedAllQuestions.filter((q) => getSectionForQuestion(q.id) === section.key);
+              if (sectionQs.length === 0) return null;
+
+              const sectionAnswered = sectionQs.filter(
+                (q) => wizard.answers[q.id] !== undefined && wizard.answers[q.id] !== ''
+              ).length;
+
+              return (
+                <div key={section.key} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className={`text-base font-bold ${section.textColor}`}>{section.fullTitle}</h3>
+                    <span className="text-xs text-gray-500">{sectionAnswered}/{sectionQs.length} answered</span>
+                  </div>
+
+                  {sectionQs.map((question) => {
+                    const answer = wizard.answers[question.id];
+                    const isAnswered = answer !== undefined && answer !== '';
+
+                    return (
+                      <div
+                        key={question.id}
+                        className={`rounded-xl border p-4 shadow-sm ${
+                          isAnswered ? 'border-gray-200 bg-white' : 'border-amber-200 bg-amber-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                                Q{question.order}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm font-medium text-gray-900">{question.text}</p>
+                            <p className={`mt-1 text-sm ${isAnswered ? 'text-gray-600' : 'font-semibold text-amber-700'}`}>
+                              {isAnswered ? `Answer: ${answer}` : 'Not answered'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+
+            {/* Unanswered warning */}
+            {!allAnswered && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                You have unanswered questions. You can still submit, but unanswered questions will not be recorded.
+              </div>
+            )}
+
+            {/* Submit error */}
+            {submissionError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+                {submissionError}
+              </div>
+            )}
+
+            {/* Submit button */}
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full"
+              onClick={handleSubmit}
+              isLoading={wizard.isSubmitting}
+            >
+              Submit Assessment
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // ─── Questions Phase ───────────────────────────────────
   const currentQuestion = isOnReviewStep ? null : sectionQuestions[wizard.currentStep];
   const sectionConfig = SECTIONS.find((s) => s.key === selectedSection);
-  const sectionCompletedInWizard = isOnReviewStep;
 
   return (
     <div className="min-h-screen bg-gray-50">

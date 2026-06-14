@@ -8,7 +8,7 @@ import {
   AssessmentAnswer,
   AssessmentDefinitionDocument,
 } from '@spartan-g/shared-types';
-import { Timestamp, serverTimestamp, where } from '../firebase/firestore';
+import { Timestamp, serverTimestamp, where, orderBy } from '../firebase/firestore';
 import { assessmentRepository } from '../repositories/assessment.repository';
 import { assessmentTemplateRepository } from '../repositories/assessment-template.repository';
 import { assessmentQuestionRepository } from '../repositories/assessment-question.repository';
@@ -137,6 +137,21 @@ class AssessmentService {
     return assessmentAttemptRepository.getAttemptsForStudent(assessmentId, studentId);
   }
 
+  /** Get all submitted/graded attempts for a student (across all assessments). Sorted in-memory to avoid composite index requirements. */
+  async getAttemptsByStudent(studentId: string): Promise<(AssessmentAttemptDocument & { id: string })[]> {
+    const results = await assessmentAttemptRepository.getAll([
+      where('studentId', '==', studentId),
+      where('status', 'in', ['submitted', 'graded']),
+    ]);
+    // Sort by submittedAt descending in-memory to avoid composite index
+    results.sort((a, b) => {
+      const aTime = a.submittedAt?.toMillis?.() ?? 0;
+      const bTime = b.submittedAt?.toMillis?.() ?? 0;
+      return bTime - aTime;
+    });
+    return results;
+  }
+
   async getInProgressAttempt(assessmentId: string, studentId: string): Promise<string | null> {
     const attempt = await assessmentAttemptRepository.getInProgressAttempt(assessmentId, studentId);
     return attempt?.id ?? null;
@@ -218,8 +233,9 @@ class AssessmentService {
     if (!attempt) {
       throw new Error('Attempt not found');
     }
+    // Idempotent: if already submitted or graded, skip the update
     if (attempt.status !== 'in_progress') {
-      throw new Error('Attempt already submitted or graded');
+      return;
     }
 
     const now = serverTimestamp() as Timestamp;
