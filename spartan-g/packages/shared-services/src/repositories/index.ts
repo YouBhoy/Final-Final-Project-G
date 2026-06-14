@@ -7,3 +7,8 @@ export { appointmentRepository } from './appointment.repository';
 export { conversationRepository } from './conversation.repository';
 export { messageRepository } from './message.repository';
 export { workHoursRepository } from './work-hours.repository';
+export { assessmentTemplateRepository } from './assessment-template.repository';
+export { assessmentQuestionRepository } from './assessment-question.repository';
+export { assessmentRepository } from './assessment.repository';
+export { assessmentResponseRepository } from './assessment-response.repository';
+export { assessmentAttemptRepository } from './assessment-attempt.repository';

@@ -4,7 +4,14 @@ import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
+import { TemplateAssessmentPage } from "../pages/assessment/TemplateAssessmentPage";
+import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
+import { SeederPage } from "../pages/dev/SeederPage";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
+import { StudentPortalRoutes } from "./StudentPortalRoutes";
+import { FacilitatorPortalRoutes } from "./FacilitatorPortalRoutes";
+import { SuperAdminPortalRoutes } from "./SuperAdminPortalRoutes";
 import type { ReactNode } from "react";
 
 function LoadingScreen() {
@@ -115,7 +122,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Student routes */}
+      {/* Student portal — role-gated, standalone pages (no sidebar layout) */}
       <Route
         path="/student/*"
         element={
@@ -130,53 +137,49 @@ function AppRoutes() {
                   />
                 }
               />
+              {/* Phase 3A: Template-based check-in assessment list */}
+              <Route
+                path="assessments"
+                element={<StudentAssessmentsPage />}
+              />
+              {/* Phase 3A: Answer-taking wizard for template assessments */}
+              <Route
+                path="assessment/:assessmentId"
+                element={<TemplateAssessmentPage />}
+              />
+              {/* Phase 3B: Course-based assessment wizard */}
+              <Route
+                path="assessments/:assessmentId"
+                element={<AssessmentWizardPage />}
+              />
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Routes>
           </ProtectedRoute>
         }
       />
 
-      {/* Facilitator routes */}
+      {/* Facilitator portal — role-gated, with its own layout */}
       <Route
         path="/facilitator/*"
         element={
           <ProtectedRoute allowedRoles={["facilitator"]}>
-            <Routes>
-              <Route
-                path="dashboard"
-                element={
-                  <DashboardPage
-                    title="Facilitator Dashboard"
-                    portalName="Facilitator Portal"
-                  />
-                }
-              />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <FacilitatorPortalRoutes />
           </ProtectedRoute>
         }
       />
 
-      {/* Admin routes */}
+      {/* Super Admin portal — role-gated, with its own layout */}
       <Route
         path="/admin/*"
         element={
           <ProtectedRoute allowedRoles={["super_admin"]}>
-            <Routes>
-              <Route
-                path="dashboard"
-                element={
-                  <DashboardPage
-                    title="Admin Dashboard"
-                    portalName="Super Admin Portal"
-                  />
-                }
-              />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <SuperAdminPortalRoutes />
           </ProtectedRoute>
         }
       />
+
+      {/* Dev routes */}
+      <Route path="/dev/seed" element={<SeederPage />} />
 
       {/* Default redirect */}
       <Route

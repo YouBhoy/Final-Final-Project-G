@@ -6,6 +6,7 @@ import {
 } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
+import { AssessmentWizardScreen } from '../screens/assessment/AssessmentWizardScreen';
 
 const Tab = createBottomTabNavigator<StudentMobileTabParamList>();
 const Stack = createNativeStackNavigator<StudentMobileStackParamList>();
@@ -51,6 +52,11 @@ export function StudentNavigator() {
       <Stack.Screen name="ConversationDetail" options={{ title: 'Conversation' }}>
         {() => <PlaceholderScreen routeName="ConversationDetail" />}
       </Stack.Screen>
+      <Stack.Screen
+        name="AssessmentWizard"
+        component={AssessmentWizardScreen}
+        options={{ title: 'Assessment' }}
+      />
     </Stack.Navigator>
   );
 }
