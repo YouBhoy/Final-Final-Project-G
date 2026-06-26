@@ -21,6 +21,14 @@ class AppointmentRepository extends BaseRepository<AppointmentDocument> {
       orderBy('scheduledAt', 'asc'),
     ]);
   }
+
+  /** Fetch all appointments for a specific student (for timeline views). */
+  async getByStudent(studentId: string) {
+    return this.getAll([
+      where('studentId', '==', studentId),
+      orderBy('scheduledAt', 'desc'),
+    ]);
+  }
 }
 
 export const appointmentRepository = new AppointmentRepository();

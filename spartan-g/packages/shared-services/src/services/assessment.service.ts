@@ -7,6 +7,9 @@ import {
   AssessmentAttemptDocument,
   AssessmentAnswer,
   AssessmentDefinitionDocument,
+  evaluateAssessmentRisk,
+  type RiskEvaluationResult,
+  type RiskFlag,
 } from '@spartan-g/shared-types';
 import { Timestamp, serverTimestamp, where, orderBy } from '../firebase/firestore';
 import { assessmentRepository } from '../repositories/assessment.repository';
@@ -14,6 +17,7 @@ import { assessmentTemplateRepository } from '../repositories/assessment-templat
 import { assessmentQuestionRepository } from '../repositories/assessment-question.repository';
 import { assessmentResponseRepository } from '../repositories/assessment-response.repository';
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
+import { riskAlertService } from './risk-alert.service';
 
 class AssessmentService {
   // =================== Phase 3A Methods (Template-based assessments) ===================
@@ -238,14 +242,67 @@ class AssessmentService {
       return;
     }
 
+    // ─── Phase 4A: Risk evaluation (computed BEFORE status update) ──
+    // Compute risk metadata synchronously from the answers (data is in memory).
+    // We include it in the same update call as the submission to avoid
+    // a second Firestore write that would fail the rules check
+    // (student update rule requires resource.data.status == 'in_progress').
+    const answersRecord: Record<string, string> = {};
+    for (const answer of answers) {
+      answersRecord[answer.questionId] = answer.value;
+    }
+
+    let overallRiskLevel: string | undefined;
+    let overallRiskScore: number | undefined;
+    let riskFlags: RiskFlag[] | undefined;
+
+    try {
+      const evaluation = evaluateAssessmentRisk(answersRecord);
+      overallRiskLevel = evaluation.overallRiskLevel;
+      overallRiskScore = evaluation.overallRiskScore;
+      riskFlags = evaluation.riskFlags;
+    } catch {
+      // If scoring fails (e.g. non-standard question IDs), skip gracefully
+    }
+
     const now = serverTimestamp() as Timestamp;
 
     await assessmentAttemptRepository.update(attemptId, {
       answers,
       status: 'submitted',
       submittedAt: now,
+      ...(overallRiskLevel !== undefined ? { overallRiskLevel } : {}),
+      ...(overallRiskScore !== undefined ? { overallRiskScore } : {}),
+      ...(riskFlags !== undefined ? { riskFlags } : {}),
     } as Partial<AssessmentAttemptDocument>);
+
+    // ─── Create risk alert if needed (separate collection, no rules conflict) ──
+    if (overallRiskLevel === 'moderate' || overallRiskLevel === 'high' || overallRiskLevel === 'critical') {
+      try {
+        const assessmentDef = await this.getAssessmentDefinition(attempt.assessmentId);
+        const facilitatorId = assessmentDef?.facilitatorId ?? 'unknown';
+
+        // Construct a partial evaluation object — domainResults are not available
+        // at submission time from answers alone, but createAlert uses only the
+        // top-level fields and riskFlags (which we have) for the alert summary.
+        await riskAlertService.createAlert({
+          studentId: attempt.studentId,
+          facilitatorId,
+          assessmentAttemptId: attemptId,
+          evaluation: {
+            overallRiskLevel: overallRiskLevel as any,
+            overallRiskScore: overallRiskScore ?? 0,
+            riskFlags: riskFlags ?? [],
+            requiresImmediateAttention: overallRiskLevel === 'critical',
+            domainResults: {} as any,
+          } as RiskEvaluationResult,
+        });
+      } catch {
+        // Alert creation failure should not block submission
+      }
+    }
   }
+
 }
 
 export const assessmentService = new AssessmentService();

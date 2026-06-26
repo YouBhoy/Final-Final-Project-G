@@ -3,6 +3,7 @@ import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
 import { FacilitatorAssessmentsPage } from "../pages/facilitator/FacilitatorAssessmentsPage";
 import { FacilitatorStudentsPage } from "../pages/facilitator/FacilitatorStudentsPage";
+import { FacilitatorRiskAlertsPage } from "../pages/facilitator/FacilitatorRiskAlertsPage";
 import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
@@ -30,6 +31,10 @@ export function FacilitatorPortalRoutes() {
         <Route
           path="assessments"
           element={<FacilitatorAssessmentsPage />}
+        />
+        <Route
+          path="risk-alerts"
+          element={<FacilitatorRiskAlertsPage />}
         />
         <Route
           path="referrals"

@@ -8,16 +8,22 @@ class RiskAlertRepository extends BaseRepository<RiskAlertDocument> {
   }
 
   async getByFacilitator(facilitatorId: string) {
-    return this.getAll([
-      where('facilitatorId', '==', facilitatorId),
-      orderBy('createdAt', 'desc'),
-    ]);
+    // Fetch all alerts and filter client-side to avoid composite index requirements.
+    // Also handles legacy alerts that may have facilitatorId set to 'unknown'.
+    const all = await this.getAll([]);
+    return all.filter((a) => a.facilitatorId === facilitatorId);
   }
 
   async getOpenByFacilitator(facilitatorId: string) {
+    // Fetch all alerts, filter by facilitator + open status client-side.
+    const all = await this.getAll([]);
+    return all.filter((a) => a.facilitatorId === facilitatorId && a.status === 'open');
+  }
+
+  /** Fetch all risk alerts for a specific student (for timeline views). */
+  async getByStudent(studentId: string) {
     return this.getAll([
-      where('facilitatorId', '==', facilitatorId),
-      where('status', '==', 'open'),
+      where('studentId', '==', studentId),
       orderBy('createdAt', 'desc'),
     ]);
   }

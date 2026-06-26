@@ -1,5 +1,3 @@
-@echo off
-title Spartan-G System Shutdown
 color 0C
 
 echo ============================================
