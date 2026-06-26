@@ -1,5 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 import { FirestoreDocument } from './firestore.types';
+import type { RiskLevel, RiskFlag } from '../utils/risk-evaluation';
 
 // Question types supported by the wizard
 export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer';
@@ -52,6 +53,10 @@ export interface AssessmentAttemptDocument extends FirestoreDocument {
   score?: number;               // percentage, set after grading
   feedback?: string;
   attemptNumber: number;
+  /** Risk evaluation metadata — set after submission if evaluation runs. */
+  overallRiskLevel?: RiskLevel;
+  overallRiskScore?: number;     // 0–100 composite
+  riskFlags?: RiskFlag[];
 }
 
 // Wizard UI state (local, not persisted)

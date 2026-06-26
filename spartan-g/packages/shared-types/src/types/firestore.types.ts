@@ -71,6 +71,12 @@ export interface RiskAlertDocument extends FirestoreDocument {
   title: string;
   description: string;
   status: 'open' | 'acknowledged' | 'resolved';
+  /** Link to the assessment attempt that triggered this alert. */
+  assessmentAttemptId?: string;
+  /** Composite risk score (0–100) at time of alert creation. */
+  overallRiskScore?: number;
+  /** Structured risk flags explaining why the alert was generated. */
+  riskFlags?: { type: string; label: string; severity: string }[];
 }
 
 export interface AppointmentDocument extends FirestoreDocument {
