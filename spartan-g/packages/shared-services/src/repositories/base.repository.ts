@@ -44,8 +44,9 @@ export abstract class BaseRepository<T extends DocumentData> {
         : query(this.getCollectionRef());
       const snapshot = await getDocs(q);
       return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as T) }));
-    } catch (error) {
-      throw new RepositoryError(`Failed to list ${this.collectionName}`, 'repo/list', error);
+    } catch (error: any) {
+      const message = error?.message || 'Unknown error';
+      throw new Error(`Failed to list ${this.collectionName}: ${message}`);
     }
   }
 

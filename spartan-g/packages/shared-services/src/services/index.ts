@@ -4,8 +4,10 @@ export { notificationService } from './notification.service';
 export { storageService } from './storage.service';
 export { riskAlertService } from './risk-alert.service';
 export { appointmentService } from './appointment.service';
+export { facilitatorStudentLinkService } from './facilitator-student-link.service';
 export { messagingService } from './messaging.service';
 export { workHoursService } from './work-hours.service';
+export { appointmentSlotService } from './appointment-slot.service';
 export {
   assessmentTemplateService,
   type CreateAssessmentTemplatePayload,

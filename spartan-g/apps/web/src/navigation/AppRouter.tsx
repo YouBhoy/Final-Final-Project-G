@@ -122,38 +122,12 @@ function AppRoutes() {
         }
       />
 
-      {/* Student portal — role-gated, standalone pages (no sidebar layout) */}
+      {/* Student portal — role-gated, with sidebar layout */}
       <Route
         path="/student/*"
         element={
           <ProtectedRoute allowedRoles={["student"]}>
-            <Routes>
-              <Route
-                path="dashboard"
-                element={
-                  <DashboardPage
-                    title="Student Dashboard"
-                    portalName="Student Portal"
-                  />
-                }
-              />
-              {/* Phase 3A: Template-based check-in assessment list */}
-              <Route
-                path="assessments"
-                element={<StudentAssessmentsPage />}
-              />
-              {/* Phase 3A: Answer-taking wizard for template assessments */}
-              <Route
-                path="assessment/:assessmentId"
-                element={<TemplateAssessmentPage />}
-              />
-              {/* Phase 3B: Course-based assessment wizard */}
-              <Route
-                path="assessments/:assessmentId"
-                element={<AssessmentWizardPage />}
-              />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Routes>
+            <StudentPortalRoutes />
           </ProtectedRoute>
         }
       />

@@ -12,9 +12,11 @@ export const COLLECTIONS = {
   // Facilitator feature collections
   RISK_ALERTS: 'risk_alerts',
   APPOINTMENTS: 'appointments',
+  FACILITATOR_STUDENT_LINKS: 'facilitator_student_links',
   CONVERSATIONS: 'conversations',
   MESSAGES: 'messages',
   WORK_HOURS_SCHEDULES: 'work_hours_schedules',
+  APPOINTMENT_SLOTS: 'appointment_slots',
   // Assessment feature collections (Phase 3A)
   ASSESSMENT_TEMPLATES: 'assessment_templates',
   ASSESSMENT_QUESTIONS: 'assessment_questions',

@@ -6,7 +6,7 @@ import {
   hasPermission,
   PermissionError,
 } from '@spartan-g/shared-types';
-import { serverTimestamp } from '../firebase/firestore';
+import { serverTimestamp, where, orderBy } from '../firebase/firestore';
 import { conversationRepository } from '../repositories/conversation.repository';
 import { messageRepository } from '../repositories/message.repository';
 
@@ -76,7 +76,10 @@ class MessagingService {
       throw new PermissionError();
     }
     return messageRepository.subscribeQuery(
-      [],
+      [
+        where('conversationId', '==', conversationId),
+        orderBy('createdAt', 'asc'),
+      ],
       callback,
     );
   }
