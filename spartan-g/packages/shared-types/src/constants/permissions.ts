@@ -18,6 +18,7 @@ export const PERMISSIONS = {
 
   // Facilitator mobile features
   VIEW_RISK_ALERTS: 'view_risk_alerts',
+  BOOK_APPOINTMENTS: 'book_appointments',
   MANAGE_APPOINTMENTS: 'manage_appointments',
   SEND_MESSAGES: 'send_messages',
   MANAGE_WORK_HOURS: 'manage_work_hours',
@@ -46,6 +47,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     PERMISSIONS.VIEW_COURSES,
     PERMISSIONS.ENROLL_COURSE,
     PERMISSIONS.SUBMIT_ASSIGNMENT,
+    PERMISSIONS.BOOK_APPOINTMENTS,
     PERMISSIONS.SEND_MESSAGES,
     PERMISSIONS.VIEW_ASSESSMENTS,
     PERMISSIONS.TAKE_ASSESSMENTS,

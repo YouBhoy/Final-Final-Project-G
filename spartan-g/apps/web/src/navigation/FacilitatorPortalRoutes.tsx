@@ -4,6 +4,10 @@ import { PlaceholderPage } from "../components/PlaceholderPage";
 import { FacilitatorAssessmentsPage } from "../pages/facilitator/FacilitatorAssessmentsPage";
 import { FacilitatorStudentsPage } from "../pages/facilitator/FacilitatorStudentsPage";
 import { FacilitatorRiskAlertsPage } from "../pages/facilitator/FacilitatorRiskAlertsPage";
+import { FacilitatorAppointmentsPage } from "../pages/facilitator/FacilitatorAppointmentsPage";
+import { FacilitatorWorkHoursPage } from "../pages/facilitator/FacilitatorWorkHoursPage";
+import { FacilitatorSlotsPage } from "../pages/facilitator/FacilitatorSlotsPage";
+import { FacilitatorMessagesPage } from "../pages/messaging/FacilitatorMessagesPage";
 import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
@@ -47,13 +51,17 @@ export function FacilitatorPortalRoutes() {
         />
         <Route
           path="appointments"
-          element={
-            <PlaceholderPage
-              title="Appointments"
-              description="Schedule and review appointments with students."
-            />
-          }
+          element={<FacilitatorAppointmentsPage />}
         />
+        <Route
+          path="work-hours"
+          element={<FacilitatorWorkHoursPage />}
+        />
+        <Route
+          path="slots"
+          element={<FacilitatorSlotsPage />}
+        />
+        <Route path="messages" element={<FacilitatorMessagesPage />} />
         <Route
           path="resources"
           element={

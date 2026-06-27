@@ -2,6 +2,11 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
 import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
+import { StudentMessagesPage } from "../pages/messaging/StudentMessagesPage";
+import { StudentAppointmentsPage } from "../pages/student/StudentAppointmentsPage";
+import { StudentFindFacilitatorPage } from "../pages/student/StudentFindFacilitatorPage";
+import { StudentBookAppointmentPage } from "../pages/student/StudentBookAppointmentPage";
+import { DashboardPage } from "../pages/DashboardPage";
 import { studentNavItems } from "./navConfigs";
 
 export function StudentPortalRoutes() {
@@ -16,11 +21,23 @@ export function StudentPortalRoutes() {
         <Route
           path="dashboard"
           element={
-            <PlaceholderPage
-              title="Dashboard"
-              description="Overview of your wellbeing, upcoming check-ins, and recent activity."
+            <DashboardPage
+              title="Student Dashboard"
+              portalName="Student Portal"
             />
           }
+        />
+        <Route
+          path="facilitators"
+          element={<StudentFindFacilitatorPage />}
+        />
+        <Route
+          path="facilitator/:facilitatorId"
+          element={<StudentBookAppointmentPage />}
+        />
+        <Route
+          path="appointments"
+          element={<StudentAppointmentsPage />}
         />
         <Route
           path="assessments"
@@ -44,15 +61,7 @@ export function StudentPortalRoutes() {
             />
           }
         />
-        <Route
-          path="appointments"
-          element={
-            <PlaceholderPage
-              title="Appointments"
-              description="Schedule and manage appointments with facilitators."
-            />
-          }
-        />
+        <Route path="messages" element={<StudentMessagesPage />} />
         <Route
           path="profile"
           element={

@@ -84,9 +84,24 @@ export interface AppointmentDocument extends FirestoreDocument {
   facilitatorId: string;
   scheduledAt: Timestamp;
   durationMinutes: number;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  status: 'requested' | 'accepted' | 'completed' | 'cancelled' | 'rejected' | 'no_show';
   notes?: string;
+  facilitatorNotes?: string;
+  outcomeNotes?: string;
+  rejectionReason?: string;
+  cancellationReason?: string;
+  acceptedAt?: Timestamp;
+  completedAt?: Timestamp;
   notifyBeforeMinutes: number;
+}
+
+export interface FacilitatorStudentLinkDocument extends FirestoreDocument {
+  facilitatorId: string;
+  studentId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  requestedAt: Timestamp;
+  respondedAt?: Timestamp;
+  notes?: string;
 }
 
 export interface ConversationDocument extends FirestoreDocument {
@@ -110,6 +125,14 @@ export interface WorkHoursScheduleDocument extends FirestoreDocument {
   endTime: string;
   isActive: boolean;
   notifyBeforeMinutes: number;
+}
+
+export interface AppointmentSlotDocument extends FirestoreDocument {
+  facilitatorId: string;
+  startTime: Timestamp;
+  endTime: Timestamp;
+  status: 'available' | 'reserved' | 'completed' | 'cancelled';
+  appointmentId?: string;
 }
 
 /** Phase 3A — Assessment feature documents. */
