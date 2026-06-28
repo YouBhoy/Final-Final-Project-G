@@ -8,10 +8,10 @@ class WorkHoursRepository extends BaseRepository<WorkHoursScheduleDocument> {
   }
 
   async getByFacilitator(facilitatorId: string) {
-    return this.getAll([
+    const data = await this.getAll([
       where('facilitatorId', '==', facilitatorId),
-      orderBy('dayOfWeek', 'asc'),
     ]);
+    return data.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
   }
 
   async getActiveByFacilitator(facilitatorId: string) {

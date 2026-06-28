@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { workHoursService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
 import { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
+import { workHoursRepository } from '@spartan-g/shared-services';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -31,13 +32,25 @@ export function FacilitatorWorkHoursPage() {
   }, [loadSchedules]);
 
   const handleToggleDay = async (dayOfWeek: number) => {
-    if (!user) return;
+    console.log('=== TOGGLE DAY CLICKED ===');
+    console.log('dayOfWeek:', dayOfWeek);
+    console.log('user:', user);
+    console.log('schedules:', schedules);
+    
+    if (!user) {
+      console.log('NO USER - aborting');
+      return;
+    }
+    
     const existing = schedules.find(s => s.dayOfWeek === dayOfWeek);
+    console.log('existing schedule:', existing);
     
     try {
       if (existing) {
+        console.log('Toggling existing schedule:', existing.id, 'to', !existing.isActive);
         await workHoursService.toggleSchedule(existing.id, !existing.isActive, user.role);
       } else {
+        console.log('Creating new schedule for day:', dayOfWeek);
         await workHoursService.createScheduleEntry({
           facilitatorId: user.uid,
           dayOfWeek,
@@ -45,9 +58,14 @@ export function FacilitatorWorkHoursPage() {
           endTime: '17:00',
         }, user.role);
       }
+      console.log('Reloading schedules...');
       await loadSchedules();
+      console.log('Success!');
     } catch (error) {
-      console.error('Failed to toggle day:', error);
+      console.error('=== TOGGLE DAY ERROR ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown');
+      console.error('Error stack:', error instanceof Error ? error.stack : 'N/A');
       alert(error instanceof Error ? error.message : 'Failed to toggle day');
     }
   };
