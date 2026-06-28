@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { appointmentSlotService, workHoursService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
-import { AppointmentSlotDocument } from '@spartan-g/shared-types';
+import { AppointmentSlotDocument, WorkHoursScheduleDocument } from '@spartan-g/shared-types';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -13,6 +14,7 @@ export function FacilitatorSlotsPage() {
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [saving, setSaving] = useState(false);
+  const [workHours, setWorkHours] = useState<(WorkHoursScheduleDocument & { id: string })[]>([]);
   const { user } = useAuth();
 
   const loadSlots = useCallback(async () => {
@@ -29,9 +31,20 @@ export function FacilitatorSlotsPage() {
     }
   }, [user]);
 
+  const loadWorkHours = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await workHoursService.getSchedule(user.uid, user.role);
+      setWorkHours(data);
+    } catch (error) {
+      console.error('Failed to load work hours:', error);
+    }
+  }, [user]);
+
   useEffect(() => {
     loadSlots();
-  }, [loadSlots]);
+    loadWorkHours();
+  }, [loadSlots, loadWorkHours]);
 
   const handleCreateSlot = async () => {
     if (!user) return;
@@ -135,6 +148,45 @@ export function FacilitatorSlotsPage() {
                 />
               </div>
             </div>
+            
+            {/* Work hours info for selected day */}
+            {(() => {
+              const dayIndex = selectedDate.getDay();
+              const daySchedule = workHours.find(s => s.dayOfWeek === dayIndex);
+              if (!daySchedule) {
+                return (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs text-amber-700">
+                      No work hours configured for {DAYS[dayIndex]}. Please set them in the{' '}
+                      <Link to="../work-hours" className="underline font-medium hover:text-amber-800">
+                        Work Hours page
+                      </Link>{' '}
+                      before creating slots on this day.
+                    </p>
+                  </div>
+                );
+              }
+              if (!daySchedule.isActive) {
+                return (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs text-amber-700">
+                      Work hours for {DAYS[dayIndex]} ({daySchedule.startTime} - {daySchedule.endTime}) are currently inactive. Enable them in the{' '}
+                      <Link to="../work-hours" className="underline font-medium hover:text-amber-800">
+                        Work Hours page
+                      </Link>.
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    Work hours for {DAYS[dayIndex]}: <strong>{daySchedule.startTime} - {daySchedule.endTime}</strong>
+                  </p>
+                </div>
+              );
+            })()}
+
             <button
               onClick={handleCreateSlot}
               disabled={saving}

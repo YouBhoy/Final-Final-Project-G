@@ -25,6 +25,9 @@ class WorkHoursService {
 
   async getActiveSchedule(facilitatorId: string, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_WORK_HOURS)) {
+      if (hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
+        return workHoursRepository.getActiveByFacilitator(facilitatorId);
+      }
       throw new PermissionError();
     }
     return workHoursRepository.getActiveByFacilitator(facilitatorId);

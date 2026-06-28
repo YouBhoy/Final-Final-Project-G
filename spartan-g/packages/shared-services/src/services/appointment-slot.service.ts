@@ -53,7 +53,19 @@ class AppointmentSlotService {
     const daySchedule = schedules.find(s => s.dayOfWeek === dayOfWeek);
 
     if (!daySchedule) {
-      throw new Error('No work hours configured for this day');
+      throw new Error(
+        'No work hours configured for this day. Please set your work hours in the Work Hours page before creating slots.'
+      );
+    }
+
+    // Validate slot time falls within configured work hours
+    const slotStartStr = `${String(payload.startTime.getHours()).padStart(2, '0')}:${String(payload.startTime.getMinutes()).padStart(2, '0')}`;
+    const slotEndStr = `${String(payload.endTime.getHours()).padStart(2, '0')}:${String(payload.endTime.getMinutes()).padStart(2, '0')}`;
+    
+    if (slotStartStr < daySchedule.startTime || slotEndStr > daySchedule.endTime) {
+      throw new Error(
+        `Slot time (${slotStartStr} - ${slotEndStr}) must be within configured work hours (${daySchedule.startTime} - ${daySchedule.endTime}) for this day.`
+      );
     }
 
     // Check for overlaps

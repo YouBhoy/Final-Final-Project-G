@@ -17,6 +17,15 @@ class UserRepository extends BaseRepository<UserDocument> {
     return this.getAll([where('role', '==', role)]);
   }
 
+  /** Fetch all active users with a given role. The isActive filter matches
+   *  the Firestore security rule condition so the query isn't rejected. */
+  async getActiveByRole(role: UserDocument['role']) {
+    return this.getAll([
+      where('role', '==', role),
+      where('isActive', '==', true),
+    ]);
+  }
+
   async setActive(uid: string, isActive: boolean) {
     return this.update(uid, { isActive } as Partial<UserDocument>);
   }
