@@ -1,102 +1,132 @@
 import { useEffect, useState, useCallback } from 'react';
 import { userService, workHoursService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
-import { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function StudentFindFacilitatorPage() {
   const [facilitators, setFacilitators] = useState<{ id: string; displayName: string; email: string }[]>([]);
-  const [workHoursMap, setWorkHoursMap] = useState<{ [key: string]: (WorkHoursScheduleDocument & { id: string })[] }>({});
+  const [workHoursMap, setWorkHoursMap] = useState<{ [key: string]: any[] }>({});
   const [selectedFacilitator, setSelectedFacilitator] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
-
-  const loadFacilitators = useCallback(async () => {
-    if (!user) return;
-    try {
-      const users = await userService.listUsersByRole('facilitator', user.role);
-      const mapped = users.map(u => ({ id: u.id, displayName: u.displayName || 'Facilitator', email: u.email || '' }));
-      setFacilitators(mapped);
-
-      // Load work hours for all facilitators
-      const whMap: { [key: string]: (WorkHoursScheduleDocument & { id: string })[] } = {};
-      for (const fac of mapped) {
-        try {
-          const schedule = await workHoursService.getActiveSchedule(fac.id, user.role);
-          whMap[fac.id] = schedule;
-        } catch { /* ignore */ }
-      }
-      setWorkHoursMap(whMap);
-    } catch (error) {
-      console.error('Failed to load facilitators:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
+  const [error, setError] = useState<string | null>(null);
+  const { user, status } = useAuth();
 
   useEffect(() => {
+    if (!user || status !== 'authenticated') { setIsLoading(false); return; }
+    let cancelled = false;
+    const loadFacilitators = async () => {
+      try {
+        setError(null); setFacilitators([]); setWorkHoursMap({});
+        const users = await userService.listUsersByRole('facilitator', user.role);
+        if (cancelled) return;
+        const mapped = users.map((u: any) => ({ id: u.id, displayName: u.displayName || 'Facilitator', email: u.email || '' }));
+        setFacilitators(mapped);
+        const whMap: { [key: string]: any[] } = {};
+        await Promise.allSettled(
+          mapped.map(async (fac) => {
+            try { const schedule = await workHoursService.getActiveSchedule(fac.id, user.role); whMap[fac.id] = schedule; }
+            catch { whMap[fac.id] = []; }
+          }),
+        );
+        if (!cancelled) setWorkHoursMap(whMap);
+      } catch (err) {
+        if (!cancelled) { const msg = err instanceof Error ? err.message : 'Failed to load facilitators.'; setError(msg); console.error('[StudentFindFacilitatorPage] load error:', err); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    };
     loadFacilitators();
-  }, [loadFacilitators]);
+    return () => { cancelled = true; };
+  }, [user?.role, status]);
+
+  if (status === 'idle' || status === 'loading' || !user) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
-    return <div className="text-center py-12 text-gray-500">Loading facilitators...</div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+          <p className="text-sm text-gray-500">Loading facilitators...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Find a Facilitator</h1>
-      <div className="grid md:grid-cols-2 gap-4">
-        {facilitators.map(fac => {
-          const schedule = workHoursMap[fac.id] || [];
-          const activeDays = schedule.filter(s => s.isActive).map(s => DAYS[s.dayOfWeek]);
+    <div className="mx-auto max-w-4xl">
+      <h1 className="mb-6 text-xl font-semibold text-gray-900">Find a Facilitator</h1>
 
-          return (
-            <div
-              key={fac.id}
-              className="bg-white border rounded-lg p-5 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedFacilitator(selectedFacilitator === fac.id ? null : fac.id)}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <span className="text-lg font-semibold text-indigo-700">
-                    {fac.displayName.charAt(0).toUpperCase()}
-                  </span>
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {facilitators.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-10 text-center text-sm text-gray-500">
+          No facilitators are currently available.
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {facilitators.map((fac) => {
+            const schedule = workHoursMap[fac.id] || [];
+            const activeDays = schedule.filter((s) => s.isActive).map((s) => DAYS[s.dayOfWeek] ?? 'Unknown');
+            const initial = (fac.displayName || 'F').charAt(0).toUpperCase();
+
+            return (
+              <div
+                key={fac.id}
+                className="cursor-pointer rounded-lg border bg-white p-5 transition-shadow hover:shadow-md"
+                onClick={() => setSelectedFacilitator((prev) => (prev === fac.id ? null : fac.id))}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+                    <span className="text-lg font-semibold text-indigo-700">{initial}</span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{fac.displayName}</h3>
+                    <p className="text-sm text-gray-500">{fac.email}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{fac.displayName}</h3>
-                  <p className="text-sm text-gray-500">{fac.email}</p>
-                </div>
+
+                {selectedFacilitator === fac.id && (
+                  <div className="mt-3 border-t pt-3 space-y-3">
+                    <h4 className="text-sm font-medium text-gray-700">Available Hours</h4>
+
+                    {activeDays.length === 0 ? (
+                      <p className="text-sm italic text-gray-400">No availability set</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {schedule.filter((s) => s.isActive).map((s) => (
+                          <div key={s.id} className="flex justify-between text-sm">
+                            <span className="text-gray-600">{DAYS[s.dayOfWeek] ?? 'Unknown'}</span>
+                            <span className="text-gray-800">{s.startTime} - {s.endTime}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <a
+                      href={`/student/facilitator/${encodeURIComponent(fac.id)}`}
+                      className="mt-3 block w-full rounded-lg bg-blue-600 px-4 py-2 text-center text-sm text-white hover:bg-blue-700"
+                    >
+                      Book Appointment
+                    </a>
+                  </div>
+                )}
               </div>
-
-              {selectedFacilitator === fac.id && (
-                <div className="border-t pt-3 mt-3 space-y-3">
-                  <h4 className="text-sm font-medium text-gray-700">Available Hours</h4>
-                  {activeDays.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic">No availability set</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {schedule.filter(s => s.isActive).map(s => (
-                        <div key={s.id} className="flex justify-between text-sm">
-                          <span className="text-gray-600">{DAYS[s.dayOfWeek]}</span>
-                          <span className="text-gray-800">{s.startTime} - {s.endTime}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <a
-                    href={`/student/facilitator/${fac.id}`}
-                    className="block w-full text-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 mt-3"
-                  >
-                    Book Appointment
-                  </a>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

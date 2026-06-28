@@ -2,6 +2,7 @@ import { ref, uploadBytes, getDownloadURL } from '../firebase/storage';
 import { getFirebaseStorage } from '../firebase/storage';
 import {
   PERMISSIONS,
+  ROLES,
   Role,
   ProfileDocument,
   STORAGE_PATHS,
@@ -42,6 +43,10 @@ class UserService {
 
   async listUsersByRole(role: Role, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_USERS)) {
+      if (role === ROLES.FACILITATOR && hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
+        // Use getActiveByRole so the query (role + isActive) matches the Firestore rule condition
+        return userRepository.getActiveByRole(role);
+      }
       throw new PermissionError();
     }
     return userRepository.getByRole(role);

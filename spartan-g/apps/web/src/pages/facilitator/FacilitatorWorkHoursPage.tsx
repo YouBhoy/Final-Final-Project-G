@@ -48,6 +48,7 @@ export function FacilitatorWorkHoursPage() {
       await loadSchedules();
     } catch (error) {
       console.error('Failed to toggle day:', error);
+      alert(error instanceof Error ? error.message : 'Failed to toggle day');
     }
   };
 
