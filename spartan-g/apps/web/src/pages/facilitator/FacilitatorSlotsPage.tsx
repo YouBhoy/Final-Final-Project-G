@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { appointmentSlotService, workHoursService } from '@spartan-g/shared-services';
+import { appointmentSlotService, workHoursService, appointmentService, userService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
 import { AppointmentSlotDocument, WorkHoursScheduleDocument } from '@spartan-g/shared-types';
 
@@ -8,6 +8,7 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 
 export function FacilitatorSlotsPage() {
   const [slots, setSlots] = useState<(AppointmentSlotDocument & { id: string })[]>([]);
+  const [studentNames, setStudentNames] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -22,6 +23,35 @@ export function FacilitatorSlotsPage() {
     try {
       const data = await appointmentSlotService.getSlots(user.uid, user.role);
       setSlots(data);
+      
+      // Look up student names for reserved/completed/cancelled slots
+      const names: { [key: string]: string } = {};
+      const occupiedSlots = data.filter(s => s.status !== 'available' && s.appointmentId);
+      for (const slot of occupiedSlots) {
+        if (!slot.appointmentId) continue;
+        try {
+          // Extract studentId from appointment ID pattern: facilitatorId_studentId_timestamp
+          const idParts = slot.appointmentId.split('_');
+          if (idParts.length >= 3) {
+            // Format: facilitatorId_studentId_timestamp
+            const studentId = idParts[idParts.length - 2]; // second-to-last part
+            if (studentId && !names[studentId]) {
+              try {
+                const userDoc = await userService.getUser(studentId);
+                if (userDoc) {
+                  names[studentId] = userDoc.displayName || userDoc.email || 'Unknown Student';
+                } else {
+                  names[studentId] = 'Unknown Student';
+                }
+              } catch (err) {
+                console.warn('Failed to load student name for', studentId, err);
+                names[studentId] = 'Unknown Student';
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      setStudentNames(names);
     } catch (error: any) {
       const errorMsg = error?.message || 'Unknown error';
       console.error('Failed to load slots:', error);
@@ -235,14 +265,19 @@ export function FacilitatorSlotsPage() {
               Reserved ({reservedSlots.length})
             </h2>
             <div className="space-y-2">
-              {reservedSlots.map(slot => (
-                <div key={slot.id} className="flex items-center justify-between p-3 border rounded-lg bg-yellow-50">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{formatDateTime(slot.startTime)}</p>
-                    <p className="text-xs text-gray-500">Appointment: {slot.appointmentId}</p>
+              {reservedSlots.map(slot => {
+                const studentId = slot.appointmentId?.split('_')?.[slot.appointmentId.split('_').length - 2] || '';
+                return (
+                  <div key={slot.id} className="flex items-center justify-between p-3 border rounded-lg bg-yellow-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{formatDateTime(slot.startTime)}</p>
+                      <p className="text-xs text-yellow-700">
+                        Reserved by: <strong>{studentNames[studentId] || 'Loading...'}</strong>
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
