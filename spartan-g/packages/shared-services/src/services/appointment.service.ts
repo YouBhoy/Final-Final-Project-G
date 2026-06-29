@@ -49,15 +49,18 @@ class AppointmentService {
     }
 
     const id = `${payload.facilitatorId}_${payload.studentId}_${Date.now()}`;
-    await appointmentRepository.create(id, {
+    const data: any = {
       studentId: payload.studentId,
       facilitatorId: payload.facilitatorId,
       scheduledAt: payload.scheduledAt as unknown as Timestamp,
       durationMinutes: payload.durationMinutes,
-      notes: payload.notes,
       status: 'requested',
       notifyBeforeMinutes: payload.notifyBeforeMinutes ?? 30,
-    } as AppointmentDocument);
+    };
+    if (payload.notes) {
+      data.notes = payload.notes;
+    }
+    await appointmentRepository.create(id, data as AppointmentDocument);
     return id;
   }
 

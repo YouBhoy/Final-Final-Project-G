@@ -70,26 +70,28 @@ export function StudentBookAppointmentPage() {
     try {
       const scheduledAt = selectedSlot.startTime.toDate();
       
-      // Reserve the slot
-      await appointmentSlotService.reserveSlot(selectedSlot.id, 'pending', user.role);
-      
-      // Create the appointment
-      const appointmentId = await appointmentService.requestAppointment({
+      // Reserve the slot first to prevent race conditions
+      const appointmentId = `${facilitatorId}_${user.uid}_${Date.now()}`;
+      await appointmentSlotService.reserveSlot(selectedSlot.id, appointmentId, user.role);
+
+      // Create the appointment after slot is reserved
+      const appointmentPayload: any = {
         studentId: user.uid,
         facilitatorId,
         scheduledAt,
         durationMinutes: 60,
-        notes: notes || undefined,
-      }, user.role);
-
-      // Link slot to appointment
-      await appointmentSlotService.reserveSlot(selectedSlot.id, appointmentId, user.role);
+      };
+      if (notes.trim()) {
+        appointmentPayload.notes = notes.trim();
+      }
+      await appointmentService.requestAppointment(appointmentPayload, user.role);
       
       setBookingMessage('Appointment requested successfully!');
       setTimeout(() => navigate('/student/appointments'), 2000);
     } catch (error) {
       console.error('Failed to book appointment:', error);
-      alert('Failed to book appointment. The slot may no longer be available.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to book appointment. ${errorMessage.includes('not available') ? 'The slot may no longer be available.' : 'Please try again.'}`);
     } finally {
       setIsBooking(false);
     }
@@ -133,7 +135,7 @@ export function StudentBookAppointmentPage() {
             <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded">&rarr;</button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <div key={d} className="text-xs font-medium text-gray-500 py-1">{d}</div>)}
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={`${d}-${i}`} className="text-xs font-medium text-gray-500 py-1">{d}</div>)}
             {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} />)}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;

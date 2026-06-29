@@ -32,40 +32,22 @@ export function FacilitatorWorkHoursPage() {
   }, [loadSchedules]);
 
   const handleToggleDay = async (dayOfWeek: number) => {
-    console.log('=== TOGGLE DAY CLICKED ===');
-    console.log('dayOfWeek:', dayOfWeek);
-    console.log('user:', user);
-    console.log('schedules:', schedules);
-    
-    if (!user) {
-      console.log('NO USER - aborting');
-      return;
-    }
+    if (!user) return;
     
     const existing = schedules.find(s => s.dayOfWeek === dayOfWeek);
-    console.log('existing schedule:', existing);
     
     try {
       if (existing) {
-        console.log('Toggling existing schedule:', existing.id, 'to', !existing.isActive);
         await workHoursService.toggleSchedule(existing.id, !existing.isActive, user.role);
       } else {
-        console.log('Creating new schedule for day:', dayOfWeek);
-        await workHoursService.createScheduleEntry({
-          facilitatorId: user.uid,
-          dayOfWeek,
-          startTime: '09:00',
-          endTime: '17:00',
-        }, user.role);
+        setEditingDay(dayOfWeek);
+        setStartTime('09:00');
+        setEndTime('17:00');
+        return;
       }
-      console.log('Reloading schedules...');
       await loadSchedules();
-      console.log('Success!');
     } catch (error) {
-      console.error('=== TOGGLE DAY ERROR ===');
-      console.error('Error object:', error);
-      console.error('Error message:', error instanceof Error ? error.message : 'Unknown');
-      console.error('Error stack:', error instanceof Error ? error.stack : 'N/A');
+      console.error('Failed to toggle day:', error);
       alert(error instanceof Error ? error.message : 'Failed to toggle day');
     }
   };
@@ -177,12 +159,12 @@ export function FacilitatorWorkHoursPage() {
                   </span>
                 )}
 
-                {!isEditing && isActive && (
+                {!isEditing && (
                   <button
                     onClick={() => startEdit(index)}
                     className="text-xs text-blue-600 hover:text-blue-800"
                   >
-                    Edit
+                    {isActive ? 'Edit' : 'Set Hours'}
                   </button>
                 )}
               </div>

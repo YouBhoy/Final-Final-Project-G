@@ -13,7 +13,7 @@ echo [1/2] Starting Spartan-G Web Application...
 echo.
 
 REM Start the dev server in a new window so it stays running
-start "Spartan-G Dev Server" cmd /k "npm run web"
+start "Spartan-G Dev Server" cmd /k "cd /d apps\web && ..\..\node_modules\.bin\vite.cmd"
 
 echo [2/2] Waiting for server to initialize...
 timeout /t 8 /nobreak >nul

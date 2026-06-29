@@ -129,7 +129,9 @@ class AppointmentSlotService {
   }
 
   async reserveSlot(slotId: string, appointmentId: string, actorRole: Role) {
-    if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) {
+    // Allow both MANAGE_APPOINTMENTS (facilitators/admins) and BOOK_APPOINTMENTS (students)
+    if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS) && 
+        !hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
       throw new PermissionError();
     }
 

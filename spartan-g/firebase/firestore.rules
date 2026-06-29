@@ -3,7 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Helpers ───────────────────────────────────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -40,7 +40,7 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
-    // â”€â”€â”€ Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Users ─────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isOwner(userId)
         || isFacilitatorOrAdmin()
@@ -55,7 +55,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // â”€â”€â”€ Profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Profiles ──────────────────────────────────────────────
     match /profiles/{userId} {
       allow read: if isOwner(userId)
         || isFacilitatorOrAdmin()
@@ -64,14 +64,14 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // â”€â”€â”€ Courses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Courses ───────────────────────────────────────────────
     match /courses/{courseId} {
       allow read: if isActiveUser()
         && (resource.data.isPublished == true || isFacilitatorOrAdmin());
       allow create, update, delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Enrollments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Enrollments ───────────────────────────────────────────
     match /enrollments/{enrollmentId} {
       allow read: if isActiveUser()
         && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
@@ -82,13 +82,13 @@ service cloud.firestore {
       allow delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Assignments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Assignments ───────────────────────────────────────────
     match /assignments/{assignmentId} {
       allow read: if isActiveUser();
       allow create, update, delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Submissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Submissions ───────────────────────────────────────────
     match /submissions/{submissionId} {
       allow read: if isActiveUser()
         && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
@@ -101,14 +101,14 @@ service cloud.firestore {
       allow delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Notifications ─────────────────────────────────────────
     match /notifications/{notificationId} {
       allow read, update: if isOwner(resource.data.userId);
       allow create: if isFacilitatorOrAdmin();
       allow delete: if isOwner(resource.data.userId) || isSuperAdmin();
     }
 
-    // â”€â”€â”€ Device Tokens (FCM) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Device Tokens (FCM) ───────────────────────────────────
     match /device_tokens/{tokenId} {
       allow read: if isOwner(resource.data.uid) || isSuperAdmin();
       allow create, update: if isAuthenticated()
@@ -116,7 +116,7 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.uid) || isSuperAdmin();
     }
 
-    // â”€â”€â”€ Announcements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Announcements ─────────────────────────────────────────
     match /announcements/{announcementId} {
       allow read: if isActiveUser()
         && (resource.data.isActive == true
@@ -125,14 +125,14 @@ service cloud.firestore {
       allow create, update, delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Audit Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Audit Logs ────────────────────────────────────────────
     match /audit_logs/{logId} {
       allow read: if isSuperAdmin();
       allow create: if isFacilitatorOrAdmin();
       allow update, delete: if false;
     }
 
-    // â”€â”€â”€ Risk Alerts (facilitator feature) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Risk Alerts (facilitator feature) ─────────────────────
     match /risk_alerts/{alertId} {
       allow read: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid);
@@ -140,7 +140,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // â”€â”€â”€ Appointments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Appointments ──────────────────────────────────────────
     match /appointments/{appointmentId} {
       allow read: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid);
@@ -159,7 +159,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // â”€â”€â”€ Facilitator-Student Links â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Facilitator-Student Links ─────────────────────────────
     match /facilitator_student_links/{linkId} {
       allow read: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid);
@@ -171,7 +171,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // â”€â”€â”€ Conversations & Messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Conversations & Messages ──────────────────────────────
     match /conversations/{conversationId} {
       allow read, update: if isActiveUser()
         && request.auth.uid in resource.data.participantIds;
@@ -189,7 +189,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // â”€â”€â”€ Work Hours Schedules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Work Hours Schedules ──────────────────────────────────
     match /work_hours_schedules/{scheduleId} {
       allow read: if isFacilitatorOrAdmin()
         || (isActiveUser() && resource.data.facilitatorId != null);
@@ -201,15 +201,15 @@ service cloud.firestore {
         && resource.data.facilitatorId == request.auth.uid;
     }
 
-    // â”€â”€â”€ Appointment Slots â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Appointment Slots ─────────────────────────────────────
     match /appointment_slots/{slotId} {
-      // Students can read available slots for any facilitator
+      // Any active user can read available slots
       allow read: if isActiveUser()
         && (resource.data.status == 'available' || isFacilitatorOrAdmin());
-      // Facilitators can read all their own slots (available, reserved, completed, cancelled)
+      // Facilitators can read all their own slots
       allow read: if isFacilitator()
         && resource.data.facilitatorId == request.auth.uid;
-      // Facilitators manage their own available slots
+      // Facilitators manage their own slots
       allow create: if isFacilitator()
         && request.resource.data.facilitatorId == request.auth.uid;
       allow update: if isFacilitator()
@@ -218,42 +218,36 @@ service cloud.firestore {
       allow delete: if isFacilitator()
         && resource.data.facilitatorId == request.auth.uid
         && resource.data.status == 'available';
+      // Students can reserve available slots
+      allow update: if isStudent()
+        && resource.data.status == 'available'
+        && request.resource.data.status == 'reserved'
+        && request.resource.data.appointmentId is string;
     }
 
-    // â”€â”€â”€ Assessment Templates (Phase 3A) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Assessment Templates (Phase 3A) ───────────────────────
     match /assessment_templates/{templateId} {
       allow read: if isActiveUser()
         && (resource.data.isActive == true || isFacilitatorOrAdmin());
       allow create, update, delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Assessment Questions (Phase 3A) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Assessment Questions (Phase 3A) ───────────────────────
     match /assessment_questions/{questionId} {
       allow read: if isActiveUser();
       allow create, update, delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Assessments (Phase 3A + Phase 3B) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Phase 3A: student attempt shells (has studentId + templateId + status)
-    // Phase 3B: course-based assessment definitions (has courseId + facilitatorId + isPublished + questions)
-    // Students can read:
-    //   - Phase 3A: their own assessment attempts (studentId matches)
-    //   - Phase 3B: published assessment definitions (isPublished == true)
-    // Facilitators/admins can read/create/update/delete all.
+    // ─── Assessments (Phase 3A + Phase 3B) ─────────────────────
     match /assessments/{assessmentId} {
       allow read: if isActiveUser()
         && (
-          // Phase 3A: student's own attempt
           resource.data.studentId == request.auth.uid
-          // Phase 3B: published assessment definition (any active user)
           || resource.data.isPublished == true
-          // Facilitator/admin override
           || isFacilitatorOrAdmin()
         );
-      // Phase 3A: students creating their own attempt shells
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid;
-      // Phase 3B: only super admins can create assessment definitions
       allow create: if isSuperAdmin();
       allow update: if isFacilitatorOrAdmin()
         || (isStudent()
@@ -262,7 +256,7 @@ service cloud.firestore {
       allow delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Assessment Responses (Phase 3A) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Assessment Responses (Phase 3A) ───────────────────────
     match /assessment_responses/{responseId} {
       allow read: if isActiveUser()
         && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
@@ -273,7 +267,7 @@ service cloud.firestore {
       allow delete: if isFacilitatorOrAdmin();
     }
 
-    // â”€â”€â”€ Assessment Attempts (Phase 3B) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Assessment Attempts (Phase 3B) ────────────────────────
     match /assessment_attempts/{attemptId} {
       allow read: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid);
