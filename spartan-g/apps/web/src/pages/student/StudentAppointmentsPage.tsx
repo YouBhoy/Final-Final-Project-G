@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { appointmentService } from '@spartan-g/shared-services';
-import { userService } from '@spartan-g/shared-services';
+import { useNavigate } from 'react-router-dom';
+import { appointmentService, userService, messagingService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
 import { AppointmentDocument } from '@spartan-g/shared-types';
 import { AppointmentStatusBadge } from '../../components/appointments/AppointmentStatusBadge';
@@ -8,6 +8,7 @@ import { AppointmentStatusBadge } from '../../components/appointments/Appointmen
 const STATUS_ORDER = ['requested', 'accepted', 'completed', 'cancelled', 'rejected', 'no_show'];
 
 export function StudentAppointmentsPage() {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<(AppointmentDocument & { id: string })[]>([]);
   const [facilitatorNames, setFacilitatorNames] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +97,17 @@ export function StudentAppointmentsPage() {
     );
   }
 
+  const handleMessageFacilitator = async (facilitatorId: string) => {
+    if (!user) return;
+    try {
+      const conversationId = [facilitatorId, user.uid].sort().join('_');
+      // Try to navigate to messages - conversation will be created if needed
+      navigate(`/student/messages`);
+    } catch (error) {
+      console.error('Failed to open messages:', error);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto">
       <h1 className="text-xl font-semibold text-gray-900 mb-6">My Appointments</h1>
@@ -121,15 +133,23 @@ export function StudentAppointmentsPage() {
                   </p>
                 )}
               </div>
-              {apt.status === 'requested' && (
+              <div className="flex flex-col gap-2">
+                {apt.status === 'requested' && (
+                  <button
+                    onClick={() => handleCancel(apt.id)}
+                    disabled={actionLoading === apt.id}
+                    className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
-                  onClick={() => handleCancel(apt.id)}
-                  disabled={actionLoading === apt.id}
-                  className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded hover:bg-red-50 disabled:opacity-50"
+                  onClick={() => handleMessageFacilitator(apt.facilitatorId)}
+                  className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded hover:bg-blue-50"
                 >
-                  Cancel
+                  Message
                 </button>
-              )}
+              </div>
             </div>
           </div>
         ))}
