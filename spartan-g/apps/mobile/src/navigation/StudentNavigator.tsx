@@ -5,8 +5,10 @@ import {
   StudentMobileTabParamList,
 } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
+import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
+import { AssessmentsListScreen } from '../screens/assessment/AssessmentsListScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
-import { AssessmentWizardScreen } from '../screens/assessment/AssessmentWizardScreen';
+import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessmentScreen';
 
 const Tab = createBottomTabNavigator<StudentMobileTabParamList>();
 const Stack = createNativeStackNavigator<StudentMobileStackParamList>();
@@ -21,13 +23,13 @@ function StudentTabs() {
       }}
     >
       <Tab.Screen name="StudentHome" options={{ title: 'Home' }}>
-        {() => <PlaceholderScreen routeName="StudentHome" />}
+        {() => <DashboardScreen portalName="Student Portal" />}
       </Tab.Screen>
       <Tab.Screen name="StudentCourses" options={{ title: 'Courses' }}>
         {() => <PlaceholderScreen routeName="StudentCourses" />}
       </Tab.Screen>
-      <Tab.Screen name="StudentAssignments" options={{ title: 'Assignments' }}>
-        {() => <PlaceholderScreen routeName="StudentAssignments" />}
+      <Tab.Screen name="StudentAssignments" options={{ title: 'Assessments' }}>
+        {() => <AssessmentsListScreen />}
       </Tab.Screen>
       <Tab.Screen name="StudentMessages" options={{ title: 'Messages' }}>
         {() => <PlaceholderScreen routeName="StudentMessages" />}
@@ -54,7 +56,7 @@ export function StudentNavigator() {
       </Stack.Screen>
       <Stack.Screen
         name="AssessmentWizard"
-        component={AssessmentWizardScreen}
+        component={TemplateAssessmentScreen}
         options={{ title: 'Assessment' }}
       />
     </Stack.Navigator>

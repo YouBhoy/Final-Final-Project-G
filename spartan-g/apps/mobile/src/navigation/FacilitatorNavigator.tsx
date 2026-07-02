@@ -5,6 +5,7 @@ import {
   FacilitatorMobileTabParamList,
 } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
+import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 
 const Tab = createBottomTabNavigator<FacilitatorMobileTabParamList>();
@@ -20,7 +21,7 @@ function FacilitatorTabs() {
       }}
     >
       <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Dashboard' }}>
-        {() => <PlaceholderScreen routeName="FacilitatorDashboard" />}
+        {() => <DashboardScreen portalName="Facilitator Portal" />}
       </Tab.Screen>
       <Tab.Screen name="RiskAlerts" options={{ title: 'Risk Alerts' }}>
         {() => <PlaceholderScreen routeName="RiskAlerts" />}
