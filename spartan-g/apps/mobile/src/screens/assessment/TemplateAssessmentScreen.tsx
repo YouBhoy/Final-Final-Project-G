@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList, AssessmentQuestionDocument, AssessmentResponseValue } from '@spartan-g/shared-types';
@@ -39,6 +40,9 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Local text input state — saved to Firestore only on blur/navigate, not on every keystroke
+  const [localTextInputs, setLocalTextInputs] = useState<Record<string, string>>({});
+  const textInputRef = useRef<TextInput | null>(null);
 
   // Load the assessment document on mount
   useEffect(() => {
@@ -152,6 +156,33 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
   const isLastStep = currentStep >= totalSteps - 1;
   const isOnReviewStep = currentStep >= totalSteps;
 
+  // Save the current text input to Firestore
+  const saveCurrentTextInput = useCallback(async () => {
+    const currentQuestion = questions[currentStep];
+    if (!currentQuestion || !assessmentId || !session) return;
+    if (currentQuestion.type !== 'short_text' && currentQuestion.type !== 'long_text') return;
+
+    const textValue = localTextInputs[currentQuestion.id];
+    if (textValue === undefined) return;
+
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: textValue }));
+    setSaveError(null);
+
+    try {
+      await assessmentResponseService.saveResponse(
+        {
+          assessmentId,
+          questionId: currentQuestion.id,
+          studentId: session.uid,
+          value: textValue,
+        },
+        session.role,
+      );
+    } catch {
+      setSaveError('Failed to save your answer. Check your connection.');
+    }
+  }, [currentStep, questions, localTextInputs, assessmentId, session]);
+
   const handleAnswer = useCallback(
     async (value: AssessmentResponseValue) => {
       if (!assessmentId || !session || !assessment) return;
@@ -181,13 +212,21 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
     [assessmentId, session, assessment, questions, currentStep],
   );
 
-  const handleNext = useCallback(() => {
-    setCurrentStep((prev) => Math.min(questions.length, prev + 1));
-  }, [questions.length]);
-
-  const handlePrevious = useCallback(() => {
-    setCurrentStep((prev) => Math.max(0, prev - 1));
+  const handleTextChange = useCallback((questionId: string, value: string) => {
+    setLocalTextInputs((prev) => ({ ...prev, [questionId]: value }));
   }, []);
+
+  const handleNext = useCallback(async () => {
+    // Save current text input before navigating
+    await saveCurrentTextInput();
+    setCurrentStep((prev) => Math.min(questions.length, prev + 1));
+  }, [questions.length, saveCurrentTextInput]);
+
+  const handlePrevious = useCallback(async () => {
+    // Save current text input before navigating
+    await saveCurrentTextInput();
+    setCurrentStep((prev) => Math.max(0, prev - 1));
+  }, [saveCurrentTextInput]);
 
   const handleNavigateToQuestion = useCallback((step: number) => {
     setCurrentStep(step);
@@ -504,6 +543,42 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
               })}
             </View>
           )}
+
+          {/* Short text — single line input */}
+          {currentQuestion.type === 'short_text' && (
+            <TextInput
+              ref={textInputRef}
+              style={styles.textInput}
+              placeholder="Type your answer..."
+              placeholderTextColor={lightColors.textMuted}
+              value={localTextInputs[currentQuestion.id] !== undefined
+                ? localTextInputs[currentQuestion.id]
+                : (typeof answers[currentQuestion.id] === 'string' ? answers[currentQuestion.id] as string : '')}
+              onChangeText={(v) => handleTextChange(currentQuestion.id, v)}
+              onBlur={() => saveCurrentTextInput()}
+              editable={!isSubmitting}
+              autoComplete="off"
+            />
+          )}
+
+          {/* Long text — multi-line input */}
+          {currentQuestion.type === 'long_text' && (
+            <TextInput
+              style={[styles.textInput, styles.textInputMultiline]}
+              placeholder="Type your answer..."
+              placeholderTextColor={lightColors.textMuted}
+              value={localTextInputs[currentQuestion.id] !== undefined
+                ? localTextInputs[currentQuestion.id]
+                : (typeof answers[currentQuestion.id] === 'string' ? answers[currentQuestion.id] as string : '')}
+              onChangeText={(v) => handleTextChange(currentQuestion.id, v)}
+              onBlur={() => saveCurrentTextInput()}
+              editable={!isSubmitting}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              autoComplete="off"
+            />
+          )}
         </View>
       ) : null}
 
@@ -769,6 +844,20 @@ const styles = StyleSheet.create({
   },
   scaleTextSelected: {
     color: '#FFFFFF',
+  },
+  textInput: {
+    backgroundColor: lightColors.surface,
+    borderWidth: 1,
+    borderColor: lightColors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: lightColors.text,
+  },
+  textInputMultiline: {
+    minHeight: 100,
+    paddingTop: 12,
   },
   reviewSection: {
     gap: 12,

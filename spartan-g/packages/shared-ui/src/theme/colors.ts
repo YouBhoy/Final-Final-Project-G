@@ -18,6 +18,21 @@ export const palette = {
   warning: '#D97706',
   error: '#DC2626',
   info: '#2563EB',
+  // Semantic palette additions
+  red50: '#FEF2F2',
+  red100: '#FEE2E2',
+  red200: '#FECACA',
+  red700: '#B91C1C',
+  green100: '#DCFCE7',
+  amber100: '#FEF3C7',
+  amber200: '#FCD34D',
+  amber700: '#92400E',
+  indigo50: '#EEF2FF',
+  indigo200: '#C7D2FE',
+  indigo700: '#4338CA',
+  indigo800: '#3730A3',
+  orange100: '#FFEDD5',
+  orange600: '#EA580C',
 } as const;
 
 export const lightColors = {
@@ -37,6 +52,26 @@ export const lightColors = {
   info: palette.info,
   tabBar: palette.white,
   tabBarBorder: palette.slate200,
+  // Semantic state backgrounds & borders
+  errorBackground: palette.red100,
+  errorBorder: palette.red200,
+  errorText: palette.red700,
+  errorLightBackground: palette.red50,
+  successBackground: palette.green100,
+  successText: palette.success,
+  warningBackground: palette.amber100,
+  warningBorder: palette.amber200,
+  warningText: palette.amber700,
+  infoBackground: palette.indigo50,
+  infoBorder: palette.indigo200,
+  infoText: palette.indigo800,
+  infoBadgeText: palette.indigo700,
+  neutralBackground: palette.slate100,
+  criticalBackground: palette.red50,
+  criticalBorder: palette.red200,
+  criticalText: palette.spartanRedDark,
+  moderateBackground: palette.orange100,
+  moderateText: palette.orange600,
 } as const;
 
 export const darkColors = {
@@ -56,6 +91,26 @@ export const darkColors = {
   info: palette.info,
   tabBar: palette.slate800,
   tabBarBorder: palette.slate700,
+  // Semantic state backgrounds & borders
+  errorBackground: '#7F1D1D',
+  errorBorder: palette.spartanRedDark,
+  errorText: '#FCA5A5',
+  errorLightBackground: '#450A0A',
+  successBackground: '#052E16',
+  successText: '#86EFAC',
+  warningBackground: '#451A03',
+  warningBorder: '#78350F',
+  warningText: '#FDE68A',
+  infoBackground: '#172554',
+  infoBorder: '#1E3A5F',
+  infoText: '#93C5FD',
+  infoBadgeText: '#93C5FD',
+  neutralBackground: palette.slate700,
+  criticalBackground: '#450A0A',
+  criticalBorder: palette.spartanRedDark,
+  criticalText: '#FCA5A5',
+  moderateBackground: '#431407',
+  moderateText: '#FDBA74',
 } as const;
 
 export type ColorScheme = typeof lightColors;

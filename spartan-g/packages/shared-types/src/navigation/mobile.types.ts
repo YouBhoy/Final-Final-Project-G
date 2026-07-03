@@ -44,6 +44,8 @@ export type FacilitatorMobileTabParamList = {
 
 export type FacilitatorMobileStackParamList = {
   FacilitatorTabs: NavigatorScreenParams<FacilitatorMobileTabParamList>;
+  FacilitatorAssessmentsList: undefined;
+  FacilitatorStudentsList: undefined;
   RiskAlertDetail: { alertId: string };
   AppointmentDetail: { appointmentId: string };
   ConversationDetail: { conversationId: string };

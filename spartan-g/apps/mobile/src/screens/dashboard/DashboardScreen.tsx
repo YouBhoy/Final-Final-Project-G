@@ -30,7 +30,8 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
   }, [signOut]);
 
   const handleNavigateToAssessments = useCallback(() => {
-    navigation?.navigate('AssessmentWizard', { assessmentId: 'rJNot7eBFTElrRXvj1GG' });
+    // Navigate to the Assessments tab where the user can pick from active templates
+    navigation?.navigate('StudentTabs', { screen: 'StudentAssignments' });
   }, [navigation]);
 
   return (

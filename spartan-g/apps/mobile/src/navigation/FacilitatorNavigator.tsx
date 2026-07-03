@@ -6,6 +6,9 @@ import {
 } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
+import { FacilitatorAssessmentsScreen } from '../screens/assessment/FacilitatorAssessmentsScreen';
+import { FacilitatorStudentsScreen } from '../screens/facilitator/FacilitatorStudentsScreen';
+import { RiskAlertsScreen } from '../screens/facilitator/RiskAlertsScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 
 const Tab = createBottomTabNavigator<FacilitatorMobileTabParamList>();
@@ -24,7 +27,7 @@ function FacilitatorTabs() {
         {() => <DashboardScreen portalName="Facilitator Portal" />}
       </Tab.Screen>
       <Tab.Screen name="RiskAlerts" options={{ title: 'Risk Alerts' }}>
-        {() => <PlaceholderScreen routeName="RiskAlerts" />}
+        {() => <RiskAlertsScreen />}
       </Tab.Screen>
       <Tab.Screen name="Appointments" options={{ title: 'Appointments' }}>
         {() => <PlaceholderScreen routeName="Appointments" />}
@@ -49,6 +52,16 @@ export function FacilitatorNavigator() {
         name="FacilitatorTabs"
         component={FacilitatorTabs}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="FacilitatorAssessmentsList"
+        component={FacilitatorAssessmentsScreen}
+        options={{ title: 'Assessments' }}
+      />
+      <Stack.Screen
+        name="FacilitatorStudentsList"
+        component={FacilitatorStudentsScreen}
+        options={{ title: 'Students' }}
       />
       <Stack.Screen name="RiskAlertDetail" options={{ title: 'Risk Alert' }}>
         {() => <PlaceholderScreen routeName="RiskAlertDetail" />}
