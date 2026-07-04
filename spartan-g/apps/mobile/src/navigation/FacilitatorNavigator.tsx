@@ -9,6 +9,9 @@ import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { FacilitatorAssessmentsScreen } from '../screens/assessment/FacilitatorAssessmentsScreen';
 import { FacilitatorStudentsScreen } from '../screens/facilitator/FacilitatorStudentsScreen';
 import { RiskAlertsScreen } from '../screens/facilitator/RiskAlertsScreen';
+import { WorkHoursScreen } from '../screens/facilitator/WorkHoursScreen';
+import { SlotsScreen } from '../screens/facilitator/SlotsScreen';
+import { AppointmentsScreen } from '../screens/facilitator/AppointmentsScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 
 const Tab = createBottomTabNavigator<FacilitatorMobileTabParamList>();
@@ -30,13 +33,13 @@ function FacilitatorTabs() {
         {() => <RiskAlertsScreen />}
       </Tab.Screen>
       <Tab.Screen name="Appointments" options={{ title: 'Appointments' }}>
-        {() => <PlaceholderScreen routeName="Appointments" />}
+        {() => <AppointmentsScreen />}
       </Tab.Screen>
       <Tab.Screen name="Messaging" options={{ title: 'Messages' }}>
         {() => <PlaceholderScreen routeName="Messaging" />}
       </Tab.Screen>
       <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Work Hours' }}>
-        {() => <PlaceholderScreen routeName="WorkHoursSchedule" />}
+        {() => <WorkHoursScreen />}
       </Tab.Screen>
       <Tab.Screen name="FacilitatorProfile" options={{ title: 'Profile' }}>
         {() => <PlaceholderScreen routeName="FacilitatorProfile" />}
@@ -62,6 +65,11 @@ export function FacilitatorNavigator() {
         name="FacilitatorStudentsList"
         component={FacilitatorStudentsScreen}
         options={{ title: 'Students' }}
+      />
+      <Stack.Screen
+        name="FacilitatorSlotsList"
+        component={SlotsScreen}
+        options={{ title: 'Slots' }}
       />
       <Stack.Screen name="RiskAlertDetail" options={{ title: 'Risk Alert' }}>
         {() => <PlaceholderScreen routeName="RiskAlertDetail" />}

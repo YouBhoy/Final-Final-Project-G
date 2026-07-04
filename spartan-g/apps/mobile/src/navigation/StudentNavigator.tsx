@@ -7,6 +7,9 @@ import {
 import { lightColors } from '@spartan-g/shared-ui';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { AssessmentsListScreen } from '../screens/assessment/AssessmentsListScreen';
+import { FindFacilitatorScreen } from '../screens/student/FindFacilitatorScreen';
+import { BookAppointmentScreen } from '../screens/student/BookAppointmentScreen';
+import { StudentAppointmentsScreen } from '../screens/student/StudentAppointmentsScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessmentScreen';
 
@@ -25,8 +28,8 @@ function StudentTabs() {
       <Tab.Screen name="StudentHome" options={{ title: 'Home' }}>
         {() => <DashboardScreen portalName="Student Portal" />}
       </Tab.Screen>
-      <Tab.Screen name="StudentCourses" options={{ title: 'Courses' }}>
-        {() => <PlaceholderScreen routeName="StudentCourses" />}
+      <Tab.Screen name="StudentCourses" options={{ title: 'Facilitators' }}>
+        {() => <FindFacilitatorScreen />}
       </Tab.Screen>
       <Tab.Screen name="StudentAssignments" options={{ title: 'Assessments' }}>
         {() => <AssessmentsListScreen />}
@@ -58,6 +61,16 @@ export function StudentNavigator() {
         name="AssessmentWizard"
         component={TemplateAssessmentScreen}
         options={{ title: 'Assessment' }}
+      />
+      <Stack.Screen
+        name="BookAppointment"
+        component={BookAppointmentScreen}
+        options={{ title: 'Book Appointment' }}
+      />
+      <Stack.Screen
+        name="StudentAppointments"
+        component={StudentAppointmentsScreen}
+        options={{ title: 'My Appointments' }}
       />
     </Stack.Navigator>
   );
