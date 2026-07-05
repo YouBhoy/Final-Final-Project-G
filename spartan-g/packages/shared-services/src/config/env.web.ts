@@ -1,32 +1,10 @@
-import { DeploymentTarget } from '@spartan-g/shared-types';
-
-type AppEnvironment = 'development' | 'staging' | 'production';
-
-interface EnvConfig {
-  appEnv: AppEnvironment;
-  isDev: boolean;
-  isProd: boolean;
-  firebase: {
-    apiKey: string;
-    authDomain: string;
-    projectId: string;
-    storageBucket: string;
-    messagingSenderId: string;
-    appId: string;
-    measurementId?: string;
-  };
-  eas: {
-    projectId?: string;
-  };
-}
+import type { EnvConfig, AppEnvironment } from './env.shared';
+import { resolveDeploymentTarget } from './env.shared';
 
 function optionalEnv(key: string): string | undefined {
   const processVal = typeof process !== 'undefined' ? process.env?.[key] : undefined;
   if (processVal) return processVal;
-  const metaVal =
-    typeof import.meta !== 'undefined'
-      ? (import.meta as { env?: Record<string, string> }).env?.[key]
-      : undefined;
+  const metaVal = import.meta.env?.[key];
   return metaVal || undefined;
 }
 
@@ -66,18 +44,4 @@ export const env: EnvConfig = {
   },
 };
 
-export function resolveDeploymentTarget(
-  platform: 'mobile' | 'web',
-  role: string | null,
-): DeploymentTarget | null {
-  if (!role) return null;
-  if (platform === 'mobile') {
-    if (role === 'student') return 'student_mobile';
-    if (role === 'facilitator') return 'facilitator_mobile';
-    return null;
-  }
-  if (role === 'student') return 'student_web';
-  if (role === 'facilitator') return 'facilitator_web';
-  if (role === 'super_admin') return 'super_admin_web';
-  return null;
-}
+export { resolveDeploymentTarget };
