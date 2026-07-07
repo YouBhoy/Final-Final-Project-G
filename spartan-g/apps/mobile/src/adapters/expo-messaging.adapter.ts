@@ -6,7 +6,7 @@ import {
   MessagingAdapter,
   PushRegistrationResult,
 } from '@spartan-g/shared-services';
-import { env } from '@spartan-g/shared-services';
+import { env } from '@spartan-g/shared-services/src/config/env';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

@@ -53,7 +53,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to your SPARTAN-G account">
+    <AuthLayout title="Welcome back" subtitle="Sign in to your student portal account">
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         {/* Error banner */}
         {error && (
@@ -71,6 +71,7 @@ export function LoginPage() {
           error={formErrors.email}
           autoComplete="email"
           disabled={isLoading}
+          className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
         <Input
@@ -82,18 +83,23 @@ export function LoginPage() {
           error={formErrors.password}
           autoComplete="current-password"
           disabled={isLoading}
+          className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
         <div className="flex items-center justify-end">
           <Link
             to="/forgot-password"
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            className="text-sm font-medium text-[var(--auth-primary)] hover:text-[var(--auth-primary-dark)]"
           >
-            Forgot password?
+            Forgot Password?
           </Link>
         </div>
 
-        <Button type="submit" isLoading={isLoading} className="w-full">
+        <Button
+          type="submit"
+          isLoading={isLoading}
+          className="w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
+        >
           Sign in
         </Button>
 
@@ -101,9 +107,9 @@ export function LoginPage() {
           Don't have an account?{" "}
           <Link
             to="/register"
-            className="font-medium text-indigo-600 hover:text-indigo-500"
+            className="font-medium text-[var(--auth-primary)] hover:text-[var(--auth-primary-dark)]"
           >
-            Create one
+            Sign up
           </Link>
         </p>
       </form>
