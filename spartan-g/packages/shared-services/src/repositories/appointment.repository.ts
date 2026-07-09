@@ -1,5 +1,5 @@
 import { COLLECTIONS, AppointmentDocument } from '@spartan-g/shared-types';
-import { where, orderBy } from '../firebase/firestore';
+import { where, orderBy, Timestamp } from '../firebase/firestore';
 import { BaseRepository } from './base.repository';
 
 class AppointmentRepository extends BaseRepository<AppointmentDocument> {
@@ -27,6 +27,16 @@ class AppointmentRepository extends BaseRepository<AppointmentDocument> {
     return this.getAll([
       where('studentId', '==', studentId),
       orderBy('scheduledAt', 'desc'),
+    ]);
+  }
+
+  /** Fetch active (requested or accepted) appointments for a date range. */
+  async getActiveByDateRange(facilitatorId: string, startDate: Date, endDate: Date) {
+    return this.getAll([
+      where('facilitatorId', '==', facilitatorId),
+      where('status', 'in', ['requested', 'accepted']),
+      where('scheduledAt', '>=', Timestamp.fromDate(startDate)),
+      where('scheduledAt', '<=', Timestamp.fromDate(endDate)),
     ]);
   }
 }
