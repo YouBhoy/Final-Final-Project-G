@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
 import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
+import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
 import { StudentMessagesPage } from "../pages/messaging/StudentMessagesPage";
 import { StudentAppointmentsPage } from "../pages/student/StudentAppointmentsPage";
 import { StudentFindFacilitatorPage } from "../pages/student/StudentFindFacilitatorPage";
@@ -42,6 +43,10 @@ export function StudentPortalRoutes() {
         <Route
           path="assessments"
           element={<StudentAssessmentsPage />}
+        />
+        <Route
+          path="assessment/:assessmentId"
+          element={<AssessmentWizardPage />}
         />
         <Route
           path="checkins"
