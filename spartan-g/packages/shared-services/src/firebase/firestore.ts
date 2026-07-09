@@ -18,6 +18,7 @@ import {
   DocumentData,
   QueryConstraint,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 
 import { getFirebaseApp } from './app';
@@ -47,6 +48,7 @@ export {
   serverTimestamp,
   Timestamp,
   writeBatch,
+  runTransaction,
 };
 
 export type { DocumentData, QueryConstraint, Unsubscribe } from 'firebase/firestore';
