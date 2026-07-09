@@ -17,7 +17,7 @@ class AppointmentRepository extends BaseRepository<AppointmentDocument> {
   async getUpcomingByFacilitator(facilitatorId: string) {
     return this.getAll([
       where('facilitatorId', '==', facilitatorId),
-      where('status', '==', 'scheduled'),
+      where('status', '==', 'accepted'),
       orderBy('scheduledAt', 'asc'),
     ]);
   }

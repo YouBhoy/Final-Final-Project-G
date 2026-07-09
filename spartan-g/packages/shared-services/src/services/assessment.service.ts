@@ -255,9 +255,10 @@ class AssessmentService {
     let overallRiskLevel: string | undefined;
     let overallRiskScore: number | undefined;
     let riskFlags: RiskFlag[] | undefined;
+    let evaluation: RiskEvaluationResult | undefined;
 
     try {
-      const evaluation = evaluateAssessmentRisk(answersRecord);
+      evaluation = evaluateAssessmentRisk(answersRecord);
       overallRiskLevel = evaluation.overallRiskLevel;
       overallRiskScore = evaluation.overallRiskScore;
       riskFlags = evaluation.riskFlags;
@@ -282,20 +283,17 @@ class AssessmentService {
         const assessmentDef = await this.getAssessmentDefinition(attempt.assessmentId);
         const facilitatorId = assessmentDef?.facilitatorId ?? 'unknown';
 
-        // Construct a partial evaluation object — domainResults are not available
-        // at submission time from answers alone, but createAlert uses only the
-        // top-level fields and riskFlags (which we have) for the alert summary.
+        // Pass the real evaluation object from evaluateAssessmentRisk() directly.
+        // It contains domainResults (phq9, gad7, dass21) which createAlert uses
+        // for the alert title severity description.
+        // evaluation is guaranteed to be defined here because we only reach this
+        // block when overallRiskLevel is non-undefined (set alongside evaluation).
+        if (!evaluation) return;
         await riskAlertService.createAlert({
           studentId: attempt.studentId,
           facilitatorId,
           assessmentAttemptId: attemptId,
-          evaluation: {
-            overallRiskLevel: overallRiskLevel as any,
-            overallRiskScore: overallRiskScore ?? 0,
-            riskFlags: riskFlags ?? [],
-            requiresImmediateAttention: overallRiskLevel === 'critical',
-            domainResults: {} as any,
-          } as RiskEvaluationResult,
+          evaluation,
         });
       } catch {
         // Alert creation failure should not block submission
