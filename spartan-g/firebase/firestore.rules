@@ -181,7 +181,14 @@ service cloud.firestore {
     }
 
     match /messages/{messageId} {
-      allow read: if isActiveUser();
+      // Only conversation participants or super admins may read messages.
+      // The conversationId on each message maps to a conversation document
+      // that lists participantIds.
+      allow read: if isActiveUser()
+        && (isSuperAdmin()
+          || resource.data.senderId == request.auth.uid
+          || exists(/databases/$(database)/documents/conversations/$(resource.data.conversationId))
+            && get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participantIds.hasAny([request.auth.uid]));
       allow create: if isActiveUser()
         && request.resource.data.senderId == request.auth.uid;
       allow update: if isAuthenticated()
