@@ -5,6 +5,7 @@ import {
   sendPasswordResetEmail,
   onAuthStateChanged,
   updateProfile,
+  deleteUser,
   type User,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -18,34 +19,53 @@ export async function registerUser(
   lastName: string,
   role: Role = "student"
 ): Promise<AuthUser> {
-  const { user } = await createUserWithEmailAndPassword(auth, email, password);
+  let firebaseUser: User | null = null;
 
-  await updateProfile(user, {
-    displayName: `${firstName} ${lastName}`,
-  });
+  try {
+    // Step 1: Create Firebase Auth user
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    firebaseUser = result.user;
 
-  const userDoc: Omit<UserDocument, "createdAt" | "updatedAt"> = {
-    uid: user.uid,
-    firstName,
-    lastName,
-    email: user.email!,
-    role,
-    isActive: true,
-  };
+    // Step 2: Update profile
+    await updateProfile(firebaseUser, {
+      displayName: `${firstName} ${lastName}`,
+    });
 
-  await setDoc(doc(db, "users", user.uid), {
-    ...userDoc,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    // Step 3: Create Firestore user document
+    const userDoc: Omit<UserDocument, "createdAt" | "updatedAt"> = {
+      uid: firebaseUser.uid,
+      firstName,
+      lastName,
+      email: firebaseUser.email!,
+      role,
+      isActive: true,
+    };
 
-  return {
-    uid: user.uid,
-    email: user.email,
-    displayName: user.displayName,
-    role,
-    isActive: true,
-  };
+    await setDoc(doc(db, "users", firebaseUser.uid), {
+      ...userDoc,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      displayName: firebaseUser.displayName,
+      role,
+      isActive: true,
+    };
+  } catch (error) {
+    // If Firestore write failed, clean up the Firebase Auth user
+    if (firebaseUser) {
+      try {
+        await deleteUser(firebaseUser);
+      } catch (deleteError) {
+        // Log but don't throw - the main error is more important
+        console.error("Failed to clean up Firebase Auth user:", deleteError);
+      }
+    }
+    throw error;
+  }
 }
 
 export async function loginUser(
