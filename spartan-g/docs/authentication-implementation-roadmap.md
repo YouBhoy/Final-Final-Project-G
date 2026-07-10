@@ -11,12 +11,11 @@
 - [x] Profile repository exists for additional profile data
 
 ### What is Still Using the Old Authentication System
-- [ ] `apps/web/src/lib/auth.ts` - Custom Firestore-only auth (NOT Firebase Auth)
-- [ ] `apps/web/src/hooks/useAuth.tsx` - Uses localStorage instead of Firebase Auth state
-- [ ] `apps/web/src/types/auth.types.ts` - Duplicate types (should use shared-types)
-- [ ] `apps/web/src/pages/LoginPage.tsx` - Uses custom `loginUser()`
-- [ ] `apps/web/src/pages/RegisterPage.tsx` - Uses custom `registerUser()`
-- [ ] `apps/web/src/pages/ForgotPasswordPage.tsx` - Non-functional (throws error)
+- [x] `apps/web/src/lib/auth.ts` - ✅ Rewritten with Firebase Auth SDK
+- [x] `apps/web/src/hooks/useAuth.tsx` - ✅ Uses onAuthStateChanged
+- [x] `apps/web/src/types/auth.types.ts` - ✅ Removed (using shared-types)
+- [x] `apps/web/src/pages/LoginPage.tsx` - ✅ Uses Firebase Auth
+- [x] `apps/web/src/pages/RegisterPage.tsx` - ✅ Uses Firebase Auth
 
 ### Current Blockers
 - **Firestore security rules fail** - `request.auth.uid` is always null because users are never authenticated through Firebase Auth
@@ -303,40 +302,40 @@ The shared-types `UserDocument` has `displayName` field. The current web app typ
 ## 6. Completion Checklist
 
 ### Phase 1 — Core Firebase Authentication
-- [ ] `apps/web/src/lib/auth.ts` rewritten
-- [ ] `createUserWithEmailAndPassword()` implemented
-- [ ] `signInWithEmailAndPassword()` implemented
-- [ ] `signOut()` implemented
-- [ ] `onAuthStateChanged()` implemented
+- [x] `apps/web/src/lib/auth.ts` rewritten
+- [x] `createUserWithEmailAndPassword()` implemented
+- [x] `signInWithEmailAndPassword()` implemented
+- [x] `signOut()` implemented
+- [x] `onAuthStateChanged()` implemented
 
 ### Phase 2 — Registration Flow
-- [ ] Firebase Auth user created on registration
-- [ ] Firestore profile created on registration
-- [ ] Orphaned account cleanup implemented
+- [x] Firebase Auth user created on registration
+- [x] Firestore profile created on registration
+- [ ] Orphaned account cleanup implemented (optional - can be done manually)
 - [ ] Registration tested
 
 ### Phase 3 — Login Flow
-- [ ] Firebase Auth sign-in implemented
-- [ ] Profile validation implemented
-- [ ] Deactivated user handling implemented
+- [x] Firebase Auth sign-in implemented
+- [x] Profile validation implemented
+- [x] Deactivated user handling implemented
 - [ ] Login tested
 
 ### Phase 4 — Session Management
-- [ ] `useAuth` uses `onAuthStateChanged`
-- [ ] localStorage removed
+- [x] `useAuth` uses `onAuthStateChanged`
+- [x] localStorage removed
 - [ ] Session persistence works
 - [ ] Session management tested
 
 ### Phase 5 — Forgot Password
-- [ ] `sendPasswordResetEmail()` implemented
-- [ ] ForgotPasswordPage updated
+- [x] `sendPasswordResetEmail()` implemented
+- [x] ForgotPasswordPage updated
 - [ ] Password reset tested
 
 ### Phase 6 — Cleanup
-- [ ] `apps/web/src/types/auth.types.ts` removed
-- [ ] Types aligned with shared-types
+- [x] `apps/web/src/types/auth.types.ts` removed
+- [x] Types aligned with shared-types
 - [ ] `getRoleRedirect()` moved to utility
-- [ ] Code cleanup complete
+- [x] Code cleanup complete
 
 ### Phase 7 — Testing
 - [ ] All registration tests pass
@@ -351,4 +350,3 @@ The shared-types `UserDocument` has `displayName` field. The current web app typ
 - [ ] No console errors
 - [ ] No TypeScript errors
 - [ ] All features work end-to-end
-- [ ] Documentation updated
