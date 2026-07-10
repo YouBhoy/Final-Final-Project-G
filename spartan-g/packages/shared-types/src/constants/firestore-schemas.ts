@@ -95,6 +95,9 @@ export const FIRESTORE_SCHEMAS = {
   risk_alerts: {
     studentId: 'string',
     facilitatorId: 'string',
+    assessmentAttemptId: 'string',
+    overallRiskScore: 'number',
+    riskFlags: '{ type: string; label: string; severity: string }[]',
     severity: 'low | medium | high | critical',
     title: 'string',
     description: 'string',
