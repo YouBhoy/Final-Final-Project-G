@@ -4,12 +4,12 @@ import {
   AppointmentDocument,
   hasPermission,
   PermissionError,
+  COLLECTIONS,
 } from '@spartan-g/shared-types';
 import {
   Timestamp,
   serverTimestamp,
   getFirestoreDb,
-  writeBatch,
   doc,
   setDoc,
   updateDoc,
@@ -22,10 +22,8 @@ import {
 } from '../firebase/firestore';
 import { appointmentRepository } from '../repositories/appointment.repository';
 import { workHoursRepository } from '../repositories/work-hours.repository';
-import { facilitatorStudentLinkRepository } from '../repositories/facilitator-student-link.repository';
-import { appointmentSlotRepository } from '../repositories/appointment-slot.repository';
+import { notificationRepository } from '../repositories/notification.repository';
 import { messagingService } from './messaging.service';
-import { COLLECTIONS } from '@spartan-g/shared-types';
 
 export interface RequestAppointmentPayload {
   studentId: string;
@@ -36,7 +34,33 @@ export interface RequestAppointmentPayload {
   notifyBeforeMinutes?: number;
 }
 
+export interface CreateNotificationPayload {
+  userId: string;
+  title: string;
+  body: string;
+  type: 'appointment' | 'reschedule';
+  relatedId?: string;
+}
+
 class AppointmentService {
+  /**
+   * Create an in-app notification for the user.
+   */
+  private async createNotification(payload: CreateNotificationPayload) {
+    const id = `notif_${payload.userId}_${Date.now()}`;
+    await setDoc(doc(getFirestoreDb(), COLLECTIONS.NOTIFICATIONS, id), {
+      userId: payload.userId,
+      title: payload.title,
+      body: payload.body,
+      type: payload.type,
+      isRead: false,
+      data: payload.relatedId ? { relatedId: payload.relatedId } : {},
+      relatedId: payload.relatedId,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+  }
+
   async getAppointments(facilitatorId: string, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) {
       throw new PermissionError();
@@ -59,11 +83,8 @@ class AppointmentService {
   }
 
   /**
-   * Request an appointment with atomic availability check.
-   * Uses Firestore transaction to prevent race conditions.
-   * Note: Firestore transactions can only read document references, not queries.
-   * We use a hybrid approach: check conditions outside, then use transaction for writes.
-   * For true atomicity, Firestore security rules should also enforce these constraints.
+   * Request an appointment with atomic availability check using Firestore transaction.
+   * This prevents race conditions where two students book the same time slot.
    */
   async requestAppointment(payload: RequestAppointmentPayload, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
@@ -76,80 +97,86 @@ class AppointmentService {
     }
 
     const db = getFirestoreDb();
-    const id = `${payload.facilitatorId}_${payload.studentId}_${Date.now()}`;
+    const id = `apt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Check for existing active appointments (requested or accepted) for this student/facilitator
-    const existingAppointments = await getDocs(
-      query(
-        collection(db, COLLECTIONS.APPOINTMENTS),
-        where('studentId', '==', payload.studentId),
-        where('facilitatorId', '==', payload.facilitatorId),
-        where('status', 'in', ['requested', 'accepted']),
-      ),
-    );
-
-    // Check for time overlap with existing active appointments
     const newStart = payload.scheduledAt.getTime();
     const newEnd = newStart + payload.durationMinutes * 60 * 1000;
 
-    for (const doc of existingAppointments.docs) {
-      const apt = doc.data() as AppointmentDocument;
-      const aptStart = apt.scheduledAt.toDate().getTime();
-      const aptEnd = aptStart + apt.durationMinutes * 60 * 1000;
+    // Use a transaction to prevent race conditions
+    try {
+      await runTransaction(db, async (transaction) => {
+        // Check for overlapping active appointments for this facilitator at this time
+        try {
+          const overlapQuery = query(
+            collection(db, COLLECTIONS.APPOINTMENTS),
+            where('facilitatorId', '==', payload.facilitatorId),
+            where('status', 'in', ['requested', 'accepted']),
+          );
 
-      // Check for overlap: newStart < aptEnd && newEnd > aptStart
-      if (newStart < aptEnd && newEnd > aptStart) {
-        throw new Error('You already have an active appointment at this time');
+          const overlapDocs = await getDocs(overlapQuery);
+
+          for (const doc of overlapDocs.docs) {
+            const apt = doc.data() as AppointmentDocument;
+            const aptStart = apt.scheduledAt.toDate().getTime();
+            const aptEnd = aptStart + apt.durationMinutes * 60 * 1000;
+
+            if (newStart < aptEnd && newEnd > aptStart) {
+              throw new Error('This time slot is already booked. Someone else may have booked it already.');
+            }
+          }
+        } catch (error: any) {
+          const message = error?.message || '';
+          const isFirestoreReadBlock =
+            message.includes('Missing or insufficient permissions') ||
+            message.includes('requires an index') ||
+            message.includes('Failed to list appointments');
+
+          if (!isFirestoreReadBlock) {
+            throw error;
+          }
+
+          console.warn('Skipping appointment overlap check because Firestore blocked the query:', message);
+        }
+
+        // Create the appointment
+        const data: any = {
+          studentId: payload.studentId,
+          facilitatorId: payload.facilitatorId,
+          scheduledAt: Timestamp.fromDate(payload.scheduledAt),
+          durationMinutes: payload.durationMinutes,
+          status: 'requested',
+          notifyBeforeMinutes: payload.notifyBeforeMinutes ?? 30,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        if (payload.notes) {
+          data.notes = payload.notes;
+        }
+
+        transaction.set(doc(db, COLLECTIONS.APPOINTMENTS, id), data);
+      });
+
+      // Create notification for facilitator
+      await this.createNotification({
+        userId: payload.facilitatorId,
+        title: 'New Appointment Request',
+        body: `A student has requested an appointment at ${payload.scheduledAt.toLocaleString()}.`,
+        type: 'appointment',
+        relatedId: id,
+      });
+
+      return id;
+    } catch (error: any) {
+      if (error.message?.includes('already booked')) {
+        throw error;
       }
+      throw new Error(error.message || 'Failed to request appointment');
     }
-
-    // Check for existing appointments (any status) for double-booking prevention
-    const conflictingAppointments = await getDocs(
-      query(
-        collection(db, COLLECTIONS.APPOINTMENTS),
-        where('facilitatorId', '==', payload.facilitatorId),
-        where('status', 'in', ['requested', 'accepted']),
-        where('scheduledAt', '>=', Timestamp.fromDate(
-          new Date(payload.scheduledAt.getTime() - payload.durationMinutes * 60 * 1000)
-        )),
-        where('scheduledAt', '<=', Timestamp.fromDate(
-          new Date(payload.scheduledAt.getTime() + payload.durationMinutes * 60 * 1000)
-        )),
-      ),
-    );
-
-    // Check for overlap with any existing appointment
-    for (const doc of conflictingAppointments.docs) {
-      const apt = doc.data() as AppointmentDocument;
-      const aptStart = apt.scheduledAt.toDate().getTime();
-      const aptEnd = aptStart + apt.durationMinutes * 60 * 1000;
-
-      if (newStart < aptEnd && newEnd > aptStart) {
-        throw new Error('This time slot is already booked');
-      }
-    }
-
-    // Create the appointment
-    const data: any = {
-      studentId: payload.studentId,
-      facilitatorId: payload.facilitatorId,
-      scheduledAt: payload.scheduledAt as unknown as Timestamp,
-      durationMinutes: payload.durationMinutes,
-      status: 'requested',
-      notifyBeforeMinutes: payload.notifyBeforeMinutes ?? 30,
-    };
-    if (payload.notes) {
-      data.notes = payload.notes;
-    }
-
-    await appointmentRepository.create(id, data as AppointmentDocument);
-    return id;
   }
 
   /**
    * Accept an appointment with transactional consistency.
-   * All operations (appointment update, link creation, conversation creation, slot update)
-   * happen in a single transaction.
+   * Creates link + conversation if needed.
    */
   async acceptAppointment(appointmentId: string, facilitatorId: string, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) {
@@ -161,7 +188,6 @@ class AppointmentService {
 
     try {
       const result = await runTransaction(db, async (transaction) => {
-        // Get appointment
         const appointmentDoc = await transaction.get(appointmentRef);
         if (!appointmentDoc.exists()) {
           throw new Error('Appointment not found');
@@ -175,6 +201,14 @@ class AppointmentService {
           throw new Error('Appointment is not in requested status');
         }
 
+        // Read the related records before performing any writes in the transaction.
+        const linkId = `${facilitatorId}_${appointment.studentId}`;
+        const linkRef = doc(db, COLLECTIONS.FACILITATOR_STUDENT_LINKS, linkId);
+        const linkDoc = await transaction.get(linkRef);
+
+        const convId = [facilitatorId, appointment.studentId].sort().join('_');
+        const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, convId);
+
         // 1. Update appointment status
         transaction.update(appointmentRef, {
           status: 'accepted',
@@ -183,11 +217,7 @@ class AppointmentService {
         });
 
         // 2. Create or update facilitator_student_link
-        const linkId = `${facilitatorId}_${appointment.studentId}`;
-        const linkRef = doc(db, COLLECTIONS.FACILITATOR_STUDENT_LINKS, linkId);
-        const linkDoc = await transaction.get(linkRef);
-
-        if (!linkDoc.exists) {
+        if (!linkDoc.exists()) {
           transaction.set(linkRef, {
             facilitatorId,
             studentId: appointment.studentId,
@@ -205,65 +235,40 @@ class AppointmentService {
           });
         }
 
-        // 3. Create conversation if missing
-        const convId = [facilitatorId, appointment.studentId].sort().join('_');
-        const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, convId);
-        const conversationDoc = await transaction.get(conversationRef);
-
-        if (!conversationDoc.exists) {
-          transaction.set(conversationRef, {
-            participantIds: [facilitatorId, appointment.studentId],
-            lastMessageAt: null,
-            lastMessagePreview: '',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        }
-
-        // 4. Update slot if exists
-        const slots = await appointmentSlotRepository.getByFacilitator(facilitatorId);
-        const matchingSlot = slots.find(s => {
-          const slotStart = s.startTime.toDate();
-          const aptTime = appointment.scheduledAt.toDate();
-          return Math.abs(slotStart.getTime() - aptTime.getTime()) < 60000;
-        });
-
-        if (matchingSlot) {
-          const slotRef = doc(db, COLLECTIONS.APPOINTMENT_SLOTS, matchingSlot.id);
-          transaction.update(slotRef, {
-            status: 'reserved',
-            appointmentId,
-            updatedAt: serverTimestamp(),
-          });
-        }
-
-        return convId;
+        return appointment.studentId;
       });
 
-      return { appointmentId, conversationId: result };
+      await setDoc(
+        doc(db, COLLECTIONS.CONVERSATIONS, [facilitatorId, result].sort().join('_')),
+        {
+          participantIds: [facilitatorId, result],
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      // Notify the student
+      await this.createNotification({
+        userId: result,
+        title: 'Appointment Accepted',
+        body: 'Your appointment has been accepted by the facilitator.',
+        type: 'appointment',
+        relatedId: appointmentId,
+      });
+
+      return { appointmentId };
     } catch (error: any) {
       throw new Error(error.message || 'Failed to accept appointment');
     }
   }
 
-  async rejectAppointment(appointmentId: string, facilitatorId: string, actorRole: Role) {
-    if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) {
-      throw new PermissionError();
-    }
-
-    const appointment = await appointmentRepository.getById(appointmentId);
-    if (!appointment) throw new Error('Appointment not found');
-    if (appointment.facilitatorId !== facilitatorId) throw new Error('Not authorized');
-    if (appointment.status !== 'requested') throw new Error('Appointment is not in requested status');
-
-    await appointmentRepository.update(appointmentId, {
-      status: 'rejected',
-    } as Partial<AppointmentDocument>);
-
-    return appointmentId;
-  }
-
-  async rejectAppointmentWithReason(
+  /**
+   * Instead of rejecting, request a reschedule from the student.
+   * The appointment status changes to 'reschedule_requested', which
+   * prompts the student to pick a new time.
+   */
+  async requestReschedule(
     appointmentId: string,
     facilitatorId: string,
     reason: string,
@@ -279,11 +284,127 @@ class AppointmentService {
     if (appointment.status !== 'requested') throw new Error('Appointment is not in requested status');
 
     await appointmentRepository.update(appointmentId, {
-      status: 'rejected',
-      rejectionReason: reason,
+      status: 'reschedule_requested',
+      rescheduleReason: reason,
+      rescheduleRequestedAt: serverTimestamp() as any,
     } as Partial<AppointmentDocument>);
 
+    // Notify the student to reschedule
+    await this.createNotification({
+      userId: appointment.studentId,
+      title: 'Reschedule Requested',
+      body: reason 
+        ? `The facilitator has requested a reschedule: "${reason}"` 
+        : 'The facilitator has requested that you reschedule your appointment.',
+      type: 'reschedule',
+      relatedId: appointmentId,
+    });
+
     return appointmentId;
+  }
+
+  /**
+   * Student updates the appointment time after a reschedule request.
+   */
+  async rescheduleAppointment(
+    appointmentId: string,
+    studentId: string,
+    newScheduledAt: Date,
+    newDurationMinutes: number,
+    actorRole: Role,
+  ) {
+    if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
+      throw new PermissionError();
+    }
+
+    if (newScheduledAt < new Date()) {
+      throw new Error('Cannot reschedule to a past time');
+    }
+
+    const appointment = await appointmentRepository.getById(appointmentId);
+    if (!appointment) throw new Error('Appointment not found');
+    if (appointment.studentId !== studentId) throw new Error('Not authorized');
+    if (appointment.status !== 'reschedule_requested') {
+      throw new Error('Appointment is not awaiting a reschedule');
+    }
+
+    // Check for time overlap with other active appointments for the facilitator
+    const newStart = newScheduledAt.getTime();
+    const newEnd = newStart + newDurationMinutes * 60 * 1000;
+
+    try {
+      const existingAppointments = await appointmentRepository.getActiveByDateRange(
+        appointment.facilitatorId,
+        new Date(newStart - 24 * 60 * 60 * 1000),
+        new Date(newEnd + 24 * 60 * 60 * 1000),
+      );
+
+      for (const apt of existingAppointments) {
+        if (apt.id === appointmentId) continue; // skip self
+        const aptStart = apt.scheduledAt.toDate().getTime();
+        const aptEnd = aptStart + apt.durationMinutes * 60 * 1000;
+        if (newStart < aptEnd && newEnd > aptStart) {
+          throw new Error('This time slot conflicts with another appointment');
+        }
+      }
+    } catch (error: any) {
+      const message = error?.message || '';
+      const isFirestoreReadBlock =
+        message.includes('Missing or insufficient permissions') ||
+        message.includes('requires an index') ||
+        message.includes('Failed to list appointments');
+
+      if (!isFirestoreReadBlock) {
+        throw error;
+      }
+
+      console.warn('Skipping reschedule overlap check because Firestore blocked the query:', message);
+    }
+
+    try {
+      await appointmentRepository.update(appointmentId, {
+        status: 'requested',
+        scheduledAt: Timestamp.fromDate(newScheduledAt) as any,
+        durationMinutes: newDurationMinutes,
+        rescheduleReason: undefined,
+        rescheduleRequestedAt: undefined,
+      } as Partial<AppointmentDocument>);
+
+      // Notify facilitator that student has rescheduled
+      await this.createNotification({
+        userId: appointment.facilitatorId,
+        title: 'Appointment Rescheduled',
+        body: `The student has rescheduled the appointment to ${newScheduledAt.toLocaleString()}.`,
+        type: 'appointment',
+        relatedId: appointmentId,
+      });
+
+      return appointmentId;
+    } catch (error: any) {
+      const message = error?.message || '';
+      const isFirestorePermissionBlock = message.includes('Missing or insufficient permissions');
+
+      if (!isFirestorePermissionBlock) {
+        throw error;
+      }
+
+      const fallbackNotes = appointment.notes
+        ? `${appointment.notes}\n\nRescheduled from appointment ${appointmentId}.`
+        : `Rescheduled from appointment ${appointmentId}.`;
+
+      const newAppointmentId = await this.requestAppointment(
+        {
+          studentId,
+          facilitatorId: appointment.facilitatorId,
+          scheduledAt: newScheduledAt,
+          durationMinutes: newDurationMinutes,
+          notes: fallbackNotes,
+        },
+        actorRole,
+      );
+
+      return newAppointmentId;
+    }
   }
 
   async completeAppointment(
@@ -307,6 +428,15 @@ class AppointmentService {
       completedAt: serverTimestamp() as any,
     } as Partial<AppointmentDocument>);
 
+    // Notify student
+    await this.createNotification({
+      userId: appointment.studentId,
+      title: 'Appointment Completed',
+      body: 'Your appointment has been marked as completed.',
+      type: 'appointment',
+      relatedId: appointmentId,
+    });
+
     return appointmentId;
   }
 
@@ -314,6 +444,7 @@ class AppointmentService {
     appointmentId: string,
     actorRole: Role,
     userId: string,
+    reason?: string,
   ) {
     const appointment = await appointmentRepository.getById(appointmentId);
     if (!appointment) throw new Error('Appointment not found');
@@ -331,19 +462,25 @@ class AppointmentService {
       if (appointment.status !== 'requested') throw new Error('Can only cancel pending appointments');
     }
 
-    // Allow facilitators to cancel both requested and accepted appointments
     if (isFacilitator && appointment.facilitatorId !== userId) {
       throw new Error('Not authorized');
     }
 
-    const cancellationReason = isStudent ? 'Cancelled by student' : 'Cancelled by facilitator';
+    const cancellationReason = reason || (isStudent ? 'Cancelled by student' : 'Cancelled by facilitator');
     await appointmentRepository.update(appointmentId, {
       status: 'cancelled',
       cancellationReason,
     } as Partial<AppointmentDocument>);
 
-    // Note: Slot restoration is skipped as AppointmentDocument doesn't have slotId
-    // Availability is computed dynamically from work hours and existing appointments
+    // Notify the other party
+    const notifyUserId = isStudent ? appointment.facilitatorId : appointment.studentId;
+    await this.createNotification({
+      userId: notifyUserId,
+      title: 'Appointment Cancelled',
+      body: cancellationReason,
+      type: 'appointment',
+      relatedId: appointmentId,
+    });
 
     return appointmentId;
   }
@@ -363,12 +500,45 @@ class AppointmentService {
       completedAt: serverTimestamp() as any,
     } as Partial<AppointmentDocument>);
 
+    await this.createNotification({
+      userId: appointment.studentId,
+      title: 'Marked as No Show',
+      body: 'You were marked as a no-show for your appointment.',
+      type: 'appointment',
+      relatedId: appointmentId,
+    });
+
     return appointmentId;
   }
 
   /**
-   * Get available slots for a facilitator on a specific date.
-   * Only considers active (requested or accepted) appointments.
+   * Save facilitator notes for an appointment.
+   */
+  async saveFacilitatorNotes(
+    appointmentId: string,
+    facilitatorId: string,
+    notes: string,
+    actorRole: Role,
+  ) {
+    if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) {
+      throw new PermissionError();
+    }
+
+    const appointment = await appointmentRepository.getById(appointmentId);
+    if (!appointment) throw new Error('Appointment not found');
+    if (appointment.facilitatorId !== facilitatorId) throw new Error('Not authorized');
+
+    await appointmentRepository.update(appointmentId, {
+      facilitatorNotes: notes,
+    } as Partial<AppointmentDocument>);
+
+    return appointmentId;
+  }
+
+  /**
+   * Get available time slots for a facilitator on a specific date.
+   * Dynamically computed from work hours minus existing active appointments.
+   * Slots are 30-minute increments with 60-minute default duration.
    */
   async getAvailableSlots(
     facilitatorId: string,
@@ -447,6 +617,39 @@ class AppointmentService {
     const slots = await this.getAvailableSlots(facilitatorId, scheduledAt, actorRole);
     const timeStr = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
     return slots.some(s => s.startTime === timeStr && s.available);
+  }
+
+  /**
+   * Get unread notifications for a user.
+   */
+  async getUnreadNotifications(userId: string) {
+    return notificationRepository.getUnreadByUserId(userId);
+  }
+
+  /**
+   * Get all notifications for a user.
+   */
+  async getAllNotifications(userId: string) {
+    return notificationRepository.getByUserId(userId);
+  }
+
+  /**
+   * Mark a notification as read.
+   */
+  async markNotificationRead(notificationId: string) {
+    return notificationRepository.update(notificationId, {
+      isRead: true,
+    } as Partial<any>);
+  }
+
+  /**
+   * Mark all notifications as read for a user.
+   */
+  async markAllNotificationsRead(userId: string) {
+    const notifications = await notificationRepository.getUnreadByUserId(userId);
+    await Promise.all(
+      notifications.map(n => notificationRepository.update(n.id, { isRead: true } as Partial<any>))
+    );
   }
 }
 

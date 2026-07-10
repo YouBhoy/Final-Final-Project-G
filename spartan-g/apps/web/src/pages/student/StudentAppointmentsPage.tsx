@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { appointmentService, userService, messagingService } from '@spartan-g/shared-services';
+import { appointmentService, userService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
 import { AppointmentDocument } from '@spartan-g/shared-types';
 import { AppointmentStatusBadge } from '../../components/appointments/AppointmentStatusBadge';
+import { Modal } from '../../components/ui/Modal';
 
-const STATUS_ORDER = ['requested', 'accepted', 'completed', 'cancelled', 'rejected', 'no_show'];
+const STATUS_ORDER = ['reschedule_requested', 'requested', 'accepted', 'completed', 'cancelled', 'rejected', 'no_show'];
 
 export function StudentAppointmentsPage() {
   const navigate = useNavigate();
@@ -13,6 +14,11 @@ export function StudentAppointmentsPage() {
   const [facilitatorNames, setFacilitatorNames] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleAppointment, setRescheduleAppointment] = useState<(AppointmentDocument & { id: string }) | null>(null);
+  const [newScheduledAt, setNewScheduledAt] = useState<Date>(new Date());
+  const [newTime, setNewTime] = useState('09:00');
+  const [rescheduleError, setRescheduleError] = useState('');
   const { user } = useAuth();
 
   const loadAppointments = useCallback(async () => {
@@ -65,6 +71,46 @@ export function StudentAppointmentsPage() {
     }
   };
 
+  const openRescheduleModal = (apt: (AppointmentDocument & { id: string })) => {
+    setRescheduleAppointment(apt);
+    const aptDate = apt.scheduledAt?.toDate ? apt.scheduledAt.toDate() : new Date();
+    setNewScheduledAt(aptDate);
+    const hours = String(aptDate.getHours()).padStart(2, '0');
+    const mins = String(aptDate.getMinutes()).padStart(2, '0');
+    setNewTime(`${hours}:${mins}`);
+    setRescheduleError('');
+    setShowRescheduleModal(true);
+  };
+
+  const handleReschedule = async () => {
+    if (!user || !rescheduleAppointment) return;
+    setActionLoading(rescheduleAppointment.id);
+    setRescheduleError('');
+    try {
+      const [hours, minutes] = newTime.split(':').map(Number);
+      const scheduledAt = new Date(newScheduledAt);
+      scheduledAt.setHours(hours, minutes, 0, 0);
+
+      await appointmentService.rescheduleAppointment(
+        rescheduleAppointment.id,
+        user.uid,
+        scheduledAt,
+        60,
+        user.role,
+      );
+
+      setShowRescheduleModal(false);
+      setRescheduleAppointment(null);
+      await loadAppointments();
+      alert('Reschedule request sent! The facilitator will be notified.');
+    } catch (error: any) {
+      console.error('Failed to reschedule:', error);
+      setRescheduleError(error?.message || 'Failed to reschedule');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const formatDateTime = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -97,17 +143,6 @@ export function StudentAppointmentsPage() {
     );
   }
 
-  const handleMessageFacilitator = async (facilitatorId: string) => {
-    if (!user) return;
-    try {
-      const conversationId = [facilitatorId, user.uid].sort().join('_');
-      // Try to navigate to messages - conversation will be created if needed
-      navigate(`/student/messages`);
-    } catch (error) {
-      console.error('Failed to open messages:', error);
-    }
-  };
-
   return (
     <div className="max-w-3xl mx-auto">
       <h1 className="text-xl font-semibold text-gray-900 mb-6">My Appointments</h1>
@@ -127,24 +162,45 @@ export function StudentAppointmentsPage() {
                 {apt.notes && (
                   <p className="text-sm text-gray-600 mt-2 italic">Note: {apt.notes}</p>
                 )}
+                {apt.status === 'reschedule_requested' && apt.rescheduleReason && (
+                  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
+                    <span className="font-medium">Facilitator requested reschedule:</span> {apt.rescheduleReason}
+                  </div>
+                )}
                 {apt.outcomeNotes && apt.status === 'completed' && (
                   <p className="text-sm text-gray-600 mt-2">
                     <span className="font-medium">Outcome:</span> {apt.outcomeNotes}
                   </p>
                 )}
               </div>
-              <div className="flex flex-col gap-2">
-                {apt.status === 'requested' && (
-                  <button
-                    onClick={() => handleCancel(apt.id)}
-                    disabled={actionLoading === apt.id}
-                    className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded hover:bg-red-50 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
+              <div className="flex flex-col gap-2 ml-3">
+                {(apt.status === 'requested' || apt.status === 'reschedule_requested') && (
+                  <>
+                    {apt.status === 'requested' && (
+                      <button
+                        onClick={() => handleCancel(apt.id)}
+                        disabled={actionLoading === apt.id}
+                        className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {apt.status === 'reschedule_requested' && (
+                      <button
+                        onClick={() => openRescheduleModal(apt)}
+                        disabled={actionLoading === apt.id}
+                        className="px-3 py-1 text-sm text-amber-600 border border-amber-300 rounded hover:bg-amber-50 disabled:opacity-50"
+                      >
+                        Reschedule
+                      </button>
+                    )}
+                  </>
                 )}
                 <button
-                  onClick={() => handleMessageFacilitator(apt.facilitatorId)}
+                  onClick={() => {
+                    const convId = [apt.facilitatorId, user?.uid].sort().join('_');
+                    navigate(`/${user?.role}/messages`);
+                  }}
                   className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded hover:bg-blue-50"
                 >
                   Message
@@ -154,6 +210,57 @@ export function StudentAppointmentsPage() {
           </div>
         ))}
       </div>
+
+      {/* Reschedule Modal */}
+      <Modal
+        open={showRescheduleModal}
+        onClose={() => { setShowRescheduleModal(false); setRescheduleAppointment(null); }}
+        title="Reschedule Appointment"
+        description="Pick a new date and time for your appointment."
+        size="md"
+      >
+        {rescheduleError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+            {rescheduleError}
+          </div>
+        )}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Date</label>
+            <input
+              type="date"
+              value={newScheduledAt.toISOString().split('T')[0]}
+              onChange={e => setNewScheduledAt(new Date(e.target.value))}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Time</label>
+            <input
+              type="time"
+              value={newTime}
+              onChange={e => setNewTime(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              onClick={() => { setShowRescheduleModal(false); setRescheduleAppointment(null); }}
+              className="px-4 py-2 text-sm text-gray-700 border rounded"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReschedule}
+              disabled={actionLoading === rescheduleAppointment?.id}
+              className="px-4 py-2 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 disabled:bg-gray-400"
+            >
+              {actionLoading === rescheduleAppointment?.id ? 'Rescheduling...' : 'Request Reschedule'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

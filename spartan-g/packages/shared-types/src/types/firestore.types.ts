@@ -43,9 +43,10 @@ export interface NotificationDocument extends FirestoreDocument {
   userId: string;
   title: string;
   body: string;
-  type: 'info' | 'alert' | 'assignment' | 'grade' | 'risk' | 'appointment' | 'work_hours';
+  type: 'info' | 'alert' | 'assignment' | 'grade' | 'risk' | 'appointment' | 'work_hours' | 'reschedule';
   isRead: boolean;
   data?: Record<string, string>;
+  relatedId?: string;
 }
 
 export interface AnnouncementDocument extends FirestoreDocument {
@@ -84,12 +85,14 @@ export interface AppointmentDocument extends FirestoreDocument {
   facilitatorId: string;
   scheduledAt: Timestamp;
   durationMinutes: number;
-  status: 'requested' | 'accepted' | 'completed' | 'cancelled' | 'rejected' | 'no_show';
+  status: 'requested' | 'accepted' | 'completed' | 'cancelled' | 'rejected' | 'no_show' | 'reschedule_requested';
   notes?: string;
   facilitatorNotes?: string;
   outcomeNotes?: string;
   rejectionReason?: string;
   cancellationReason?: string;
+  rescheduleReason?: string;
+  rescheduleRequestedAt?: Timestamp;
   acceptedAt?: Timestamp;
   completedAt?: Timestamp;
   notifyBeforeMinutes: number;
