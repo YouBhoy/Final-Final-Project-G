@@ -6,8 +6,8 @@ import { FacilitatorStudentsPage } from "../pages/facilitator/FacilitatorStudent
 import { FacilitatorRiskAlertsPage } from "../pages/facilitator/FacilitatorRiskAlertsPage";
 import { FacilitatorAppointmentsPage } from "../pages/facilitator/FacilitatorAppointmentsPage";
 import { FacilitatorWorkHoursPage } from "../pages/facilitator/FacilitatorWorkHoursPage";
-import { FacilitatorSlotsPage } from "../pages/facilitator/FacilitatorSlotsPage";
 import { FacilitatorMessagesPage } from "../pages/messaging/FacilitatorMessagesPage";
+import { FacilitatorProfilePage } from "../pages/facilitator/FacilitatorProfilePage";
 import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
@@ -57,10 +57,6 @@ export function FacilitatorPortalRoutes() {
           path="work-hours"
           element={<FacilitatorWorkHoursPage />}
         />
-        <Route
-          path="slots"
-          element={<FacilitatorSlotsPage />}
-        />
         <Route path="messages" element={<FacilitatorMessagesPage />} />
         <Route
           path="resources"
@@ -71,15 +67,7 @@ export function FacilitatorPortalRoutes() {
             />
           }
         />
-        <Route
-          path="profile"
-          element={
-            <PlaceholderPage
-              title="Profile"
-              description="Manage your profile and availability."
-            />
-          }
-        />
+        <Route path="profile" element={<FacilitatorProfilePage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </PortalLayout>

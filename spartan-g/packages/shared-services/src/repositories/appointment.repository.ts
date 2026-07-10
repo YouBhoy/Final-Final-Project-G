@@ -1,5 +1,5 @@
 import { COLLECTIONS, AppointmentDocument } from '@spartan-g/shared-types';
-import { where, orderBy, Timestamp } from '../firebase/firestore';
+import { where, Timestamp } from '../firebase/firestore';
 import { BaseRepository } from './base.repository';
 
 class AppointmentRepository extends BaseRepository<AppointmentDocument> {
@@ -7,37 +7,52 @@ class AppointmentRepository extends BaseRepository<AppointmentDocument> {
     super(COLLECTIONS.APPOINTMENTS);
   }
 
+  private static getAppointmentTime(appointment: AppointmentDocument & { id: string }) {
+    return appointment.scheduledAt?.toDate?.().getTime?.() ?? new Date(appointment.scheduledAt as any).getTime();
+  }
+
   async getByFacilitator(facilitatorId: string) {
-    return this.getAll([
+    const appointments = await this.getAll([
       where('facilitatorId', '==', facilitatorId),
-      orderBy('scheduledAt', 'asc'),
     ]);
+
+    return appointments.sort((a, b) => AppointmentRepository.getAppointmentTime(a) - AppointmentRepository.getAppointmentTime(b));
   }
 
   async getUpcomingByFacilitator(facilitatorId: string) {
-    return this.getAll([
+    const appointments = await this.getAll([
       where('facilitatorId', '==', facilitatorId),
       where('status', '==', 'accepted'),
-      orderBy('scheduledAt', 'asc'),
     ]);
+
+    return appointments.sort((a, b) => AppointmentRepository.getAppointmentTime(a) - AppointmentRepository.getAppointmentTime(b));
   }
 
   /** Fetch all appointments for a specific student (for timeline views). */
   async getByStudent(studentId: string) {
-    return this.getAll([
+    const appointments = await this.getAll([
       where('studentId', '==', studentId),
-      orderBy('scheduledAt', 'desc'),
     ]);
+
+    return appointments.sort((a, b) => AppointmentRepository.getAppointmentTime(b) - AppointmentRepository.getAppointmentTime(a));
   }
 
   /** Fetch active (requested or accepted) appointments for a date range. */
   async getActiveByDateRange(facilitatorId: string, startDate: Date, endDate: Date) {
-    return this.getAll([
+    const appointments = await this.getAll([
       where('facilitatorId', '==', facilitatorId),
       where('status', 'in', ['requested', 'accepted']),
-      where('scheduledAt', '>=', Timestamp.fromDate(startDate)),
-      where('scheduledAt', '<=', Timestamp.fromDate(endDate)),
     ]);
+
+    const startMs = startDate.getTime();
+    const endMs = endDate.getTime();
+
+    return appointments
+      .filter((appointment) => {
+        const scheduledAtMs = AppointmentRepository.getAppointmentTime(appointment);
+        return scheduledAtMs >= startMs && scheduledAtMs <= endMs;
+      })
+      .sort((a, b) => AppointmentRepository.getAppointmentTime(a) - AppointmentRepository.getAppointmentTime(b));
   }
 }
 

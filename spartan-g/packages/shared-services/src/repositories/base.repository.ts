@@ -64,8 +64,12 @@ export abstract class BaseRepository<T extends DocumentData> {
 
   async update(id: string, data: Partial<T>): Promise<void> {
     try {
+      const sanitizedData = Object.fromEntries(
+        Object.entries(data).filter(([, value]) => value !== undefined),
+      ) as Partial<T>;
+
       await updateDoc(this.getDocRef(id), {
-        ...data,
+        ...sanitizedData,
         updatedAt: serverTimestamp(),
       });
     } catch (error) {

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { ROLE_LABELS } from "@spartan-g/shared-types";
+import { NotificationBell } from "../notifications/NotificationBell";
 
 interface HeaderProps {
   /** Display name of the portal, shown on the left. */
@@ -81,8 +82,9 @@ export function Header({ portalName, portalTagline, onMenuClick }: HeaderProps) 
           </div>
         </div>
 
-        {/* Right: user + logout */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        {/* Right: notification bell + user + logout */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          <NotificationBell />
           {user && (
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-gray-900">

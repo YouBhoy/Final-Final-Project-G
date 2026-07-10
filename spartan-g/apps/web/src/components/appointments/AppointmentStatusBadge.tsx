@@ -1,5 +1,7 @@
+type AppointmentStatus = 'requested' | 'accepted' | 'completed' | 'cancelled' | 'rejected' | 'no_show' | 'reschedule_requested';
+
 interface AppointmentStatusBadgeProps {
-  status: 'requested' | 'accepted' | 'completed' | 'cancelled' | 'rejected' | 'no_show';
+  status: AppointmentStatus;
 }
 
 const statusConfig: Record<string, { color: string; label: string }> = {
@@ -9,6 +11,7 @@ const statusConfig: Record<string, { color: string; label: string }> = {
   cancelled: { color: 'bg-red-100 text-red-800', label: 'Cancelled' },
   rejected: { color: 'bg-gray-100 text-gray-800', label: 'Rejected' },
   no_show: { color: 'bg-purple-100 text-purple-800', label: 'No Show' },
+  reschedule_requested: { color: 'bg-amber-100 text-amber-800', label: 'Reschedule Requested' },
 };
 
 export function AppointmentStatusBadge({ status }: AppointmentStatusBadgeProps) {

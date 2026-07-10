@@ -1,11 +1,31 @@
 import { useEffect, useState, useCallback } from 'react';
-import { userService, workHoursService } from '@spartan-g/shared-services';
+import { userService, workHoursService, profileRepository } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
+import { Gender } from '@spartan-g/shared-types';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const GENDER_LABELS: Record<Gender, string> = {
+  male: 'He/Him',
+  female: 'She/Her',
+  non_binary: 'They/Them',
+  other: 'Other',
+  prefer_not_to_say: 'Prefer not to say',
+};
+
+interface FacilitatorWithProfile {
+  id: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  pronouns?: string;
+  gender?: Gender;
+  bio?: string;
+  institution?: string;
+}
+
 export function StudentFindFacilitatorPage() {
-  const [facilitators, setFacilitators] = useState<{ id: string; displayName: string; email: string }[]>([]);
+  const [facilitators, setFacilitators] = useState<FacilitatorWithProfile[]>([]);
   const [workHoursMap, setWorkHoursMap] = useState<{ [key: string]: any[] }>({});
   const [selectedFacilitator, setSelectedFacilitator] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,7 +40,30 @@ export function StudentFindFacilitatorPage() {
         setError(null); setFacilitators([]); setWorkHoursMap({});
         const users = await userService.listUsersByRole('facilitator', user.role);
         if (cancelled) return;
-        const mapped = users.map((u: any) => ({ id: u.id, displayName: u.displayName || 'Facilitator', email: u.email || '' }));
+        
+        // Fetch profiles for each facilitator
+        const facilitatorIds = users.map((u: any) => u.id);
+        const profiles = await Promise.all(
+          facilitatorIds.map(async (id: string) => {
+            try {
+              return await profileRepository.getById(id);
+            } catch {
+              return null;
+            }
+          })
+        );
+        
+        const mapped = users.map((u: any, index: number) => ({
+          id: u.id,
+          displayName: u.displayName || 'Facilitator',
+          email: u.email || '',
+          photoURL: u.photoURL,
+          pronouns: profiles[index]?.pronouns,
+          gender: profiles[index]?.gender,
+          bio: profiles[index]?.bio,
+          institution: profiles[index]?.institution,
+        }));
+        
         setFacilitators(mapped);
         const whMap: { [key: string]: any[] } = {};
         await Promise.allSettled(
@@ -87,32 +130,62 @@ export function StudentFindFacilitatorPage() {
                 className="cursor-pointer rounded-lg border bg-white p-5 transition-shadow hover:shadow-md"
                 onClick={() => setSelectedFacilitator((prev) => (prev === fac.id ? null : fac.id))}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-                    <span className="text-lg font-semibold text-indigo-700">{initial}</span>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{fac.displayName}</h3>
-                    <p className="text-sm text-gray-500">{fac.email}</p>
+                <div className="flex items-start gap-3">
+                  {fac.photoURL ? (
+                    <img src={fac.photoURL} alt={fac.displayName} className="h-12 w-12 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+                      <span className="text-lg font-semibold text-indigo-700">{initial}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate">{fac.displayName}</h3>
+                    <p className="text-sm text-gray-500 truncate">{fac.email}</p>
                   </div>
                 </div>
 
                 {selectedFacilitator === fac.id && (
                   <div className="mt-3 border-t pt-3 space-y-3">
-                    <h4 className="text-sm font-medium text-gray-700">Available Hours</h4>
-
-                    {activeDays.length === 0 ? (
-                      <p className="text-sm italic text-gray-400">No availability set</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {schedule.filter((s) => s.isActive).map((s) => (
-                          <div key={s.id} className="flex justify-between text-sm">
-                            <span className="text-gray-600">{DAYS[s.dayOfWeek] ?? 'Unknown'}</span>
-                            <span className="text-gray-800">{s.startTime} - {s.endTime}</span>
-                          </div>
-                        ))}
-                      </div>
+                    {/* Pronouns and Gender */}
+                    {fac.pronouns && (
+                      <p className="text-xs text-gray-500">
+                        <span className="font-medium">Pronouns:</span> {fac.pronouns}
+                      </p>
                     )}
+                    {fac.gender && (
+                      <p className="text-xs text-gray-500">
+                        <span className="font-medium">Gender:</span> {GENDER_LABELS[fac.gender]}
+                      </p>
+                    )}
+
+                    {/* Bio */}
+                    {fac.bio && (
+                      <p className="text-sm text-gray-600 line-clamp-3">{fac.bio}</p>
+                    )}
+
+                    {/* Institution */}
+                    {fac.institution && (
+                      <p className="text-xs text-gray-500">
+                        <span className="font-medium">Institution:</span> {fac.institution}
+                      </p>
+                    )}
+
+                    {/* Available Hours */}
+                    <div className="mt-2">
+                      <h4 className="text-sm font-medium text-gray-700 mb-1">Available Hours</h4>
+                      {activeDays.length === 0 ? (
+                        <p className="text-sm italic text-gray-400">No availability set</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {schedule.filter((s) => s.isActive).map((s) => (
+                            <div key={s.id} className="flex justify-between text-sm">
+                              <span className="text-gray-600">{DAYS[s.dayOfWeek] ?? 'Unknown'}</span>
+                              <span className="text-gray-800">{s.startTime} - {s.endTime}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <a
                       href={`/student/facilitator/${encodeURIComponent(fac.id)}`}

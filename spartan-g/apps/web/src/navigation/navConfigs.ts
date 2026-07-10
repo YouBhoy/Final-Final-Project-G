@@ -64,7 +64,6 @@ export const facilitatorNavItems: NavItem[] = [
   { to: "/facilitator/students", label: "Students", iconPath: studentIcon },
   { to: "/facilitator/appointments", label: "Appointments", iconPath: appointmentIcon },
   { to: "/facilitator/work-hours", label: "Work Hours", iconPath: clockIcon },
-  { to: "/facilitator/slots", label: "Slots", iconPath: appointmentIcon },
   { to: "/facilitator/assessments", label: "Assessments", iconPath: assessmentIcon },
   { to: "/facilitator/risk-alerts", label: "Risk Alerts", iconPath: referralIcon },
   { to: "/facilitator/referrals", label: "Referrals", iconPath: referralIcon },
