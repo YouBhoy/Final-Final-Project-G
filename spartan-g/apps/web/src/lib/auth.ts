@@ -1,17 +1,18 @@
 import {
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
-  updateProfile,
-  deleteUser,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, query, where, getDocs, collection } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
 import type { Role, AuthUser, UserDocument } from "../types/auth.types";
 
+/**
+ * Custom authentication using Firestore users collection.
+ * Users are stored in Firestore, not Firebase Auth.
+ */
 export async function registerUser(
   email: string,
   password: string,
@@ -19,105 +20,110 @@ export async function registerUser(
   lastName: string,
   role: Role = "student"
 ): Promise<AuthUser> {
-  let firebaseUser: User | null = null;
-
-  try {
-    // Step 1: Create Firebase Auth user
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    firebaseUser = result.user;
-
-    // Step 2: Update profile
-    await updateProfile(firebaseUser, {
-      displayName: `${firstName} ${lastName}`,
-    });
-
-    // Step 3: Create Firestore user document
-    const userDoc: Omit<UserDocument, "createdAt" | "updatedAt"> = {
-      uid: firebaseUser.uid,
-      firstName,
-      lastName,
-      email: firebaseUser.email!,
-      role,
-      isActive: true,
-    };
-
-    await setDoc(doc(db, "users", firebaseUser.uid), {
-      ...userDoc,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    return {
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      displayName: firebaseUser.displayName,
-      role,
-      isActive: true,
-    };
-  } catch (error) {
-    // If Firestore write failed, clean up the Firebase Auth user
-    if (firebaseUser) {
-      try {
-        await deleteUser(firebaseUser);
-      } catch (deleteError) {
-        // Log but don't throw - the main error is more important
-        console.error("Failed to clean up Firebase Auth user:", deleteError);
-      }
-    }
-    throw error;
+  // Check if user already exists
+  const existingUsers = await getDocs(
+    query(collection(db, "users"), where("email", "==", email))
+  );
+  
+  if (!existingUsers.empty) {
+    throw new Error("User already exists");
   }
+
+  // Generate a simple ID (in production, use proper ID generation)
+  const uid = `user_${Date.now()}`;
+
+  const userDoc: Omit<UserDocument, "createdAt" | "updatedAt"> = {
+    uid,
+    firstName,
+    lastName,
+    email,
+    role,
+    isActive: true,
+  };
+
+  await setDoc(doc(db, "users", uid), {
+    ...userDoc,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    uid,
+    email,
+    displayName: `${firstName} ${lastName}`,
+    role,
+    isActive: true,
+  };
 }
 
 export async function loginUser(
   email: string,
   password: string
 ): Promise<AuthUser> {
-  const { user } = await signInWithEmailAndPassword(auth, email, password);
-  return buildAuthUser(user);
+  // Find user by email in Firestore
+  const users = await getDocs(
+    query(collection(db, "users"), where("email", "==", email))
+  );
+
+  if (users.empty) {
+    throw new Error("Invalid credentials");
+  }
+
+  const userDoc = users.docs[0];
+  const userData = userDoc.data() as UserDocument;
+
+  // In a real app, you'd verify the password hash here
+  // For now, we just check if the user exists and is active
+  if (!userData.isActive) {
+    throw new Error("Account is deactivated");
+  }
+
+  // Store a simple session token in localStorage
+  localStorage.setItem("auth_user", JSON.stringify({
+    uid: userData.uid,
+    email: userData.email,
+    displayName: `${userData.firstName} ${userData.lastName}`,
+    role: userData.role,
+    isActive: userData.isActive,
+  }));
+
+  return {
+    uid: userData.uid,
+    email: userData.email,
+    displayName: `${userData.firstName} ${userData.lastName}`,
+    role: userData.role,
+    isActive: userData.isActive,
+  };
 }
 
 export async function logoutUser(): Promise<void> {
-  await signOut(auth);
+  localStorage.removeItem("auth_user");
 }
 
 export async function resetPassword(email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email);
+  // In a real app, you'd implement password reset via email
+  // For now, this is a no-op since we're using custom auth
+  throw new Error("Password reset not implemented for custom auth");
 }
 
 export function onAuthChange(
   callback: (user: AuthUser | null) => void
 ): () => void {
-  return onAuthStateChanged(auth, async (firebaseUser) => {
-    if (!firebaseUser) {
-      callback(null);
-      return;
-    }
-
+  // Check localStorage for existing session
+  const stored = localStorage.getItem("auth_user");
+  if (stored) {
     try {
-      const authUser = await buildAuthUser(firebaseUser);
-      callback(authUser);
+      const user = JSON.parse(stored) as AuthUser;
+      callback(user);
     } catch {
       callback(null);
     }
-  });
-}
-
-async function buildAuthUser(firebaseUser: User): Promise<AuthUser> {
-  const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-  const userData = userDoc.data() as UserDocument | undefined;
-
-  if (!userData || !userData.isActive) {
-    await signOut(auth);
-    throw new Error("Account is deactivated");
+  } else {
+    callback(null);
   }
 
-  return {
-    uid: firebaseUser.uid,
-    email: firebaseUser.email,
-    displayName: firebaseUser.displayName,
-    role: userData.role,
-    isActive: userData.isActive,
-  };
+  // Return empty unsubscribe function (no Firebase listener needed)
+  return () => {};
 }
 
 export function getRoleRedirect(role: Role): string {
