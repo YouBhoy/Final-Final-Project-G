@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import type { AuthUser, AuthStatus, LoginFormData, RegisterFormData } from "../types/auth.types";
+import type { AuthSession, AuthStatus, LoginFormData, RegisterFormData } from "@spartan-g/shared-types";
 import {
   registerUser,
   loginUser,
@@ -16,7 +16,7 @@ import {
 } from "../lib/auth";
 
 interface AuthContextValue {
-  user: AuthUser | null;
+  user: AuthSession | null;
   status: AuthStatus;
   error: string | null;
   register: (data: RegisterFormData) => Promise<void>;
@@ -29,7 +29,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthSession | null>(null);
   const [status, setStatus] = useState<AuthStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 

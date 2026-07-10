@@ -1,5 +1,5 @@
 import { useAuth } from "../hooks/useAuth";
-import { ROLE_LABELS } from "../types/auth.types";
+import { ROLE_LABELS } from "@spartan-g/shared-types";
 import { useNavigate } from "react-router-dom";
 
 interface DashboardPageProps {
