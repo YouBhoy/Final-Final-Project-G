@@ -17,6 +17,7 @@ export function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "student", // Default to student - only students can self-register
   });
 
   // Redirect if already logged in
@@ -77,7 +78,8 @@ export function RegisterPage() {
 
     setIsLoading(true);
     try {
-      await register(formData);
+      // Only allow student registration - facilitators are created by admin
+      await register({ ...formData, role: "student" });
       // Navigation handled by redirect above
     } catch {
       // Error is set in auth context
@@ -133,36 +135,6 @@ export function RegisterPage() {
           autoComplete="email"
           disabled={isLoading}
         />
-
-        {/* Role selector — testing only */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            I am a
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            {(["student", "facilitator"] as Role[]).map((role) => (
-              <button
-                key={role}
-                type="button"
-                disabled={isLoading}
-                onClick={() =>
-                  setFormData((prev) => ({ ...prev, role }))
-                }
-                className={`
-                  rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors
-                  ${
-                    (formData.role || "student") === role
-                      ? "border-indigo-600 bg-indigo-50 text-indigo-700"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-              >
-                {role === "student" ? "🎓 Student" : "🧑‍🏫 Facilitator"}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <Input
           label="Password"
