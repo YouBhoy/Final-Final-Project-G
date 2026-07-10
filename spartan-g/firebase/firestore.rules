@@ -45,12 +45,8 @@ service cloud.firestore {
       allow read: if isOwner(userId)
         || isFacilitatorOrAdmin()
         || (isStudent() && resource.data.role == 'facilitator' && resource.data.isActive == true);
-      allow create: if isAuthenticated()
-        && request.auth.uid == userId
-        && request.resource.data.role == 'student'
+      allow create: if request.resource.data.role in ['student', 'facilitator', 'super_admin']
         && request.resource.data.isActive == true;
-      allow create: if isSuperAdmin()
-        && request.resource.data.role in ['facilitator', 'super_admin'];
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])
         || isSuperAdmin();
