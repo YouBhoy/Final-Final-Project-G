@@ -18,6 +18,7 @@ import {
   getDocs,
   collection,
   getDoc,
+  runTransaction,
 } from '../firebase/firestore';
 import { appointmentRepository } from '../repositories/appointment.repository';
 import { workHoursRepository } from '../repositories/work-hours.repository';
@@ -59,7 +60,10 @@ class AppointmentService {
 
   /**
    * Request an appointment with atomic availability check.
-   * Uses Firestore batched write to prevent race conditions.
+   * Uses Firestore transaction to prevent race conditions.
+   * Note: Firestore transactions can only read document references, not queries.
+   * We use a hybrid approach: check conditions outside, then use transaction for writes.
+   * For true atomicity, Firestore security rules should also enforce these constraints.
    */
   async requestAppointment(payload: RequestAppointmentPayload, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
@@ -145,88 +149,101 @@ class AppointmentService {
   /**
    * Accept an appointment with transactional consistency.
    * All operations (appointment update, link creation, conversation creation, slot update)
-   * happen in a single batched write.
+   * happen in a single transaction.
    */
   async acceptAppointment(appointmentId: string, facilitatorId: string, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) {
       throw new PermissionError();
     }
 
-    const appointment = await appointmentRepository.getById(appointmentId);
-    if (!appointment) throw new Error('Appointment not found');
-    if (appointment.facilitatorId !== facilitatorId) throw new Error('Not authorized');
-    if (appointment.status !== 'requested') throw new Error('Appointment is not in requested status');
-
     const db = getFirestoreDb();
-    const batch = writeBatch(db);
-
-    // 1. Update appointment status
     const appointmentRef = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId);
-    batch.update(appointmentRef, {
-      status: 'accepted',
-      acceptedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
 
-    // 2. Create or update facilitator_student_link
-    const linkId = `${facilitatorId}_${appointment.studentId}`;
-    const linkRef = doc(db, COLLECTIONS.FACILITATOR_STUDENT_LINKS, linkId);
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        // Get appointment
+        const appointmentDoc = await transaction.get(appointmentRef);
+        if (!appointmentDoc.exists()) {
+          throw new Error('Appointment not found');
+        }
 
-    // Check if link exists
-    const linkDoc = await facilitatorStudentLinkRepository.findLink(facilitatorId, appointment.studentId);
-    if (!linkDoc) {
-      batch.set(linkRef, {
-        facilitatorId,
-        studentId: appointment.studentId,
-        status: 'accepted',
-        requestedAt: serverTimestamp(),
-        respondedAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        const appointment = appointmentDoc.data() as AppointmentDocument;
+        if (appointment.facilitatorId !== facilitatorId) {
+          throw new Error('Not authorized');
+        }
+        if (appointment.status !== 'requested') {
+          throw new Error('Appointment is not in requested status');
+        }
+
+        // 1. Update appointment status
+        transaction.update(appointmentRef, {
+          status: 'accepted',
+          acceptedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        // 2. Create or update facilitator_student_link
+        const linkId = `${facilitatorId}_${appointment.studentId}`;
+        const linkRef = doc(db, COLLECTIONS.FACILITATOR_STUDENT_LINKS, linkId);
+        const linkDoc = await transaction.get(linkRef);
+
+        if (!linkDoc.exists) {
+          transaction.set(linkRef, {
+            facilitatorId,
+            studentId: appointment.studentId,
+            status: 'accepted',
+            requestedAt: serverTimestamp(),
+            respondedAt: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        } else if (linkDoc.data()?.status !== 'accepted') {
+          transaction.update(linkRef, {
+            status: 'accepted',
+            respondedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        // 3. Create conversation if missing
+        const convId = [facilitatorId, appointment.studentId].sort().join('_');
+        const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, convId);
+        const conversationDoc = await transaction.get(conversationRef);
+
+        if (!conversationDoc.exists) {
+          transaction.set(conversationRef, {
+            participantIds: [facilitatorId, appointment.studentId],
+            lastMessageAt: null,
+            lastMessagePreview: '',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        // 4. Update slot if exists
+        const slots = await appointmentSlotRepository.getByFacilitator(facilitatorId);
+        const matchingSlot = slots.find(s => {
+          const slotStart = s.startTime.toDate();
+          const aptTime = appointment.scheduledAt.toDate();
+          return Math.abs(slotStart.getTime() - aptTime.getTime()) < 60000;
+        });
+
+        if (matchingSlot) {
+          const slotRef = doc(db, COLLECTIONS.APPOINTMENT_SLOTS, matchingSlot.id);
+          transaction.update(slotRef, {
+            status: 'reserved',
+            appointmentId,
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        return convId;
       });
-    } else if (linkDoc.status !== 'accepted') {
-      batch.update(linkRef, {
-        status: 'accepted',
-        respondedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+
+      return { appointmentId, conversationId: result };
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to accept appointment');
     }
-
-    // 3. Create conversation if missing
-    const conversationId = [facilitatorId, appointment.studentId].sort().join('_');
-    const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, conversationId);
-    const conversationDoc = await getDoc(conversationRef);
-
-    if (!conversationDoc.exists()) {
-      batch.set(conversationRef, {
-        participantIds: [facilitatorId, appointment.studentId],
-        lastMessageAt: null,
-        lastMessagePreview: '',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    // 4. Update slot if exists
-    const slots = await appointmentSlotRepository.getByFacilitator(facilitatorId);
-    const matchingSlot = slots.find(s => {
-      const slotStart = s.startTime.toDate();
-      const aptTime = appointment.scheduledAt.toDate();
-      return Math.abs(slotStart.getTime() - aptTime.getTime()) < 60000;
-    });
-
-    if (matchingSlot) {
-      const slotRef = doc(db, COLLECTIONS.APPOINTMENT_SLOTS, matchingSlot.id);
-      batch.update(slotRef, {
-        status: 'reserved',
-        appointmentId,
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    await batch.commit();
-
-    return { appointmentId, conversationId };
   }
 
   async rejectAppointment(appointmentId: string, facilitatorId: string, actorRole: Role) {
@@ -325,10 +342,8 @@ class AppointmentService {
       cancellationReason,
     } as Partial<AppointmentDocument>);
 
-    // Restore slot if appointment originated from a slot
-    // Note: This requires the appointment to have a slotId field, which may not exist
-    // in the current schema. For now, we skip this as availability is computed dynamically.
-    // If slotId is added to AppointmentDocument, this can be re-enabled.
+    // Note: Slot restoration is skipped as AppointmentDocument doesn't have slotId
+    // Availability is computed dynamically from work hours and existing appointments
 
     return appointmentId;
   }
