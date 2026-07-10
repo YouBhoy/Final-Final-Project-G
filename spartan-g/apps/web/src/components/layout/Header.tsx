@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { ROLE_LABELS } from "../../types/auth.types";
+import { ROLE_LABELS } from "@spartan-g/shared-types";
 
 interface HeaderProps {
   /** Display name of the portal, shown on the left. */

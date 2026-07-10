@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import type { Role } from "../../types/auth.types";
+import type { Role } from "@spartan-g/shared-types";
 import type { ReactNode } from "react";
 
 interface ProtectedRouteProps {

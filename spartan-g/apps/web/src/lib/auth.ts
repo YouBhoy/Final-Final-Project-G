@@ -1,129 +1,124 @@
 import {
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
   type User,
+  updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp, query, where, getDocs, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
-import type { Role, AuthUser, UserDocument } from "../types/auth.types";
+import type { Role, AuthSession } from "@spartan-g/shared-types";
 
 /**
- * Custom authentication using Firestore users collection.
- * Users are stored in Firestore, not Firebase Auth.
+ * Firebase Authentication implementation.
+ * Uses Firebase Auth for authentication, Firestore for profile data only.
  */
+
 export async function registerUser(
   email: string,
   password: string,
   firstName: string,
   lastName: string,
   role: Role = "student"
-): Promise<AuthUser> {
-  // Check if user already exists
-  const existingUsers = await getDocs(
-    query(collection(db, "users"), where("email", "==", email))
-  );
-  
-  if (!existingUsers.empty) {
-    throw new Error("User already exists");
-  }
+): Promise<AuthSession> {
+  // Create Firebase Auth user
+  const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
-  // Generate a simple ID (in production, use proper ID generation)
-  const uid = `user_${Date.now()}`;
+  // Set display name in Firebase Auth
+  await updateProfile(user, { displayName: `${firstName} ${lastName}` });
 
-  const userDoc: Omit<UserDocument, "createdAt" | "updatedAt"> = {
-    uid,
-    firstName,
-    lastName,
-    email,
-    role,
-    isActive: true,
-  };
-
-  await setDoc(doc(db, "users", uid), {
-    ...userDoc,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  return {
-    uid,
+  // Create user profile in Firestore
+  const userDoc = {
+    uid: user.uid,
     email,
     displayName: `${firstName} ${lastName}`,
     role,
     isActive: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(doc(db, "users", user.uid), userDoc);
+
+  return {
+    uid: user.uid,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    role,
+    displayName: userDoc.displayName,
   };
 }
 
 export async function loginUser(
   email: string,
   password: string
-): Promise<AuthUser> {
-  // Find user by email in Firestore
-  const users = await getDocs(
-    query(collection(db, "users"), where("email", "==", email))
-  );
+): Promise<AuthSession> {
+  // Authenticate with Firebase Auth
+  const { user } = await signInWithEmailAndPassword(auth, email, password);
 
-  if (users.empty) {
-    throw new Error("Invalid credentials");
+  // Get user profile from Firestore
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+
+  if (!userDoc.exists()) {
+    throw new Error("User profile not found");
   }
 
-  const userDoc = users.docs[0];
-  const userData = userDoc.data() as UserDocument;
+  const userData = userDoc.data();
 
-  // In a real app, you'd verify the password hash here
-  // For now, we just check if the user exists and is active
   if (!userData.isActive) {
     throw new Error("Account is deactivated");
   }
 
-  // Store a simple session token in localStorage
-  localStorage.setItem("auth_user", JSON.stringify({
-    uid: userData.uid,
-    email: userData.email,
-    displayName: `${userData.firstName} ${userData.lastName}`,
-    role: userData.role,
-    isActive: userData.isActive,
-  }));
-
   return {
-    uid: userData.uid,
-    email: userData.email,
-    displayName: `${userData.firstName} ${userData.lastName}`,
+    uid: user.uid,
+    email: user.email,
+    emailVerified: user.emailVerified,
     role: userData.role,
-    isActive: userData.isActive,
+    displayName: user.displayName ?? userData.displayName,
   };
 }
 
 export async function logoutUser(): Promise<void> {
-  localStorage.removeItem("auth_user");
+  await signOut(auth);
 }
 
 export async function resetPassword(email: string): Promise<void> {
-  // In a real app, you'd implement password reset via email
-  // For now, this is a no-op since we're using custom auth
-  throw new Error("Password reset not implemented for custom auth");
+  await sendPasswordResetEmail(auth, email);
 }
 
 export function onAuthChange(
-  callback: (user: AuthUser | null) => void
+  callback: (user: AuthSession | null) => void
 ): () => void {
-  // Check localStorage for existing session
-  const stored = localStorage.getItem("auth_user");
-  if (stored) {
-    try {
-      const user = JSON.parse(stored) as AuthUser;
-      callback(user);
-    } catch {
+  return onAuthStateChanged(auth, async (firebaseUser) => {
+    if (firebaseUser) {
+      // Get user profile from Firestore
+      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+
+      if (!userDoc.exists()) {
+        callback(null);
+        return;
+      }
+
+      const userData = userDoc.data();
+
+      if (!userData.isActive) {
+        callback(null);
+        return;
+      }
+
+      callback({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        emailVerified: firebaseUser.emailVerified,
+        role: userData.role,
+        displayName: firebaseUser.displayName ?? userData.displayName,
+      });
+    } else {
       callback(null);
     }
-  } else {
-    callback(null);
-  }
-
-  // Return empty unsubscribe function (no Firebase listener needed)
-  return () => {};
+  });
 }
 
 export function getRoleRedirect(role: Role): string {

@@ -5,7 +5,7 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { getRoleRedirect } from "../lib/auth";
-import type { RegisterFormData, Role } from "../types/auth.types";
+import type { RegisterFormData, Role } from "@spartan-g/shared-types";
 
 export function RegisterPage() {
   const { register, user, error, clearError } = useAuth();
