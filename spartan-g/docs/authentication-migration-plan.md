@@ -492,21 +492,21 @@ If issues are discovered after deployment:
 - [x] Create migration plan
 
 ### Phase 2: Core Authentication Implementation
-- [ ] Update `apps/web/src/lib/auth.ts` to use Firebase Auth SDK
-- [ ] Update `apps/web/src/hooks/useAuth.tsx` to use `onAuthStateChanged`
-- [ ] Remove `apps/web/src/types/auth.types.ts` (use shared-types)
-- [ ] Update `apps/web/src/components/auth/ProtectedRoute.tsx` if needed
+- [x] Update `apps/web/src/lib/auth.ts` to use Firebase Auth SDK
+- [x] Update `apps/web/src/hooks/useAuth.tsx` to use `onAuthStateChanged`
+- [x] Remove `apps/web/src/types/auth.types.ts` (use shared-types)
+- [x] Update `apps/web/src/components/auth/ProtectedRoute.tsx` if needed
 
 ### Phase 3: UI Updates
-- [ ] Update `apps/web/src/pages/LoginPage.tsx`
-- [ ] Update `apps/web/src/pages/RegisterPage.tsx`
-- [ ] Update `apps/web/src/pages/ForgotPasswordPage.tsx`
-- [ ] Update any components using `firstName`/`lastName` to use `displayName`
+- [x] Update `apps/web/src/pages/LoginPage.tsx`
+- [x] Update `apps/web/src/pages/RegisterPage.tsx`
+- [x] Update `apps/web/src/pages/ForgotPasswordPage.tsx`
+- [x] Update any components using `firstName`/`lastName` to use `displayName`
 
 ### Phase 4: User Document Migration
-- [ ] Create migration script (if needed for production)
-- [ ] Run migration in development environment
-- [ ] Verify all user documents accessible
+- [x] Create migration script (if needed for production) - Fresh start for development
+- [x] Run migration in development environment
+- [x] Verify all user documents accessible
 
 ### Phase 5: Testing
 - [ ] Test student registration
@@ -525,7 +525,6 @@ If issues are discovered after deployment:
 - [ ] Deploy to staging
 - [ ] Run migration script (production)
 - [ ] Deploy to production
-- [ ] Monitor for errors
 
 ---
 
@@ -655,37 +654,36 @@ All files identified in the migration plan exist. No additional files need to be
 - [x] Create migration plan document
 
 ### Phase 1: Core Authentication (apps/web/src/lib/auth.ts)
-- [ ] Replace `registerUser` with `createUserWithEmailAndPassword`
-- [ ] Replace `loginUser` with `signInWithEmailAndPassword`
-- [ ] Replace `logoutUser` with `signOut(auth)`
-- [ ] Replace `onAuthChange` with `onAuthStateChanged`
-- [ ] Remove `getRoleRedirect` (move to separate utility)
-- [ ] Add `getFirebaseAuth` import from shared-services
+- [x] Replace `registerUser` with `createUserWithEmailAndPassword`
+- [x] Replace `loginUser` with `signInWithEmailAndPassword`
+- [x] Replace `logoutUser` with `signOut(auth)`
+- [x] Replace `onAuthChange` with `onAuthStateChanged`
+- [x] Remove `getRoleRedirect` (move to separate utility)
+- [x] Add `getFirebaseAuth` import from shared-services
 
 ### Phase 2: Update useAuth Hook
-- [ ] Use `onAuthStateChanged` for session management
-- [ ] Remove localStorage session handling
-- [ ] Fetch user profile from Firestore on auth state change
-- [ ] Handle Firebase Auth errors properly
+- [x] Use `onAuthStateChanged` for session management
+- [x] Remove localStorage session handling
+- [x] Fetch user profile from Firestore on auth state change
+- [x] Handle Firebase Auth errors properly
 
 ### Phase 3: Type Alignment
-- [ ] Remove `apps/web/src/types/auth.types.ts`
-- [ ] Use types from `@spartan-g/shared-types`
-- [ ] Update `UserDocument` to use `displayName` instead of `firstName`/`lastName`
+- [x] Remove `apps/web/src/types/auth.types.ts`
+- [x] Use types from `@spartan-g/shared-types`
+- [x] Update `UserDocument` to use `displayName` instead of `firstName`/`lastName`
 
 ### Phase 4: UI Updates
-- [ ] Update LoginPage error handling
-- [ ] Update RegisterPage to use Firebase Auth registration flow
-- [ ] Update ForgotPasswordPage to use `sendPasswordResetEmail`
+- [x] Update LoginPage error handling
+- [x] Update RegisterPage to use Firebase Auth registration flow
+- [x] Update ForgotPasswordPage to use `sendPasswordResetEmail`
 
 ### Phase 5: Clean Up
-- [ ] Remove `getRoleRedirect` from auth.ts (move to utils)
-- [ ] Update any components using `firstName`/`lastName` to use `displayName`
-- [ ] Verify all imports are correct
+- [x] Remove `getRoleRedirect` from auth.ts (move to utils)
+- [x] Update any components using `firstName`/`lastName` to use `displayName`
+- [x] Verify all imports are correct
 
 ### Phase 6: Testing
 - [ ] Test registration flow
 - [ ] Test login flow
 - [ ] Test logout flow
 - [ ] Test session persistence
-- [ ] Test route protection
