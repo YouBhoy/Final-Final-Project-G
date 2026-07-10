@@ -1,8 +1,10 @@
 import {
   COLLECTIONS,
   AssessmentDocument,
+  AssessmentDefinitionDocument,
 } from '@spartan-g/shared-types';
-import { where, orderBy, limit } from '../firebase/firestore';
+import { where, orderBy, limit, onSnapshot, query, Unsubscribe } from '../firebase/firestore';
+import { getFirestoreDb } from '../firebase/firestore';
 import { BaseRepository } from './base.repository';
 
 class AssessmentRepository extends BaseRepository<AssessmentDocument> {
@@ -54,6 +56,46 @@ class AssessmentRepository extends BaseRepository<AssessmentDocument> {
       where('status', '==', 'in_progress'),
       orderBy('updatedAt', 'desc'),
     ]);
+  }
+
+  /**
+   * Phase 3B — Get all published assessment definitions (visible to students).
+   * Returns documents from the `assessments` collection where isPublished == true.
+   */
+  async getPublished(): Promise<(AssessmentDefinitionDocument & { id: string })[]> {
+    const all = await this.getAll([where('isPublished', '==', true), orderBy('title', 'asc')]);
+    return all.map((doc) => ({
+      id: doc.id,
+      ...(doc as unknown as Omit<AssessmentDefinitionDocument, 'id'>),
+    }));
+  }
+
+  /**
+   * Phase 3B — Subscribe to published assessment definitions in real-time.
+   * Returns an unsubscribe function. The callback fires with the latest list.
+   */
+  subscribePublished(
+    callback: (data: (AssessmentDefinitionDocument & { id: string })[]) => void,
+    onError?: (error: Error) => void,
+  ): Unsubscribe {
+    const q = query(
+      this.getCollectionRef(),
+      where('isPublished', '==', true),
+      orderBy('title', 'asc'),
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items: (AssessmentDefinitionDocument & { id: string })[] = [];
+        snapshot.forEach((d) => {
+          items.push({ id: d.id, ...(d.data() as Omit<AssessmentDefinitionDocument, 'id'>) });
+        });
+        callback(items);
+      },
+      (error) => {
+        if (onError) onError(error);
+      },
+    );
   }
 }
 

@@ -9,27 +9,31 @@ import {
   TextInput,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { StudentMobileStackParamList, AssessmentQuestionDocument, AssessmentResponseValue } from '@spartan-g/shared-types';
-import { assessmentService, assessmentResponseService, assessmentQuestionRepository, useAuthStore } from '@spartan-g/shared-services';
-import type { AssessmentDocument } from '@spartan-g/shared-types';
+import type { StudentMobileStackParamList, AssessmentQuestion, AssessmentAnswer, AssessmentAttemptDocument } from '@spartan-g/shared-types';
+import { assessmentService, assessmentRepository, useAuthStore } from '@spartan-g/shared-services';
+import type { AssessmentDefinitionDocument } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
+import { Timestamp } from '@spartan-g/shared-services';
 
 type Props = NativeStackScreenProps<StudentMobileStackParamList, 'AssessmentWizard'>;
 
-type AnswerMap = Record<string, AssessmentResponseValue>;
+type AnswerMap = Record<string, string>;
 
 export function TemplateAssessmentScreen({ route, navigation }: Props) {
   const { assessmentId } = route.params;
   const session = useAuthStore((s) => s.session);
 
-  // Assessment document
-  const [assessment, setAssessment] = useState<(AssessmentDocument & { id: string }) | null>(null);
-  const [templateId, setTemplateId] = useState<string | null>(null);
+  // The attemptId is the assessmentId param (Phase 3B uses attempt IDs for the wizard)
+  const attemptId = assessmentId;
+
+  // Assessment definition (for embedded questions)
+  const [assessment, setAssessment] = useState<(AssessmentDefinitionDocument & { id: string }) | null>(null);
+  const [attempt, setAttempt] = useState<(AssessmentAttemptDocument & { id: string }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Questions from the template
-  const [questions, setQuestions] = useState<(AssessmentQuestionDocument & { id: string })[]>([]);
+  // Questions from the embedded definition
+  const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
 
@@ -44,38 +48,54 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
   const [localTextInputs, setLocalTextInputs] = useState<Record<string, string>>({});
   const textInputRef = useRef<TextInput | null>(null);
 
-  // Load the assessment document on mount
+  // Load the attempt and assessment definition on mount
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      if (!assessmentId || !session) return;
+      if (!attemptId || !session) return;
 
       try {
         setIsLoading(true);
         setError(null);
 
-        const asmt = await assessmentService.getAssessment(assessmentId, session.role);
-        if (!asmt) {
+        // Step 1: Load the attempt
+        const attemptData = await assessmentService.getAttempt(attemptId);
+        if (!attemptData) {
           setError('Assessment not found. It may have been removed.');
           return;
         }
 
         // Verify ownership
-        if (asmt.studentId !== session.uid) {
+        if (attemptData.studentId !== session.uid) {
           setError('This assessment does not belong to you.');
           return;
         }
 
         // Check status
-        if (asmt.status !== 'in_progress') {
+        if (attemptData.status !== 'in_progress') {
           setError('This assessment has already been submitted.');
           return;
         }
 
+        // Step 2: Load the assessment definition (has embedded questions)
+        const assessmentData = await assessmentService.getAssessmentDefinition(attemptData.assessmentId);
+        if (!assessmentData) {
+          setError('Assessment definition not found.');
+          return;
+        }
+
+        // Restore saved answers from the attempt
+        const restoredAnswers: AnswerMap = {};
+        for (const answer of attemptData.answers) {
+          restoredAnswers[answer.questionId] = answer.value;
+        }
+
         if (!cancelled) {
-          setAssessment(asmt);
-          setTemplateId(asmt.templateId);
+          setAttempt(attemptData);
+          setAssessment(assessmentData);
+          setQuestions(assessmentData.questions?.sort((a, b) => a.order - b.order) ?? []);
+          setAnswers(restoredAnswers);
         }
       } catch (err) {
         if (!cancelled) {
@@ -90,66 +110,7 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
 
     load();
     return () => { cancelled = true; };
-  }, [assessmentId, session]);
-
-  // Load questions when templateId is known
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadQuestions() {
-      if (!templateId) return;
-
-      try {
-        setQuestionsLoading(true);
-        setQuestionsError(null);
-        const qs = await assessmentQuestionRepository.getByTemplate(templateId);
-        if (!cancelled) {
-          setQuestions(qs);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setQuestionsError(err instanceof Error ? err.message : 'Failed to load questions');
-        }
-      } finally {
-        if (!cancelled) {
-          setQuestionsLoading(false);
-        }
-      }
-    }
-
-    loadQuestions();
-    return () => { cancelled = true; };
-  }, [templateId]);
-
-  // Load saved responses when questions are ready
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadResponses() {
-      if (!assessmentId || !session || questions.length === 0) return;
-
-      try {
-        const savedResponses = await assessmentResponseService.getResponsesForAssessment(
-          assessmentId,
-          session.role,
-        );
-
-        const restored: AnswerMap = {};
-        for (const r of savedResponses) {
-          restored[r.questionId] = r.value;
-        }
-
-        if (!cancelled) {
-          setAnswers(restored);
-        }
-      } catch {
-        // Silently fail — responses will be empty
-      }
-    }
-
-    loadResponses();
-    return () => { cancelled = true; };
-  }, [assessmentId, session, questions]);
+  }, [attemptId, session]);
 
   const totalSteps = questions.length;
   const isFirstStep = currentStep === 0;
@@ -159,8 +120,8 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
   // Save the current text input to Firestore
   const saveCurrentTextInput = useCallback(async () => {
     const currentQuestion = questions[currentStep];
-    if (!currentQuestion || !assessmentId || !session) return;
-    if (currentQuestion.type !== 'short_text' && currentQuestion.type !== 'long_text') return;
+    if (!currentQuestion || !attemptId || !session) return;
+    if (currentQuestion.type !== 'short_answer') return;
 
     const textValue = localTextInputs[currentQuestion.id];
     if (textValue === undefined) return;
@@ -169,23 +130,21 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
     setSaveError(null);
 
     try {
-      await assessmentResponseService.saveResponse(
-        {
-          assessmentId,
-          questionId: currentQuestion.id,
-          studentId: session.uid,
-          value: textValue,
-        },
-        session.role,
-      );
+      const now = new Date() as unknown as Timestamp;
+      const answer: AssessmentAnswer = {
+        questionId: currentQuestion.id,
+        value: textValue,
+        answeredAt: now,
+      };
+      await assessmentService.saveAnswer(attemptId, answer);
     } catch {
       setSaveError('Failed to save your answer. Check your connection.');
     }
-  }, [currentStep, questions, localTextInputs, assessmentId, session]);
+  }, [currentStep, questions, localTextInputs, attemptId, session]);
 
   const handleAnswer = useCallback(
-    async (value: AssessmentResponseValue) => {
-      if (!assessmentId || !session || !assessment) return;
+    async (value: string) => {
+      if (!attemptId || !session || !assessment) return;
 
       const currentQuestion = questions[currentStep];
       if (!currentQuestion) return;
@@ -196,20 +155,18 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
 
       // Auto-save to Firestore
       try {
-        await assessmentResponseService.saveResponse(
-          {
-            assessmentId,
-            questionId: currentQuestion.id,
-            studentId: session.uid,
-            value,
-          },
-          session.role,
-        );
+        const now = new Date() as unknown as Timestamp;
+        const answer: AssessmentAnswer = {
+          questionId: currentQuestion.id,
+          value,
+          answeredAt: now,
+        };
+        await assessmentService.saveAnswer(attemptId, answer);
       } catch {
         setSaveError('Failed to save your answer. Check your connection.');
       }
     },
-    [assessmentId, session, assessment, questions, currentStep],
+    [attemptId, session, assessment, questions, currentStep],
   );
 
   const handleTextChange = useCallback((questionId: string, value: string) => {
@@ -217,13 +174,11 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
   }, []);
 
   const handleNext = useCallback(async () => {
-    // Save current text input before navigating
     await saveCurrentTextInput();
     setCurrentStep((prev) => Math.min(questions.length, prev + 1));
   }, [questions.length, saveCurrentTextInput]);
 
   const handlePrevious = useCallback(async () => {
-    // Save current text input before navigating
     await saveCurrentTextInput();
     setCurrentStep((prev) => Math.max(0, prev - 1));
   }, [saveCurrentTextInput]);
@@ -233,20 +188,29 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (!assessmentId || !session || !assessment) return;
+    if (!attemptId || !session || !assessment) return;
 
     setIsSubmitting(true);
     setSubmissionError(null);
 
     try {
-      await assessmentService.submitAssessment(assessmentId, session.uid, session.role);
+      const now = new Date() as unknown as Timestamp;
+      const finalAnswers: AssessmentAnswer[] = questions
+        .filter((q) => answers[q.id] !== undefined && answers[q.id] !== '')
+        .map((q) => ({
+          questionId: q.id,
+          value: answers[q.id],
+          answeredAt: now,
+        }));
+
+      await assessmentService.submitAttempt(attemptId, finalAnswers);
       setIsSubmitted(true);
     } catch (err) {
       setSubmissionError(err instanceof Error ? err.message : 'Failed to submit assessment');
     } finally {
       setIsSubmitting(false);
     }
-  }, [assessmentId, session, assessment]);
+  }, [attemptId, session, assessment, questions, answers]);
 
   // ─── Loading state ──────────────────────────────────────
   if (isLoading) {
@@ -335,7 +299,7 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* Header */}
       <View>
-        <Text style={styles.title}>Check-in Assessment</Text>
+        <Text style={styles.title}>{assessment.title}</Text>
         <Text style={styles.subtitle}>
           {totalSteps} {totalSteps === 1 ? 'question' : 'questions'}
         </Text>
@@ -345,6 +309,14 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
       {saveError && (
         <View style={styles.saveErrorBanner}>
           <Text style={styles.saveErrorText}>{saveError}</Text>
+        </View>
+      )}
+
+      {/* Instructions banner */}
+      {assessment.instructions && currentStep === 0 && !isOnReviewStep && (
+        <View style={styles.instructionsBanner}>
+          <Text style={styles.instructionsLabel}>Instructions</Text>
+          <Text style={styles.instructionsText}>{assessment.instructions}</Text>
         </View>
       )}
 
@@ -367,11 +339,8 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
           <Text style={styles.reviewTitle}>Review Your Answers</Text>
           {questions.map((q, idx) => {
             const rawAnswer = answers[q.id];
-            const isAnswered = rawAnswer !== undefined && rawAnswer !== '' &&
-              !(Array.isArray(rawAnswer) && rawAnswer.length === 0);
-            const displayValue = Array.isArray(rawAnswer)
-              ? rawAnswer.join(', ')
-              : String(rawAnswer ?? '');
+            const isAnswered = rawAnswer !== undefined && rawAnswer !== '';
+            const displayValue = String(rawAnswer ?? '');
 
             return (
               <View
@@ -384,16 +353,11 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
                 <View style={styles.reviewCardContent}>
                   <View style={styles.reviewCardText}>
                     <Text style={styles.reviewQuestionText}>
-                      {idx + 1}. {q.prompt}
+                      {idx + 1}. {q.text}
                     </Text>
                     <Text style={[styles.reviewAnswerText, !isAnswered && styles.reviewAnswerMissing]}>
                       {isAnswered ? `Answer: ${displayValue || '(empty)'}` : 'No answer'}
                     </Text>
-                    {q.isRequired && !isAnswered && (
-                      <View style={styles.requiredBadge}>
-                        <Text style={styles.requiredBadgeText}>Required</Text>
-                      </View>
-                    )}
                   </View>
                   <TouchableOpacity
                     onPress={() => handleNavigateToQuestion(idx)}
@@ -429,37 +393,28 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
         <View style={styles.questionCard}>
           <View style={styles.questionHeader}>
             <Text style={styles.questionType}>
-              {currentQuestion.type === 'short_text' ? 'Short text' :
-               currentQuestion.type === 'long_text' ? 'Long text' :
-               currentQuestion.type === 'single_choice' ? 'Single choice' :
-               currentQuestion.type === 'multi_choice' ? 'Multi choice' :
-               currentQuestion.type === 'scale_1_5' ? 'Scale 1–5' :
-               currentQuestion.type === 'scale_1_10' ? 'Scale 1–10' :
-               currentQuestion.type === 'yes_no' ? 'Yes / No' :
+              {currentQuestion.type === 'short_answer' ? 'Short answer' :
+               currentQuestion.type === 'multiple_choice' ? 'Multiple choice' :
+               currentQuestion.type === 'true_false' ? 'True / False' :
                currentQuestion.type ?? 'Question'}
             </Text>
-            {currentQuestion.isRequired && (
-              <View style={styles.requiredBadge}>
-                <Text style={styles.requiredBadgeText}>Required</Text>
-              </View>
-            )}
           </View>
-          <Text style={styles.questionPrompt}>{currentQuestion.prompt}</Text>
+          <Text style={styles.questionPrompt}>{currentQuestion.text}</Text>
 
           {/* Answer input based on question type */}
-          {currentQuestion.type === 'yes_no' && (
+          {currentQuestion.type === 'true_false' && (
             <View style={styles.choiceRow}>
-              {['Yes', 'No'].map((opt) => {
-                const selected = answers[currentQuestion.id] === opt;
+              {(currentQuestion.options ?? []).map((opt) => {
+                const selected = answers[currentQuestion.id] === opt.id;
                 return (
                   <TouchableOpacity
-                    key={opt}
-                    onPress={() => handleAnswer(opt)}
+                    key={opt.id}
+                    onPress={() => handleAnswer(opt.id)}
                     style={[styles.choiceOption, selected && styles.choiceOptionSelected]}
                     disabled={isSubmitting}
                   >
                     <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
-                      {opt}
+                      {opt.label}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -467,36 +422,21 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          {(currentQuestion.type === 'single_choice' || currentQuestion.type === 'multi_choice') &&
+          {currentQuestion.type === 'multiple_choice' &&
             currentQuestion.options && (
             <View style={styles.choiceList}>
               {currentQuestion.options.map((opt) => {
-                const currentAnswer = answers[currentQuestion.id];
-                const selected = currentQuestion.type === 'multi_choice'
-                  ? Array.isArray(currentAnswer) && currentAnswer.includes(opt)
-                  : currentAnswer === opt;
+                const selected = answers[currentQuestion.id] === opt.id;
 
                 return (
                   <TouchableOpacity
-                    key={opt}
-                    onPress={() => {
-                      if (currentQuestion.type === 'multi_choice') {
-                        const current = Array.isArray(answers[currentQuestion.id])
-                          ? [...answers[currentQuestion.id] as string[]]
-                          : [];
-                        const updated = selected
-                          ? current.filter((v) => v !== opt)
-                          : [...current, opt];
-                        handleAnswer(updated);
-                      } else {
-                        handleAnswer(opt);
-                      }
-                    }}
+                    key={opt.id}
+                    onPress={() => handleAnswer(opt.id)}
                     style={[styles.choiceOption, selected && styles.choiceOptionSelected]}
                     disabled={isSubmitting}
                   >
                     <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
-                      {opt}
+                      {opt.label}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -504,48 +444,8 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          {currentQuestion.type === 'scale_1_5' && (
-            <View style={styles.scaleRow}>
-              {[1, 2, 3, 4, 5].map((val) => {
-                const selected = answers[currentQuestion.id] === String(val);
-                return (
-                  <TouchableOpacity
-                    key={val}
-                    onPress={() => handleAnswer(String(val))}
-                    style={[styles.scaleOption, selected && styles.scaleOptionSelected]}
-                    disabled={isSubmitting}
-                  >
-                    <Text style={[styles.scaleText, selected && styles.scaleTextSelected]}>
-                      {val}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          {currentQuestion.type === 'scale_1_10' && (
-            <View style={styles.scaleRow}>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => {
-                const selected = answers[currentQuestion.id] === String(val);
-                return (
-                  <TouchableOpacity
-                    key={val}
-                    onPress={() => handleAnswer(String(val))}
-                    style={[styles.scaleOption, selected && styles.scaleOptionSelected]}
-                    disabled={isSubmitting}
-                  >
-                    <Text style={[styles.scaleText, selected && styles.scaleTextSelected]}>
-                      {val}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Short text — single line input */}
-          {currentQuestion.type === 'short_text' && (
+          {/* Short answer — single line input */}
+          {currentQuestion.type === 'short_answer' && (
             <TextInput
               ref={textInputRef}
               style={styles.textInput}
@@ -557,25 +457,6 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
               onChangeText={(v) => handleTextChange(currentQuestion.id, v)}
               onBlur={() => saveCurrentTextInput()}
               editable={!isSubmitting}
-              autoComplete="off"
-            />
-          )}
-
-          {/* Long text — multi-line input */}
-          {currentQuestion.type === 'long_text' && (
-            <TextInput
-              style={[styles.textInput, styles.textInputMultiline]}
-              placeholder="Type your answer..."
-              placeholderTextColor={lightColors.textMuted}
-              value={localTextInputs[currentQuestion.id] !== undefined
-                ? localTextInputs[currentQuestion.id]
-                : (typeof answers[currentQuestion.id] === 'string' ? answers[currentQuestion.id] as string : '')}
-              onChangeText={(v) => handleTextChange(currentQuestion.id, v)}
-              onBlur={() => saveCurrentTextInput()}
-              editable={!isSubmitting}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
               autoComplete="off"
             />
           )}
@@ -709,6 +590,24 @@ const styles = StyleSheet.create({
     color: lightColors.textSecondary,
     marginTop: 2,
   },
+  instructionsBanner: {
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    borderRadius: 8,
+    padding: 12,
+  },
+  instructionsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4338CA',
+    marginBottom: 4,
+  },
+  instructionsText: {
+    fontSize: 13,
+    color: '#3730A3',
+    lineHeight: 18,
+  },
   saveErrorBanner: {
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
@@ -777,17 +676,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 16,
   },
-  requiredBadge: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  requiredBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#991B1B',
-  },
   choiceRow: {
     flexDirection: 'row',
     gap: 10,
@@ -818,33 +706,6 @@ const styles = StyleSheet.create({
   choiceTextSelected: {
     color: '#991B1B',
   },
-  scaleRow: {
-    flexDirection: 'row',
-    gap: 6,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  scaleOption: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: lightColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scaleOptionSelected: {
-    borderColor: lightColors.primary,
-    backgroundColor: lightColors.primary,
-  },
-  scaleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: lightColors.textSecondary,
-  },
-  scaleTextSelected: {
-    color: '#FFFFFF',
-  },
   textInput: {
     backgroundColor: lightColors.surface,
     borderWidth: 1,
@@ -854,10 +715,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: lightColors.text,
-  },
-  textInputMultiline: {
-    minHeight: 100,
-    paddingTop: 12,
   },
   reviewSection: {
     gap: 12,

@@ -11,72 +11,68 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
-import { assessmentTemplateRepository, assessmentService, useAuthStore } from '@spartan-g/shared-services';
-import type { AssessmentTemplateDocument } from '@spartan-g/shared-types';
+import type { AssessmentDefinitionDocument } from '@spartan-g/shared-types';
+import { assessmentRepository, assessmentService, useAuthStore } from '@spartan-g/shared-services';
 import { lightColors } from '@spartan-g/shared-ui';
 
-type TemplateWithId = AssessmentTemplateDocument & { id: string };
+type AssessmentDefWithId = AssessmentDefinitionDocument & { id: string };
 
 export function AssessmentsListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<StudentMobileStackParamList>>();
   const session = useAuthStore((s) => s.session);
 
-  const [templates, setTemplates] = useState<TemplateWithId[]>([]);
+  const [assessments, setAssessments] = useState<AssessmentDefWithId[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Detail modal state
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateWithId | null>(null);
+  const [selectedAssessment, setSelectedAssessment] = useState<AssessmentDefWithId | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    setLoading(true);
+    setError(null);
 
-    async function load() {
-      try {
-        setLoading(true);
+    // Use real-time listener (onSnapshot) matching web's approach
+    const unsubscribe = assessmentRepository.subscribePublished(
+      (data) => {
+        setAssessments(data);
+        setLoading(false);
         setError(null);
-        const active = await assessmentTemplateRepository.getActiveTemplates();
-        if (!cancelled) {
-          setTemplates(active);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load assessments');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
+      },
+      (err) => {
+        setError(err.message || 'Failed to load assessments');
+        setLoading(false);
+      },
+    );
 
-    load();
-    return () => { cancelled = true; };
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleStart = useCallback(async () => {
-    if (!selectedTemplate || !session) return;
+    if (!selectedAssessment || !session) return;
 
     setStarting(true);
     setStartError(null);
 
     try {
-      const assessmentId = await assessmentService.startAssessment(
-        selectedTemplate.id,
+      // Phase 3B: start an attempt on the assessment definition
+      const attemptId = await assessmentService.startAttempt(
+        selectedAssessment.id,
         session.uid,
-        session.role,
       );
-      setSelectedTemplate(null);
-      // Navigate to the assessment-taking screen
-      navigation.navigate('AssessmentWizard', { assessmentId });
+      setSelectedAssessment(null);
+      // Navigate to the assessment-taking screen with the attempt ID
+      navigation.navigate('AssessmentWizard', { assessmentId: attemptId });
     } catch (err) {
       setStartError(err instanceof Error ? err.message : 'Failed to start assessment');
     } finally {
       setStarting(false);
     }
-  }, [selectedTemplate, session, navigation]);
+  }, [selectedAssessment, session, navigation]);
 
   // ─── Loading ─────────────────────────────────────────────
   if (loading) {
@@ -112,7 +108,7 @@ export function AssessmentsListScreen() {
       </View>
 
       {/* Empty state */}
-      {templates.length === 0 ? (
+      {assessments.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyIcon}>{'\uD83D\uDCDD'}</Text>
           <Text style={styles.emptyTitle}>No assessments available</Text>
@@ -121,30 +117,32 @@ export function AssessmentsListScreen() {
           </Text>
         </View>
       ) : (
-        /* Template list */
+        /* Assessment list */
         <View style={styles.list}>
-          {templates.map((t) => (
+          {assessments.map((a) => (
             <TouchableOpacity
-              key={t.id}
+              key={a.id}
               style={styles.templateCard}
               onPress={() => {
                 setStartError(null);
-                setSelectedTemplate(t);
+                setSelectedAssessment(a);
               }}
               activeOpacity={0.7}
             >
               <View style={styles.templateHeader}>
                 <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryBadgeText}>{t.category}</Text>
+                  <Text style={styles.categoryBadgeText}>
+                    {a.questions?.length ?? 0} questions
+                  </Text>
                 </View>
                 <Text style={styles.questionCount}>
-                  {t.questionCount} {t.questionCount === 1 ? 'question' : 'questions'}
+                  {a.maxAttempts > 0 ? `${a.maxAttempts} attempt${a.maxAttempts > 1 ? 's' : ''}` : 'Unlimited'}
                 </Text>
               </View>
-              <Text style={styles.templateTitle}>{t.title}</Text>
-              {t.description && (
+              <Text style={styles.templateTitle}>{a.title}</Text>
+              {a.description && (
                 <Text style={styles.templateDescription} numberOfLines={3}>
-                  {t.description}
+                  {a.description}
                 </Text>
               )}
               <View style={styles.templateFooter}>
@@ -157,28 +155,39 @@ export function AssessmentsListScreen() {
 
       {/* Detail Modal */}
       <Modal
-        visible={!!selectedTemplate}
+        visible={!!selectedAssessment}
         transparent
         animationType="fade"
-        onRequestClose={() => setSelectedTemplate(null)}
+        onRequestClose={() => setSelectedAssessment(null)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {selectedTemplate && (
+            {selectedAssessment && (
               <>
                 <View style={styles.modalHeader}>
                   <View style={styles.modalCategoryBadge}>
-                    <Text style={styles.modalCategoryBadgeText}>{selectedTemplate.category}</Text>
+                    <Text style={styles.modalCategoryBadgeText}>
+                      {selectedAssessment.questions?.length ?? 0} questions
+                    </Text>
                   </View>
                   <Text style={styles.modalQuestionCount}>
-                    {selectedTemplate.questionCount} {selectedTemplate.questionCount === 1 ? 'question' : 'questions'}
+                    {selectedAssessment.maxAttempts > 0
+                      ? `${selectedAssessment.maxAttempts} attempt${selectedAssessment.maxAttempts > 1 ? 's' : ''}`
+                      : 'Unlimited attempts'}
                   </Text>
                 </View>
 
-                <Text style={styles.modalTitle}>{selectedTemplate.title}</Text>
+                <Text style={styles.modalTitle}>{selectedAssessment.title}</Text>
 
-                {selectedTemplate.description && (
-                  <Text style={styles.modalDescription}>{selectedTemplate.description}</Text>
+                {selectedAssessment.description && (
+                  <Text style={styles.modalDescription}>{selectedAssessment.description}</Text>
+                )}
+
+                {selectedAssessment.instructions && (
+                  <View style={styles.instructionsBox}>
+                    <Text style={styles.instructionsLabel}>Instructions</Text>
+                    <Text style={styles.instructionsText}>{selectedAssessment.instructions}</Text>
+                  </View>
                 )}
 
                 {startError && (
@@ -189,7 +198,7 @@ export function AssessmentsListScreen() {
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity
-                    onPress={() => setSelectedTemplate(null)}
+                    onPress={() => setSelectedAssessment(null)}
                     style={styles.modalCancelButton}
                     disabled={starting}
                   >
@@ -397,7 +406,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: lightColors.textSecondary,
     lineHeight: 20,
+    marginBottom: 12,
+  },
+  instructionsBox: {
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 16,
+  },
+  instructionsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4338CA',
+    marginBottom: 4,
+  },
+  instructionsText: {
+    fontSize: 13,
+    color: '#3730A3',
+    lineHeight: 18,
   },
   modalError: {
     backgroundColor: '#FEE2E2',
