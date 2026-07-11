@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
@@ -83,11 +84,17 @@ export function LoginScreen({ navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
+        {/* Header with BatStateU seal */}
         <View style={styles.headerSection}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>SG</Text>
+            <Image
+              source={require('../../../assets/Batangas_State_Logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
+          <Text style={styles.brandLabel}>Student Portal</Text>
+          <Text style={styles.brandSubLabel}>Batangas State University</Text>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to your SPARTAN-G account</Text>
         </View>
@@ -193,18 +200,36 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logoContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: lightColors.primary,
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: lightColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
+    shadowColor: lightColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    padding: 6,
   },
-  logoText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  brandLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 3.5,
+    color: lightColors.primary,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  brandSubLabel: {
+    fontSize: 12,
+    color: lightColors.textSecondary,
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
@@ -218,16 +243,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorBanner: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: lightColors.errorBackground,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: lightColors.errorBorder,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
   },
   errorBannerText: {
     fontSize: 13,
-    color: '#B91C1C',
+    color: lightColors.errorText,
     textAlign: 'center',
   },
   formSection: {
