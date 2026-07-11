@@ -100,7 +100,7 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={handleToggle}
-        className="relative inline-flex items-center justify-center rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+        className="relative inline-flex items-center justify-center rounded-[var(--radius-md)] p-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-primary)] transition-all duration-150"
         aria-label="Notifications"
       >
         {/* Bell icon */}
@@ -110,7 +110,7 @@ export function NotificationBell() {
 
         {/* Unread badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-xs font-bold text-white">
+          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--color-primary)] text-xs font-bold text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -118,14 +118,14 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-[70vh] flex flex-col">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[var(--color-surface)] rounded-[var(--radius-xl)] shadow-dropdown border border-[var(--color-border)] z-50 max-h-[70vh] flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)]">
+            <h3 className="text-sm font-semibold text-[var(--color-text)]">Notifications</h3>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                className="text-xs font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
               >
                 Mark all as read
               </button>
@@ -135,8 +135,8 @@ export function NotificationBell() {
           {/* List */}
           <div className="overflow-y-auto flex-1">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">
-                <svg className="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <div className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
+                <svg className="w-10 h-10 mx-auto mb-2 text-[var(--color-text-muted)] opacity-40" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                 </svg>
                 No notifications yet
@@ -146,18 +146,18 @@ export function NotificationBell() {
                 <button
                   key={notif.id}
                   onClick={() => handleMarkRead(notif.id)}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                    !notif.isRead ? 'bg-blue-50/50' : ''
+                  className={`w-full text-left px-4 py-3 border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-alt)] transition-colors duration-150 ${
+                    !notif.isRead ? 'bg-[var(--color-primary)]/[0.03]' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     {/* Icon based on type */}
                     <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                       notif.type === 'reschedule' 
-                        ? 'bg-amber-100 text-amber-600' 
+                        ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' 
                         : notif.type === 'appointment'
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-[var(--color-info-bg)] text-[var(--color-info)]'
+                        : 'bg-[var(--color-bg-alt)] text-[var(--color-text-muted)]'
                     }`}>
                       {notif.type === 'reschedule' ? (
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -170,14 +170,14 @@ export function NotificationBell() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notif.isRead ? 'font-semibold' : 'font-medium'} text-gray-900 truncate`}>
+                      <p className={`text-sm ${!notif.isRead ? 'font-semibold' : 'font-medium'} text-[var(--color-text)] truncate`}>
                         {notif.title}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notif.body}</p>
-                      <p className="text-xs text-gray-400 mt-1">{formatTime(notif.created_at)}</p>
+                      <p className="text-xs text-[var(--color-text-secondary)] mt-0.5 line-clamp-2">{notif.body}</p>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-1">{formatTime(notif.created_at)}</p>
                     </div>
                     {!notif.isRead && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+                      <div className="w-2 h-2 rounded-full bg-[var(--color-accent)] flex-shrink-0 mt-1.5" />
                     )}
                   </div>
                 </button>

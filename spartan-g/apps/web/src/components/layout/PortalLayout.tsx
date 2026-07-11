@@ -35,7 +35,7 @@ export function PortalLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--color-bg)]">
       {/* Desktop sidebar (fixed, full height) */}
       <div className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
         <Sidebar items={navItems} />
@@ -50,14 +50,14 @@ export function PortalLayout({
       >
         {/* Backdrop */}
         <div
-          className={`absolute inset-0 bg-gray-900/50 transition-opacity duration-200 ${
+          className={`absolute inset-0 bg-[var(--color-text)]/50 transition-opacity duration-200 ${
             mobileOpen ? "opacity-100" : "opacity-0"
           }`}
           onClick={() => setMobileOpen(false)}
         />
         {/* Drawer */}
         <div
-          className={`absolute inset-y-0 left-0 w-64 transform bg-white shadow-xl transition-transform duration-200 ${
+          className={`absolute inset-y-0 left-0 w-64 transform bg-[var(--color-surface)] shadow-dropdown transition-transform duration-200 ${
             mobileOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >

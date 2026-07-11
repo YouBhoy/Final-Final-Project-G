@@ -1,0 +1,66 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <circle cx="256" cy="256" r="245" fill="none" stroke="#1a1a1a" stroke-width="8"/>
+  <circle cx="256" cy="256" r="235" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <path d="M256 11 C124 11 11 124 11 256 C11 388 124 501 256 501 C388 501 501 388 501 256 C501 124 388 11 256 11Z" fill="#1a1a1a"/>
+  <circle cx="256" cy="256" r="210" fill="white"/>
+  <path id="top-arc" d="M256 56 C340 56 430 100 460 170" fill="none"/>
+  <text font-family="Georgia,serif" font-weight="bold" font-size="20" fill="white" letter-spacing="2"><textPath href="#top-arc" startOffset="50%" text-anchor="middle">BATANGAS STATE UNIVERSITY</textPath></text>
+  <path id="bot-arc" d="M256 456 C340 456 430 412 460 342" fill="none"/>
+  <text font-family="Georgia,serif" font-weight="bold" font-size="16" fill="white" letter-spacing="3"><textPath href="#bot-arc" startOffset="50%" text-anchor="middle">PHILIPPINES</textPath></text>
+  <g fill="#2E7D32" opacity="0.6">
+    <ellipse cx="90" cy="240" rx="22" ry="7" transform="rotate(-30 90 240)"/>
+    <ellipse cx="80" cy="215" rx="20" ry="6" transform="rotate(-15 80 215)"/>
+    <ellipse cx="85" cy="190" rx="18" ry="5" transform="rotate(-5 85 190)"/>
+    <ellipse cx="105" cy="275" rx="18" ry="5" transform="rotate(-40 105 275)"/>
+    <path d="M115 175 Q100 200 90 235 Q80 270 100 290" stroke="#2E7D32" stroke-width="3" fill="none"/>
+  </g>
+  <g fill="#2E7D32" opacity="0.6">
+    <ellipse cx="422" cy="240" rx="22" ry="7" transform="rotate(30 422 240)"/>
+    <ellipse cx="432" cy="215" rx="20" ry="6" transform="rotate(15 432 215)"/>
+    <ellipse cx="427" cy="190" rx="18" ry="5" transform="rotate(5 427 190)"/>
+    <ellipse cx="407" cy="275" rx="18" ry="5" transform="rotate(40 407 275)"/>
+    <path d="M397 175 Q412 200 422 235 Q432 270 412 290" stroke="#2E7D32" stroke-width="3" fill="none"/>
+  </g>
+  <path d="M256 110 L180 150 L180 270 C180 340 256 390 256 390 C256 390 332 340 332 270 L332 150 Z" fill="#8B0000"/>
+  <g fill="#D4A017" opacity="0.12">
+    <polygon points="256,125 242,145 220,140 238,158 230,178 256,164 282,178 274,158 292,140 270,145"/>
+    <polygon points="256,135 247,150 232,148 245,160 240,176 256,165 272,176 267,160 280,148 265,150"/>
+  </g>
+  <g>
+    <path d="M210 225 L256 240 L302 225 L302 280 L256 295 L210 280 Z" fill="white"/>
+    <path d="M210 225 L210 280 L256 295 L256 240 Z" fill="#f5f5f5"/>
+    <path d="M302 225 L302 280 L256 295 L256 240 Z" fill="#f0f0f0"/>
+    <line x1="256" y1="240" x2="256" y2="295" stroke="#ccc" stroke-width="1"/>
+    <line x1="220" y1="244" x2="250" y2="252" stroke="#999" stroke-width="0.8"/>
+    <line x1="220" y1="254" x2="250" y2="262" stroke="#999" stroke-width="0.8"/>
+    <line x1="220" y1="264" x2="250" y2="272" stroke="#999" stroke-width="0.8"/>
+    <line x1="262" y1="252" x2="292" y2="244" stroke="#999" stroke-width="0.8"/>
+    <line x1="262" y1="262" x2="292" y2="254" stroke="#999" stroke-width="0.8"/>
+    <line x1="262" y1="272" x2="292" y2="264" stroke="#999" stroke-width="0.8"/>
+  </g>
+  <g>
+    <rect x="248" y="280" width="16" height="48" rx="4" fill="#D4A017"/>
+    <rect x="242" y="322" width="28" height="6" rx="3" fill="#D4A017"/>
+    <path d="M256 155 C248 165 240 175 240 195 C240 215 248 222 256 224 C264 222 272 215 272 195 C272 175 264 165 256 155Z" fill="#D4A017"/>
+    <path d="M256 165 C250 173 244 183 244 197 C244 210 250 218 256 220 C262 218 268 210 268 197 C268 183 262 173 256 165Z" fill="#FFC72C"/>
+    <path d="M256 180 C253 185 250 191 250 199 C250 207 253 212 256 214 C259 212 262 207 262 199 C262 191 259 185 256 180Z" fill="white"/>
+  </g>
+  <g>
+    <path d="M145 208 L200 222 L200 232 L145 218 Z" fill="#1a1a1a"/>
+    <rect x="200" y="220" width="112" height="14" rx="2" fill="#1a1a1a"/>
+    <path d="M312 220 L367 206 L367 218 L312 232 Z" fill="#1a1a1a"/>
+    <text x="256" y="231" font-family="Georgia,serif" font-weight="bold" font-size="10" fill="white" text-anchor="middle" letter-spacing="2">SERVICE</text>
+  </g>
+  <g>
+    <path d="M150 288 L200 302 L200 312 L150 298 Z" fill="#1a1a1a"/>
+    <rect x="200" y="300" width="112" height="14" rx="2" fill="#1a1a1a"/>
+    <path d="M312 300 L362 286 L362 298 L312 312 Z" fill="#1a1a1a"/>
+    <text x="256" y="311" font-family="Georgia,serif" font-weight="bold" font-size="10" fill="white" text-anchor="middle" letter-spacing="2">VIRTUE</text>
+  </g>
+  <path id="excellence-arc" d="M256 345 C290 345 340 325 370 295" fill="none"/>
+  <text font-family="Georgia,serif" font-weight="bold" font-size="13" fill="#D4A017" letter-spacing="2"><textPath href="#excellence-arc" startOffset="50%" text-anchor="middle">EXCELLENCE</textPath></text>
+  <rect x="210" y="365" width="92" height="16" rx="3" fill="white" stroke="#8B0000" stroke-width="1.5"/>
+  <text x="256" y="377" font-family="Georgia,serif" font-weight="bold" font-size="10" fill="#8B0000" text-anchor="middle">1903</text>
+  <path d="M175 395 L337 395 Q345 395 345 403 L345 418 Q345 426 337 426 L175 426 Q167 426 167 418 L167 403 Q167 395 175 395 Z" fill="#D4A017"/>
+  <text x="256" y="415" font-family="Georgia,serif" font-weight="bold" font-size="9" fill="white" text-anchor="middle" letter-spacing="1">The National Engineering University</text>
+</svg>

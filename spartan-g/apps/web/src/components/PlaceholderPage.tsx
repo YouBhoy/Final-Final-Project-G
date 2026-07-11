@@ -8,48 +8,53 @@ interface PlaceholderPageProps {
 }
 
 /**
- * Generic placeholder used for any route whose functionality has not yet
- * been implemented. Phase 2A focuses on layout & navigation only.
+ * Placeholder page for routes whose functionality has not yet been implemented.
+ * Styled to match the BatStateU design system — shown as a roadmap card,
+ * not a dashed placeholder.
  */
 export function PlaceholderPage({
   title,
-  description = "This page is part of the planned scope but is not yet implemented. Navigation and layout structure are in place.",
-  iconPath = "M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z",
+  description = "This feature is part of our planned scope and is being developed.",
+  iconPath = "M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18",
 }: PlaceholderPageProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold tracking-tight text-[var(--color-text)] sm:text-3xl">
           {title}
         </h1>
         {description && (
-          <p className="mt-1 text-sm text-gray-500">{description}</p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{description}</p>
         )}
       </div>
 
-      <div className="rounded-xl border-2 border-dashed border-gray-300 bg-white p-12 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-          <svg
-            className="h-8 w-8 text-indigo-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d={iconPath}
-            />
-          </svg>
+      <div className="rounded-[var(--radius-lg)] bg-[var(--color-surface)] p-8 shadow-card">
+        <div className="flex flex-col items-center text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-accent)]/10">
+            <svg
+              className="h-8 w-8 text-[var(--color-accent)]"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d={iconPath}
+              />
+            </svg>
+          </div>
+          <h2 className="mt-4 font-[family-name:var(--font-heading)] text-lg font-semibold text-[var(--color-text)]">
+            Coming soon
+          </h2>
+          <p className="mt-2 max-w-md text-sm text-[var(--color-text-secondary)]">
+            {description} We'll notify you once it's ready.
+          </p>
+          {/* Gold accent */}
+          <div className="mt-4 h-0.5 w-12 rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-accent-light)]" />
         </div>
-        <h2 className="mt-4 text-lg font-semibold text-gray-900">
-          Coming soon
-        </h2>
-        <p className="mt-2 text-sm text-gray-500">
-          Phase 2A is in progress — layout and navigation only.
-        </p>
       </div>
     </div>
   );
