@@ -1,1 +1,139 @@
+/* ─── Google Fonts ─────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap');
+
+/* ─── Tailwind v4 ──────────────────────────────── */
 @import "tailwindcss";
+
+/* ─── BatStateU Design Tokens ──────────────────── */
+@theme {
+  /* Brand colors */
+  --color-primary: #7A0C1C;
+  --color-primary-dark: #5C0915;
+  --color-primary-light: #9A1E2E;
+  --color-primary-pastel: rgba(122, 12, 28, 0.08);
+  --color-accent: #D4A017;
+  --color-accent-light: #E8B830;
+  --color-accent-dark: #B8860B;
+  --color-accent-pastel: rgba(212, 160, 23, 0.10);
+
+  /* Neutrals */
+  --color-bg: #FAF8F6;
+  --color-bg-alt: #F3F0EB;
+  --color-surface: #FFFFFF;
+  --color-text: #1F1B1A;
+  --color-text-secondary: #6B6563;
+  --color-text-muted: #9C9592;
+  --color-border: #E6E1DC;
+  --color-border-light: #F0ECE7;
+
+  /* Semantic */
+  --color-success: #2E7D32;
+  --color-success-bg: #E8F5E9;
+  --color-warning: #E65100;
+  --color-warning-bg: #FFF3E0;
+  --color-error: #C62828;
+  --color-error-bg: #FFEBEE;
+  --color-info: #1565C0;
+  --color-info-bg: #E3F2FD;
+
+  /* Typography */
+  --font-heading: 'Source Serif 4', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Radius — standardized to one consistent value */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Shadows — softer, lifted feel */
+  --shadow-card: 0 2px 8px rgba(31, 27, 26, 0.05), 0 1px 3px rgba(31, 27, 26, 0.03);
+  --shadow-card-hover: 0 4px 16px rgba(31, 27, 26, 0.08), 0 2px 4px rgba(31, 27, 26, 0.04);
+  --shadow-dropdown: 0 8px 24px rgba(31, 27, 26, 0.10), 0 2px 8px rgba(31, 27, 26, 0.06);
+  --shadow-button: 0 2px 4px rgba(122, 12, 28, 0.15);
+  --shadow-banner: 0 4px 16px rgba(122, 12, 28, 0.15);
+}
+
+/* ─── Base Styles ──────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Type Scale Helpers ──────────────────────── */
+.type-hero {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+.type-section {
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+.type-label {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.type-body {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.type-caption {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+/* ─── Reduced Motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ─── Focus Styles ────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Scrollbar ────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}

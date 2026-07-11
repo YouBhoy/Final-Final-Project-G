@@ -4,9 +4,9 @@ interface SpinnerProps {
 }
 
 /** Inline spinner used in list/loading states. */
-export function Spinner({ className = "h-5 w-5 text-indigo-600", label }: SpinnerProps) {
+export function Spinner({ className = "h-5 w-5 text-[var(--color-primary)]", label }: SpinnerProps) {
   return (
-    <span className="inline-flex items-center gap-2 text-sm text-gray-500">
+    <span className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
       <svg
         className={`animate-spin ${className}`}
         fill="none"

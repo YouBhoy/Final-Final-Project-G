@@ -85,8 +85,8 @@ export function StudentFindFacilitatorPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center space-y-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-          <p className="text-sm text-gray-500">Loading...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+          <p className="text-sm text-[var(--color-text-secondary)]">Loading...</p>
         </div>
       </div>
     );
@@ -96,8 +96,8 @@ export function StudentFindFacilitatorPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center space-y-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-          <p className="text-sm text-gray-500">Loading facilitators...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+          <p className="text-sm text-[var(--color-text-secondary)]">Loading facilitators...</p>
         </div>
       </div>
     );
@@ -105,16 +105,16 @@ export function StudentFindFacilitatorPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="mb-6 text-xl font-semibold text-gray-900">Find a Facilitator</h1>
+      <h1 className="mb-6 font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-text)]">Find a Facilitator</h1>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mb-4 rounded-[var(--radius-md)] border border-[var(--color-error-bg)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error)]">
           {error}
         </div>
       )}
 
       {facilitators.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-10 text-center text-sm text-gray-500">
+        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-10 text-center text-sm text-[var(--color-text-secondary)] shadow-card">
           No facilitators are currently available.
         </div>
       ) : (
@@ -127,15 +127,15 @@ export function StudentFindFacilitatorPage() {
             return (
               <div
                 key={fac.id}
-                className="cursor-pointer rounded-lg border bg-white p-5 transition-shadow hover:shadow-md"
+                className="cursor-pointer rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-card transition-all duration-200 hover:shadow-card-hover"
                 onClick={() => setSelectedFacilitator((prev) => (prev === fac.id ? null : fac.id))}
               >
                 <div className="flex items-start gap-3">
                   {fac.photoURL ? (
                     <img src={fac.photoURL} alt={fac.displayName} className="h-12 w-12 rounded-full object-cover" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-                      <span className="text-lg font-semibold text-indigo-700">{initial}</span>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)]/10">
+                      <span className="text-lg font-semibold text-[var(--color-primary)]">{initial}</span>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -189,7 +189,7 @@ export function StudentFindFacilitatorPage() {
 
                     <a
                       href={`/student/facilitator/${encodeURIComponent(fac.id)}`}
-                      className="mt-3 block w-full rounded-lg bg-blue-600 px-4 py-2 text-center text-sm text-white hover:bg-blue-700"
+                      className="mt-3 block w-full rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-center text-sm font-medium text-white shadow-sm transition-all duration-150 hover:bg-[var(--color-primary-light)]"
                     >
                       Book Appointment
                     </a>
