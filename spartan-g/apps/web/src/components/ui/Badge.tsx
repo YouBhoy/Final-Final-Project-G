@@ -9,12 +9,12 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<Variant, string> = {
-  default: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
-  success: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  warning: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  danger: "bg-red-50 text-red-700 ring-red-600/20",
-  info: "bg-sky-50 text-sky-700 ring-sky-600/20",
-  neutral: "bg-gray-100 text-gray-700 ring-gray-500/20",
+  default: "bg-[var(--color-primary)]/10 text-[var(--color-primary)] ring-[var(--color-primary)]/20",
+  success: "bg-[var(--color-success-bg)] text-[var(--color-success)] ring-[var(--color-success)]/20",
+  warning: "bg-[var(--color-warning-bg)] text-[var(--color-warning)] ring-[var(--color-warning)]/20",
+  danger: "bg-[var(--color-error-bg)] text-[var(--color-error)] ring-[var(--color-error)]/20",
+  info: "bg-[var(--color-info-bg)] text-[var(--color-info)] ring-[var(--color-info)]/20",
+  neutral: "bg-[var(--color-bg-alt)] text-[var(--color-text-secondary)] ring-[var(--color-text-muted)]/20",
 };
 
 /** Small pill-shaped status / category indicator. */

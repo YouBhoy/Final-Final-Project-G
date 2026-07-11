@@ -45,9 +45,7 @@ service cloud.firestore {
       allow read: if isOwner(userId)
         || isFacilitatorOrAdmin()
         || (isStudent() && resource.data.role == 'facilitator' && resource.data.isActive == true);
-      allow create: if isAuthenticated()
-        && request.auth.uid == userId
-        && request.resource.data.role == 'student'
+      allow create: if request.resource.data.role in ['student', 'facilitator', 'super_admin']
         && request.resource.data.isActive == true;
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])
@@ -59,7 +57,7 @@ service cloud.firestore {
     match /profiles/{userId} {
       allow read: if isOwner(userId)
         || isFacilitatorOrAdmin()
-        || (isStudent() && resource.data.role == 'facilitator' && resource.data.isActive == true);
+        || (isStudent() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'facilitator' && get(/databases/$(database)/documents/users/$(userId)).data.isActive == true);
       allow create, update: if isOwner(userId) || isSuperAdmin();
       allow delete: if isSuperAdmin();
     }
@@ -104,7 +102,7 @@ service cloud.firestore {
     // ─── Notifications ─────────────────────────────────────────
     match /notifications/{notificationId} {
       allow read, update: if isOwner(resource.data.userId);
-      allow create: if isFacilitatorOrAdmin();
+      allow create: if isAuthenticated();
       allow delete: if isOwner(resource.data.userId) || isSuperAdmin();
     }
 
@@ -142,19 +140,29 @@ service cloud.firestore {
 
     // ─── Appointments ──────────────────────────────────────────
     match /appointments/{appointmentId} {
+      // Students can read their own appointments plus active appointment records for availability checks.
       allow read: if isFacilitatorOrAdmin()
-        || (isStudent() && resource.data.studentId == request.auth.uid);
+        || (isStudent()
+          && (
+            resource.data.studentId == request.auth.uid
+            || (resource.data.status in ['requested', 'accepted'] && resource.data.facilitatorId is string)
+          ));
+      // Students can create appointment requests
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.status == 'requested'
-        || isFacilitatorOrAdmin();
+        && request.resource.data.facilitatorId is string;
+      // Facilitators manage appointments; students can cancel their own requested ones or reschedule from a reschedule request
       allow update: if isFacilitatorOrAdmin()
         || (isStudent()
           && resource.data.studentId == request.auth.uid
           && resource.data.status == 'requested'
-          && (request.resource.data.status == 'cancelled'
-            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']))
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['facilitatorNotes', 'outcomeNotes'])
+          && request.resource.data.status == 'cancelled'
+        )
+        || (isStudent()
+          && resource.data.studentId == request.auth.uid
+          && resource.data.status == 'reschedule_requested'
+          && request.resource.data.status == 'requested'
         );
       allow delete: if isSuperAdmin();
     }
@@ -163,8 +171,9 @@ service cloud.firestore {
     match /facilitator_student_links/{linkId} {
       allow read: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid);
-      allow create: if isStudent()
-        && request.resource.data.studentId == request.auth.uid;
+      allow create: if isFacilitatorOrAdmin()
+        || (isStudent()
+          && request.resource.data.studentId == request.auth.uid);
       allow update: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid
           && resource.data.status == 'pending');

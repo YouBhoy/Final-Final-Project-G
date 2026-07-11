@@ -15,3 +15,5 @@ export {
 } from './assessment-template.service';
 export { assessmentService } from './assessment.service';
 export { assessmentResponseService, type SaveResponsePayload } from './assessment-response.service';
+export { notificationRepository } from '../repositories/notification.repository';
+export { profileRepository } from '../repositories/profile.repository';

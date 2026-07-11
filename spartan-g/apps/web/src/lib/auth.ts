@@ -1,15 +1,20 @@
 import {
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
-  updateProfile,
   type User,
+  updateProfile,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
-import type { Role, AuthUser, UserDocument } from "../types/auth.types";
+import type { Role, AuthSession } from "@spartan-g/shared-types";
+
+/**
+ * Firebase Authentication implementation.
+ * Uses Firebase Auth for authentication, Firestore for profile data only.
+ */
 
 export async function registerUser(
   email: string,
@@ -17,43 +22,62 @@ export async function registerUser(
   firstName: string,
   lastName: string,
   role: Role = "student"
-): Promise<AuthUser> {
+): Promise<AuthSession> {
+  // Create Firebase Auth user
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
-  await updateProfile(user, {
-    displayName: `${firstName} ${lastName}`,
-  });
+  // Set display name in Firebase Auth
+  await updateProfile(user, { displayName: `${firstName} ${lastName}` });
 
-  const userDoc: Omit<UserDocument, "createdAt" | "updatedAt"> = {
+  // Create user profile in Firestore
+  const userDoc = {
     uid: user.uid,
-    firstName,
-    lastName,
-    email: user.email!,
+    email,
+    displayName: `${firstName} ${lastName}`,
     role,
     isActive: true,
-  };
-
-  await setDoc(doc(db, "users", user.uid), {
-    ...userDoc,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  await setDoc(doc(db, "users", user.uid), userDoc);
 
   return {
     uid: user.uid,
     email: user.email,
-    displayName: user.displayName,
+    emailVerified: user.emailVerified,
     role,
-    isActive: true,
+    displayName: userDoc.displayName,
   };
 }
 
 export async function loginUser(
   email: string,
   password: string
-): Promise<AuthUser> {
+): Promise<AuthSession> {
+  // Authenticate with Firebase Auth
   const { user } = await signInWithEmailAndPassword(auth, email, password);
-  return buildAuthUser(user);
+
+  // Get user profile from Firestore
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+
+  if (!userDoc.exists()) {
+    throw new Error("User profile not found");
+  }
+
+  const userData = userDoc.data();
+
+  if (!userData.isActive) {
+    throw new Error("Account is deactivated");
+  }
+
+  return {
+    uid: user.uid,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    role: userData.role,
+    displayName: user.displayName ?? userData.displayName,
+  };
 }
 
 export async function logoutUser(): Promise<void> {
@@ -65,39 +89,36 @@ export async function resetPassword(email: string): Promise<void> {
 }
 
 export function onAuthChange(
-  callback: (user: AuthUser | null) => void
+  callback: (user: AuthSession | null) => void
 ): () => void {
   return onAuthStateChanged(auth, async (firebaseUser) => {
-    if (!firebaseUser) {
-      callback(null);
-      return;
-    }
+    if (firebaseUser) {
+      // Get user profile from Firestore
+      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
 
-    try {
-      const authUser = await buildAuthUser(firebaseUser);
-      callback(authUser);
-    } catch {
+      if (!userDoc.exists()) {
+        callback(null);
+        return;
+      }
+
+      const userData = userDoc.data();
+
+      if (!userData.isActive) {
+        callback(null);
+        return;
+      }
+
+      callback({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        emailVerified: firebaseUser.emailVerified,
+        role: userData.role,
+        displayName: firebaseUser.displayName ?? userData.displayName,
+      });
+    } else {
       callback(null);
     }
   });
-}
-
-async function buildAuthUser(firebaseUser: User): Promise<AuthUser> {
-  const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-  const userData = userDoc.data() as UserDocument | undefined;
-
-  if (!userData || !userData.isActive) {
-    await signOut(auth);
-    throw new Error("Account is deactivated");
-  }
-
-  return {
-    uid: firebaseUser.uid,
-    email: firebaseUser.email,
-    displayName: firebaseUser.displayName,
-    role: userData.role,
-    isActive: userData.isActive,
-  };
 }
 
 export function getRoleRedirect(role: Role): string {

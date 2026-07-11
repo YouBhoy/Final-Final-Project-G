@@ -5,7 +5,7 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { getRoleRedirect } from "../lib/auth";
-import type { RegisterFormData, Role } from "../types/auth.types";
+import type { RegisterFormData, Role } from "@spartan-g/shared-types";
 
 export function RegisterPage() {
   const { register, user, error, clearError } = useAuth();
@@ -17,6 +17,7 @@ export function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "student",
   });
 
   // Redirect if already logged in
@@ -89,7 +90,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Join the student portal as a student"
+      subtitle="Join SPARTAN-G"
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {/* Error banner */}
@@ -137,7 +138,7 @@ export function RegisterPage() {
           className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
-        {/* Role selector — testing only */}
+        {/* Role selector */}
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             I am a

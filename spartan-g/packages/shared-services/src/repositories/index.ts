@@ -14,3 +14,4 @@ export { assessmentQuestionRepository } from './assessment-question.repository';
 export { assessmentRepository } from './assessment.repository';
 export { assessmentResponseRepository } from './assessment-response.repository';
 export { assessmentAttemptRepository } from './assessment-attempt.repository';
+export { notificationRepository } from './notification.repository';
