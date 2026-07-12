@@ -13,6 +13,8 @@ import { WorkHoursScreen } from '../screens/facilitator/WorkHoursScreen';
 import { SlotsScreen } from '../screens/facilitator/SlotsScreen';
 import { AppointmentsScreen } from '../screens/facilitator/AppointmentsScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
+import { FacilitatorMessagesScreen } from '../screens/facilitator/MessagesScreen';
+import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
 
 const Tab = createBottomTabNavigator<FacilitatorMobileTabParamList>();
 const Stack = createNativeStackNavigator<FacilitatorMobileStackParamList>();
@@ -36,7 +38,7 @@ function FacilitatorTabs() {
         {() => <AppointmentsScreen />}
       </Tab.Screen>
       <Tab.Screen name="Messaging" options={{ title: 'Messages' }}>
-        {() => <PlaceholderScreen routeName="Messaging" />}
+        {() => <FacilitatorMessagesScreen />}
       </Tab.Screen>
       <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Work Hours' }}>
         {() => <WorkHoursScreen />}
@@ -77,9 +79,11 @@ export function FacilitatorNavigator() {
       <Stack.Screen name="AppointmentDetail" options={{ title: 'Appointment' }}>
         {() => <PlaceholderScreen routeName="AppointmentDetail" />}
       </Stack.Screen>
-      <Stack.Screen name="ConversationDetail" options={{ title: 'Conversation' }}>
-        {() => <PlaceholderScreen routeName="ConversationDetail" />}
-      </Stack.Screen>
+      <Stack.Screen
+        name="ConversationDetail"
+        component={ConversationDetailScreen}
+        options={{ title: 'Conversation' }}
+      />
       <Stack.Screen name="ManageCourse" options={{ title: 'Manage Course' }}>
         {() => <PlaceholderScreen routeName="ManageCourse" />}
       </Stack.Screen>

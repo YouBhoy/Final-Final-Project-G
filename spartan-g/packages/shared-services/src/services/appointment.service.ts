@@ -206,9 +206,6 @@ class AppointmentService {
         const linkRef = doc(db, COLLECTIONS.FACILITATOR_STUDENT_LINKS, linkId);
         const linkDoc = await transaction.get(linkRef);
 
-        const convId = [facilitatorId, appointment.studentId].sort().join('_');
-        const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, convId);
-
         // 1. Update appointment status
         transaction.update(appointmentRef, {
           status: 'accepted',
@@ -238,15 +235,23 @@ class AppointmentService {
         return appointment.studentId;
       });
 
-      await setDoc(
-        doc(db, COLLECTIONS.CONVERSATIONS, [facilitatorId, result].sort().join('_')),
-        {
-          participantIds: [facilitatorId, result],
-          updatedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      // Create conversation using shared service (handles all required fields: lastMessageAt, lastMessagePreview, unreadCount)
+      try {
+        await messagingService.ensureConversation([facilitatorId, result], actorRole);
+      } catch (convError: any) {
+        // Appointment is already accepted at this point — log aggressively so we can detect/manually fix
+        console.error('[AppointmentService] Appointment accepted but conversation creation FAILED:', {
+          appointmentId,
+          facilitatorId,
+          studentId: result,
+          error: convError.message,
+        });
+        // Re-throw so the API caller gets a clear error rather than a silent failure
+        throw new Error(
+          `Appointment was accepted but the messaging conversation could not be created. ` +
+          `Please contact support to create the conversation manually. (${convError.message})`,
+        );
+      }
 
       // Notify the student
       await this.createNotification({
@@ -259,7 +264,8 @@ class AppointmentService {
 
       return { appointmentId };
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to accept appointment');
+      // If the error is already our enriched conversation-failure message, pass it through
+      throw error;
     }
   }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
-import { useAuthStore, appointmentSlotService, appointmentService, userService } from '@spartan-g/shared-services';
+import { useAuthStore, appointmentService, workHoursService, userService } from '@spartan-g/shared-services';
+import type { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_HEADERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 type Props = NativeStackScreenProps<StudentMobileStackParamList, 'BookAppointment'>;
 
@@ -26,12 +28,13 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [availableSlots, setAvailableSlots] = useState<any[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
+  const [workHoursForDay, setWorkHoursForDay] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [selectedTime, setSelectedTime] = useState('09:00');
   const [notes, setNotes] = useState('');
   const [isBooking, setIsBooking] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [bookingMessage, setBookingMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!session) return;
@@ -41,22 +44,25 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
     }).catch(() => {});
   }, [facilitatorId, session]);
 
+  // Load work hours for the selected date's day of week
   useEffect(() => {
     if (!session || !facilitatorId) return;
-    const startOfMonth = new Date(currentYear, currentMonth, 1);
-    const endOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
-    appointmentSlotService.getAvailableSlotsByDateRange(facilitatorId, startOfMonth, endOfMonth, session.role)
-      .then(setAvailableSlots)
-      .catch(() => setAvailableSlots([]));
-  }, [facilitatorId, currentMonth, currentYear, session]);
-
-  const slotsForSelectedDate = useMemo(() => {
-    if (!selectedDate) return [];
-    return availableSlots.filter((slot: any) => {
-      const slotDate = slot.startTime.toDate();
-      return slotDate.toDateString() === selectedDate.toDateString();
-    });
-  }, [availableSlots, selectedDate]);
+    setError('');
+    workHoursService.getActiveSchedule(facilitatorId, session.role)
+      .then((schedules: WorkHoursScheduleDocument[]) => {
+        const daySchedule = schedules.find((s) => s.dayOfWeek === selectedDate.getDay());
+        if (daySchedule) {
+          setWorkHoursForDay({ startTime: daySchedule.startTime, endTime: daySchedule.endTime });
+          setSelectedTime(daySchedule.startTime);
+        } else {
+          setWorkHoursForDay(null);
+        }
+      })
+      .catch((err: any) => {
+        console.error('[BookAppointment] Failed to load work hours:', err);
+        setWorkHoursForDay(null);
+      });
+  }, [facilitatorId, selectedDate, session]);
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
@@ -72,17 +78,18 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
   }, [currentMonth]);
 
   const handleDateSelect = useCallback((day: number) => {
-    setSelectedSlot(null);
+    setError('');
     setSelectedDate(new Date(currentYear, currentMonth, day));
   }, [currentYear, currentMonth]);
 
   const handleBook = useCallback(async () => {
-    if (!session || !facilitatorId || !selectedSlot) return;
+    if (!session || !facilitatorId || !workHoursForDay) return;
     setIsBooking(true);
+    setError('');
     try {
-      const scheduledAt = selectedSlot.startTime.toDate();
-      const appointmentId = `${facilitatorId}_${session.uid}_${Date.now()}`;
-      await appointmentSlotService.reserveSlot(selectedSlot.id, appointmentId, session.role);
+      const [hours, minutes] = selectedTime.split(':').map(Number);
+      const scheduledAt = new Date(selectedDate);
+      scheduledAt.setHours(hours, minutes, 0, 0);
 
       const appointmentPayload: any = {
         studentId: session.uid,
@@ -95,14 +102,15 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
       }
       await appointmentService.requestAppointment(appointmentPayload, session.role);
 
-      setBookingMessage('Appointment requested successfully!');
+      setBookingMessage('Appointment requested successfully! The facilitator will be notified.');
       setTimeout(() => navigation.goBack(), 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to book appointment:', error);
+      setError(error.message || 'Failed to book appointment');
     } finally {
       setIsBooking(false);
     }
-  }, [session, facilitatorId, selectedSlot, notes, navigation]);
+  }, [session, facilitatorId, selectedDate, selectedTime, workHoursForDay, notes, navigation]);
 
   if (isLoading) {
     return (
@@ -137,6 +145,13 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
         </Text>
         <Text style={styles.facilitatorEmailText}>{facilitator?.email}</Text>
       </View>
+
+      {/* Error message */}
+      {error ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
       {/* Calendar */}
       <View style={styles.calendarCard}>
@@ -189,29 +204,37 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {/* Time slots */}
+      {/* Time slot (computed from work hours) */}
       <View style={styles.slotsCard}>
-        <Text style={styles.slotsTitle}>Available Slots</Text>
-        {slotsForSelectedDate.length === 0 ? (
-          <Text style={styles.noSlotsText}>No available slots for this date</Text>
+        <Text style={styles.slotsTitle}>Choose Your Time</Text>
+        {!workHoursForDay ? (
+          <View>
+            <Text style={styles.noSlotsText}>
+              The facilitator is not available on {DAY_NAMES[selectedDate.getDay()]}.
+            </Text>
+            <Text style={styles.noSlotsSubtext}>
+              Please select another date.
+            </Text>
+          </View>
         ) : (
-          <View style={styles.slotsGrid}>
-            {slotsForSelectedDate.map((slot: any) => {
-              const start = slot.startTime.toDate();
-              const timeStr = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-              const isSelected = selectedSlot?.id === slot.id;
-              return (
-                <TouchableOpacity
-                  key={slot.id}
-                  onPress={() => setSelectedSlot(slot)}
-                  style={[styles.slotButton, isSelected && styles.slotButtonSelected]}
-                >
-                  <Text style={[styles.slotButtonText, isSelected && styles.slotButtonTextSelected]}>
-                    {timeStr}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          <View style={styles.timePickerContainer}>
+            <Text style={styles.workHoursInfo}>
+              Available hours: <Text style={{ fontWeight: '700' }}>{workHoursForDay.startTime} - {workHoursForDay.endTime}</Text>
+            </Text>
+            <View style={styles.timeRow}>
+              <TextInput
+                style={styles.timeInput}
+                value={selectedTime}
+                onChangeText={setSelectedTime}
+                placeholder="HH:MM"
+                placeholderTextColor={lightColors.textMuted}
+                autoComplete="off"
+              />
+              <Text style={styles.timeLabel}>60 min appointment</Text>
+            </View>
+            <Text style={styles.timeHint}>
+              Make sure your chosen time allows for the full 60-minute appointment within the facilitator's available hours.
+            </Text>
           </View>
         )}
       </View>
@@ -234,8 +257,8 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
       {/* Book button */}
       <TouchableOpacity
         onPress={handleBook}
-        disabled={!selectedSlot || isBooking}
-        style={[styles.bookButton, (!selectedSlot || isBooking) && styles.bookButtonDisabled]}
+        disabled={!workHoursForDay || isBooking}
+        style={[styles.bookButton, (!workHoursForDay || isBooking) && styles.bookButtonDisabled]}
       >
         <Text style={styles.bookButtonText}>
           {isBooking ? 'Booking...' : 'Request Appointment'}
@@ -308,6 +331,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: lightColors.textSecondary,
     marginTop: 2,
+  },
+  errorCard: {
+    backgroundColor: lightColors.errorBackground,
+    borderWidth: 1,
+    borderColor: lightColors.errorBorder,
+    borderRadius: 8,
+    padding: 12,
+  },
+  errorText: {
+    fontSize: 13,
+    color: lightColors.errorText,
+    lineHeight: 18,
   },
   calendarCard: {
     backgroundColor: lightColors.surface,
@@ -396,30 +431,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: lightColors.textMuted,
     fontStyle: 'italic',
+    marginBottom: 4,
   },
-  slotsGrid: {
+  noSlotsSubtext: {
+    fontSize: 13,
+    color: lightColors.textMuted,
+    fontStyle: 'italic',
+  },
+  timePickerContainer: {
+    gap: 12,
+  },
+  workHoursInfo: {
+    fontSize: 13,
+    color: lightColors.textSecondary,
+  },
+  timeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
   },
-  slotButton: {
+  timeInput: {
     borderWidth: 1,
     borderColor: lightColors.border,
     borderRadius: 8,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    fontSize: 15,
+    color: lightColors.text,
+    backgroundColor: lightColors.background,
+    width: 90,
+    textAlign: 'center',
   },
-  slotButtonSelected: {
-    borderColor: lightColors.primary,
-    backgroundColor: lightColors.primary,
-  },
-  slotButtonText: {
+  timeLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: lightColors.textSecondary,
+    color: lightColors.textMuted,
   },
-  slotButtonTextSelected: {
-    color: '#FFFFFF',
+  timeHint: {
+    fontSize: 12,
+    color: lightColors.warningText,
+    lineHeight: 16,
   },
   notesCard: {
     backgroundColor: lightColors.surface,

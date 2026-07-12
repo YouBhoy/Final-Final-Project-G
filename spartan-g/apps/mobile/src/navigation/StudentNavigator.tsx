@@ -12,6 +12,8 @@ import { BookAppointmentScreen } from '../screens/student/BookAppointmentScreen'
 import { StudentAppointmentsScreen } from '../screens/student/StudentAppointmentsScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessmentScreen';
+import { MessagesScreen } from '../screens/student/MessagesScreen';
+import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
 
 const Tab = createBottomTabNavigator<StudentMobileTabParamList>();
 const Stack = createNativeStackNavigator<StudentMobileStackParamList>();
@@ -35,7 +37,7 @@ function StudentTabs() {
         {() => <AssessmentsListScreen />}
       </Tab.Screen>
       <Tab.Screen name="StudentMessages" options={{ title: 'Messages' }}>
-        {() => <PlaceholderScreen routeName="StudentMessages" />}
+        {() => <MessagesScreen />}
       </Tab.Screen>
       <Tab.Screen name="StudentProfile" options={{ title: 'Profile' }}>
         {() => <PlaceholderScreen routeName="StudentProfile" />}
@@ -54,9 +56,11 @@ export function StudentNavigator() {
       <Stack.Screen name="AssignmentDetail" options={{ title: 'Assignment' }}>
         {() => <PlaceholderScreen routeName="AssignmentDetail" />}
       </Stack.Screen>
-      <Stack.Screen name="ConversationDetail" options={{ title: 'Conversation' }}>
-        {() => <PlaceholderScreen routeName="ConversationDetail" />}
-      </Stack.Screen>
+      <Stack.Screen
+        name="ConversationDetail"
+        component={ConversationDetailScreen}
+        options={{ title: 'Conversation' }}
+      />
       <Stack.Screen
         name="AssessmentWizard"
         component={TemplateAssessmentScreen}
