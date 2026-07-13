@@ -50,7 +50,7 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
         setError(null);
         setIsResuming(false);
 
-        const assessmentData = await assessmentService.getAssessment(assessmentId);
+        const assessmentData = await assessmentService.getAssessmentDefinition(assessmentId);
         if (!assessmentData) {
           setError('Assessment not found. It may have been removed or unpublished.');
           return;

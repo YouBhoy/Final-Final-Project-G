@@ -22,13 +22,18 @@ class AssessmentAttemptRepository extends BaseRepository<AssessmentAttemptDocume
     assessmentId: string,
     studentId: string,
   ): Promise<(AssessmentAttemptDocument & { id: string }) | null> {
-    const results = await this.getAll([
-      where('assessmentId', '==', assessmentId),
-      where('studentId', '==', studentId),
-      where('status', '==', 'in_progress'),
-      limit(1),
-    ]);
-    return results[0] ?? null;
+    try {
+      const results = await this.getAll([
+        where('assessmentId', '==', assessmentId),
+        where('studentId', '==', studentId),
+        where('status', '==', 'in_progress'),
+        limit(1),
+      ]);
+      return results[0] ?? null;
+    } catch (err) {
+      console.error('[getInProgressAttempt] query failed:', err);
+      return null;
+    }
   }
 }
 
