@@ -30,6 +30,7 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
     isSubmitting: false,
     startedAt: new Date(),
   });
+  const [pendingSave, setPendingSave] = useState(false);
 
   // Resume state
   const [isResuming, setIsResuming] = useState(false);
@@ -148,6 +149,7 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
 
       // Auto-save
       try {
+        setPendingSave(true);
         const now = serverTimestamp() as Timestamp;
         const answer: AssessmentAnswer = {
           questionId: currentQuestion.id,
@@ -155,7 +157,12 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
           answeredAt: now,
         };
         await assessmentService.saveAnswer(attemptId, answer);
-      } catch { /* Silently fail */ }
+      } catch (err) {
+        console.error('[AssessmentWizard] saveAnswer failed:', err);
+        setError('Your answer could not be saved. Please check your connection and try again.');
+      } finally {
+        setPendingSave(false);
+      }
     },
     [attemptId, assessment, questions, wizard.currentStep],
   );
@@ -293,16 +300,30 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
         <View style={styles.nav}>
           <View style={styles.navLeft}>
             {!isFirstStep && (
-              <TouchableOpacity onPress={handlePrevious} style={styles.navPrevButton}>
-                <Text style={styles.navPrevText}>Previous</Text>
+              <TouchableOpacity
+                onPress={handlePrevious}
+                style={[styles.navPrevButton, pendingSave && styles.navButtonDisabled]}
+                disabled={pendingSave}
+              >
+                <Text style={[styles.navPrevText, pendingSave && styles.navButtonTextDisabled]}>Previous</Text>
               </TouchableOpacity>
             )}
           </View>
-          <Text style={styles.navCounter}>
-            {wizard.currentStep + 1} / {totalSteps}
-          </Text>
-          <TouchableOpacity onPress={handleNext} style={styles.navNextButton}>
-            <Text style={styles.navNextText}>
+          <View style={styles.navCenter}>
+            {pendingSave ? (
+              <Text style={styles.savingText}>Saving…</Text>
+            ) : (
+              <Text style={styles.navCounter}>
+                {wizard.currentStep + 1} / {totalSteps}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={handleNext}
+            style={[styles.navNextButton, pendingSave && styles.navButtonDisabled]}
+            disabled={pendingSave}
+          >
+            <Text style={[styles.navNextText, pendingSave && styles.navButtonTextDisabled]}>
               {isLastStep ? 'Review Answers' : 'Next'}
             </Text>
           </TouchableOpacity>
@@ -486,5 +507,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  navCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  savingText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: lightColors.textMuted,
+  },
+  navButtonDisabled: {
+    opacity: 0.4,
+  },
+  navButtonTextDisabled: {
+    opacity: 0.4,
   },
 });
