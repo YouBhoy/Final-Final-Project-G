@@ -182,7 +182,14 @@ service cloud.firestore {
 
     // ─── Conversations & Messages ──────────────────────────────
     match /conversations/{conversationId} {
-      allow read, update: if isActiveUser()
+      // Read: only participants can read existing conversations
+      allow read: if isActiveUser()
+        && request.auth.uid in resource.data.participantIds;
+      // Create: user must be one of the participants being added
+      allow create: if isActiveUser()
+        && request.auth.uid in request.resource.data.participantIds;
+      // Update: user must be participant AND only allowed metadata fields can change
+      allow update: if isActiveUser()
         && request.auth.uid in resource.data.participantIds
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'lastMessageAt',
@@ -193,8 +200,6 @@ service cloud.firestore {
           'unreadCount',
           'updatedAt',
         ]);
-      allow create: if isActiveUser()
-        && request.auth.uid in request.resource.data.participantIds;
       allow delete: if isSuperAdmin();
     }
 
