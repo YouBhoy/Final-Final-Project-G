@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
 import {
   View,
   Text,
@@ -13,12 +14,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, assessmentService, appointmentRepository, notificationRepository } from '@spartan-g/shared-services';
 import { lightColors, palette } from '@spartan-g/shared-ui';
-
-const screenWidth = Dimensions.get('window').width;
-
-interface DashboardScreenProps {
-  portalName: string;
-}
 
 /* ─── Circular Progress Component ─────────────────────────── */
 function CircularProgress({ value, size = 80, strokeWidth = 6 }: { value: number; size?: number; strokeWidth?: number }) {
@@ -74,9 +69,9 @@ interface StatCardProps {
 
 function StatCard({ icon, iconBg, iconColor, label, value, caption }: StatCardProps) {
   return (
-    <View style={styles.statCard}>
+    <View style={[styles.statCard, { width: '48%' }]}>
       <View style={[styles.statIconContainer, { backgroundColor: iconBg }]}>
-        <Text style={[styles.statIcon, { color: iconColor }]}>{icon}</Text>
+        <Feather name={icon as any} size={20} color={iconColor} />
       </View>
       <View style={styles.statContent}>
         <Text style={styles.statLabel}>{label}</Text>
@@ -100,7 +95,7 @@ function QuickActionItem({ icon, iconBg, iconColor, label, onPress }: QuickActio
   return (
     <TouchableOpacity style={styles.quickActionItem} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.quickActionIcon, { backgroundColor: iconBg }]}>
-        <Text style={[styles.quickActionIconText, { color: iconColor }]}>{icon}</Text>
+        <Feather name={icon as any} size={16} color={iconColor} />
       </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
     </TouchableOpacity>
@@ -216,235 +211,299 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
     : 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* ─── Welcome Banner ──────────────────────────────────── */}
-      <View style={styles.welcomeBanner}>
-        <View style={styles.goldAccent} />
-        <View style={styles.bannerContent}>
-          <Text style={styles.bannerGreeting}>Welcome back, {firstName}</Text>
-          <Text style={styles.bannerTitle}>{portalName}</Text>
-          <Text style={styles.bannerQuote}>
-            "Leading Innovations, Transforming Lives, Building the Nation."
-          </Text>
-          <Text style={styles.bannerSubtext}>
-            Take a moment for yourself today. Your wellbeing is the foundation of every great achievement.
-          </Text>
-        </View>
+    <View style={styles.container}>
+      {/* ─── Greeting row on maroon background ─────────────────── */}
+      <View style={styles.greetingRow}>
+        <Text style={styles.greetingText}>Hello, {firstName}</Text>
+        <TouchableOpacity style={styles.notificationBell} activeOpacity={0.7}>
+          <Feather name="bell" size={22} color={palette.spartanGold} />
+        </TouchableOpacity>
       </View>
 
-      {/* Loading state */}
-      {isLoadingData && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={lightColors.primary} />
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+      {/* ─── White content sheet ───────────────────────────────── */}
+      <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetContent}>
+        {/* Hero Banner */}
+        <View style={styles.heroBanner}>
+          <Text style={styles.heroQuote}>"Leading Innovations, Transforming Lives, Building the Nation."</Text>
+          <Text style={styles.heroAttribution}>— Batangas State University</Text>
         </View>
-      )}
 
-      {/* ─── Student-specific content ─────────────────────────── */}
-      {role === 'student' && (
-        <>
-          {/* Stat Cards Row */}
-          <View style={styles.statsRow}>
-            <StatCard
-              icon="📋"
-              iconBg={palette.red100}
-              iconColor={palette.spartanRed}
-              label="Assessments Completed"
-              value={totalAssessments > 0 ? `${assessmentsCompleted}/${totalAssessments}` : '0'}
-              caption={totalAssessments - assessmentsCompleted > 0 ? `${totalAssessments - assessmentsCompleted} remaining` : undefined}
-            />
-            <StatCard
-              icon="📅"
-              iconBg={palette.amber100}
-              iconColor={palette.spartanGold}
-              label="Next Appointment"
-              value={nextAppointment ?? 'None scheduled'}
-            />
-            <StatCard
-              icon="⏰"
-              iconBg={palette.red100}
-              iconColor={palette.spartanRed}
-              label="Next Check-in"
-              value={inProgress > 0 ? `${inProgress} in progress` : 'All done'}
-            />
-            <StatCard
-              icon="💬"
-              iconBg={palette.amber100}
-              iconColor={palette.spartanGold}
-              label="Unread Messages"
-              value={String(unreadMessages)}
-              caption="From your facilitators"
-            />
+        {/* Loading state */}
+        {isLoadingData && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={lightColors.primary} />
+            <Text style={styles.loadingText}>Loading your dashboard...</Text>
           </View>
+        )}
 
-          {/* Assessment Progress + Quick Actions */}
-          <View style={styles.twoColumnSection}>
-            {/* Assessment Progress */}
-            <View style={styles.progressCard}>
-              <View style={styles.progressRow}>
-                <CircularProgress value={assessmentPercent} />
-                <View style={styles.progressTextContainer}>
-                  <Text style={styles.progressTitle}>Assessment Progress</Text>
-                  <Text style={styles.progressSubtext}>
-                    Complete your assessments to track your wellbeing journey.
-                  </Text>
-                  <Text style={styles.progressBreakdown}>
-                    {assessmentsCompleted} completed · {inProgress} in progress · {notStarted} not started
-                  </Text>
-                </View>
+        {/* ─── Student-specific content ─────────────────────────── */}
+        {role === 'student' && (
+          <>
+            {/* Disclaimer */}
+            <View style={styles.disclaimerCard}>
+              <View style={styles.disclaimerIconContainer}>
+                <Feather name="info" size={18} color={lightColors.info} />
               </View>
-              <TouchableOpacity
-                onPress={handleNavigateToAssessments}
-                style={styles.continueButton}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.continueButtonText}>Continue Assessment</Text>
-                <Text style={styles.continueButtonArrow}>→</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Quick Actions */}
-            <View style={styles.quickActionsCard}>
-              <Text style={styles.quickActionsTitle}>Quick Actions</Text>
-              <QuickActionItem
-                icon="🔍"
-                iconBg={palette.red100}
-                iconColor={palette.spartanRed}
-                label="Find a Facilitator"
-                onPress={handleFindFacilitator}
-              />
-              <QuickActionItem
-                icon="📅"
-                iconBg={palette.amber100}
-                iconColor={palette.spartanGold}
-                label="Book Appointment"
-                onPress={handleBookAppointment}
-              />
-              <QuickActionItem
-                icon="📋"
-                iconBg={palette.red100}
-                iconColor={palette.spartanRed}
-                label="My Appointments"
-                onPress={handleViewAppointments}
-              />
-            </View>
-          </View>
-
-          {/* Coming Soon / Roadmap */}
-          <View style={styles.comingSoonCard}>
-            <View style={styles.comingSoonHeader}>
-              <View style={styles.comingSoonTextContainer}>
-                <Text style={styles.comingSoonTitle}>Coming Soon</Text>
-                <Text style={styles.comingSoonDescription}>
-                  The {portalName} features are currently under development. More wellness tools are on the way:
+              <View style={styles.disclaimerContent}>
+                <Text style={styles.disclaimerTitle}>About This Screening</Text>
+                <Text style={styles.disclaimerText}>
+                  Your wellbeing matters. This screening helps the Office of Guidance and Counseling understand how you're doing so we can connect you with the right support. It is not a diagnostic tool — think of it as a conversation starter. Everything you share is confidential and protected.
                 </Text>
               </View>
-              <View style={styles.comingSoonIconContainer}>
-                <Text style={styles.comingSoonIcon}>🔧</Text>
+            </View>
+
+            {/* Stat Cards 2x2 Grid */}
+            <View style={styles.statsGrid}>
+              <StatCard
+                icon="clipboard"
+                iconBg={palette.red100}
+                iconColor={palette.spartanRed}
+                label="Assessments Completed"
+                value={totalAssessments > 0 ? `${assessmentsCompleted}/${totalAssessments}` : '0'}
+                caption={totalAssessments - assessmentsCompleted > 0 ? `${totalAssessments - assessmentsCompleted} remaining` : undefined}
+              />
+              <StatCard
+                icon="calendar"
+                iconBg={palette.indigo50}
+                iconColor={palette.indigo700}
+                label="Next Appointment"
+                value={nextAppointment ?? 'None scheduled'}
+              />
+              <StatCard
+                icon="clock"
+                iconBg={palette.red100}
+                iconColor={palette.spartanRed}
+                label="Next Check-in"
+                value={inProgress > 0 ? `${inProgress} in progress` : 'All done'}
+              />
+              <StatCard
+                icon="message-circle"
+                iconBg={palette.green100}
+                iconColor={palette.success}
+                label="Unread Messages"
+                value={String(unreadMessages)}
+                caption="From your facilitators"
+              />
+            </View>
+
+            {/* Assessment Progress + Quick Actions */}
+            <View style={styles.twoColumnSection}>
+              {/* Assessment Progress */}
+              <View style={styles.progressCard}>
+                <View style={styles.progressRow}>
+                  <CircularProgress value={assessmentPercent} />
+                  <View style={styles.progressTextContainer}>
+                    <Text style={styles.progressTitle}>Assessment Progress</Text>
+                    <Text style={styles.progressSubtext}>
+                      Complete your assessments to track your wellbeing journey.
+                    </Text>
+                    <Text style={styles.progressBreakdown}>
+                      {assessmentsCompleted} completed · {inProgress} in progress · {notStarted} not started
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={handleNavigateToAssessments}
+                  style={styles.continueButton}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.continueButtonText}>Continue Assessment</Text>
+                  <Text style={styles.continueButtonArrow}>→</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick Actions */}
+              <View style={styles.quickActionsCard}>
+                <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+                <QuickActionItem
+                  icon="search"
+                  iconBg={palette.red100}
+                  iconColor={palette.spartanRed}
+                  label="Find a Facilitator"
+                  onPress={handleFindFacilitator}
+                />
+                <QuickActionItem
+                  icon="calendar"
+                  iconBg={palette.indigo50}
+                  iconColor={palette.indigo700}
+                  label="Book Appointment"
+                  onPress={handleBookAppointment}
+                />
+                <QuickActionItem
+                  icon="clipboard"
+                  iconBg={palette.red100}
+                  iconColor={palette.spartanRed}
+                  label="My Appointments"
+                  onPress={handleViewAppointments}
+                />
               </View>
             </View>
-            <View style={styles.featureList}>
-              {[
-                'Weekly wellness trend charts',
-                'Personalized goal setting',
-                'Guided journaling prompts',
-                'Peer support group matching',
-                'Achievement badges & milestones',
-                'Group workshop scheduling',
-              ].map((feature, i) => (
-                <View key={i} style={styles.featureItem}>
-                  <View style={styles.featureDot} />
-                  <Text style={styles.featureText}>{feature}</Text>
+
+            {/* Guidance & Counseling Services */}
+            <View style={styles.servicesCard}>
+              <View style={styles.servicesHeader}>
+                <View style={styles.servicesTextContainer}>
+                  <Text style={styles.servicesTitle}>Guidance & Counseling Services</Text>
+                  <Text style={styles.servicesDescription}>
+                    Available through the Office of Guidance and Counseling
+                  </Text>
                 </View>
-              ))}
+                <View style={styles.servicesIconContainer}>
+                  <Feather name="heart" size={20} color={palette.spartanRed} />
+                </View>
+              </View>
+              <View style={styles.servicesList}>
+                {[
+                  { icon: 'message-circle', label: 'E-Counseling', bg: palette.red100, color: palette.spartanRed },
+                  { icon: 'share-2', label: 'Referrals', bg: palette.indigo50, color: palette.indigo700 },
+                  { icon: 'briefcase', label: 'Career Guidance', bg: palette.amber100, color: palette.amber700 },
+                  { icon: 'compass', label: 'Life Guidance', bg: palette.green100, color: palette.success },
+                  { icon: 'book-open', label: 'Academic Guidance', bg: palette.red100, color: palette.spartanRed },
+                  { icon: 'users', label: 'Peer Support', bg: palette.indigo50, color: palette.indigo700 },
+                ].map((service, i) => (
+                  <View key={i} style={styles.serviceItem}>
+                    <View style={[styles.serviceIconBg, { backgroundColor: service.bg }]}>
+                      <Feather name={service.icon as any} size={14} color={service.color} />
+                    </View>
+                    <Text style={styles.serviceLabel}>{service.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Coming Soon / Roadmap */}
+            <View style={styles.comingSoonCard}>
+              <View style={styles.comingSoonHeader}>
+                <View style={styles.comingSoonTextContainer}>
+                  <Text style={styles.comingSoonTitle}>Coming Soon</Text>
+                  <Text style={styles.comingSoonDescription}>
+                    The {portalName} features are currently under development. More wellness tools are on the way:
+                  </Text>
+                </View>
+                <View style={styles.comingSoonIconContainer}>
+                  <Feather name="tool" size={20} color={palette.spartanGold} />
+                </View>
+              </View>
+              <View style={styles.featureList}>
+                {[
+                  'Weekly wellness trend charts',
+                  'Personalized goal setting',
+                  'Guided journaling prompts',
+                  'Peer support group matching',
+                  'Achievement badges & milestones',
+                  'Group workshop scheduling',
+                ].map((feature, i) => (
+                  <View key={i} style={styles.featureItem}>
+                    <View style={styles.featureDot} />
+                    <Text style={styles.featureText}>{feature}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* ─── Facilitator "Coming soon" state ──────────────────── */}
+        {role === 'facilitator' && (
+          <View style={styles.facilitatorComingSoon}>
+            <View style={styles.facilitatorComingSoonIconContainer}>
+              <Text style={styles.facilitatorComingSoonIcon}>🛠️</Text>
+            </View>
+            <Text style={styles.facilitatorComingSoonTitle}>Facilitator Portal</Text>
+            <Text style={styles.facilitatorComingSoonDescription}>
+              The {portalName} facilitator dashboard is currently under development. You can still access student assessments and manage appointments from the tabs below.
+            </Text>
+            <View style={styles.facilitatorPlaceholderCard}>
+              <Text style={styles.facilitatorPlaceholderText}>
+                Full dashboard with student progress tracking, risk alerts, and analytics coming soon.
+              </Text>
             </View>
           </View>
-        </>
-      )}
+        )}
 
-      {/* ─── Facilitator "Coming soon" state ──────────────────── */}
-      {role === 'facilitator' && (
-        <View style={styles.facilitatorComingSoon}>
-          <View style={styles.facilitatorComingSoonIconContainer}>
-            <Text style={styles.facilitatorComingSoonIcon}>🛠️</Text>
-          </View>
-          <Text style={styles.facilitatorComingSoonTitle}>Facilitator Portal</Text>
-          <Text style={styles.facilitatorComingSoonDescription}>
-            The {portalName} facilitator dashboard is currently under development. You can still access student assessments and manage appointments from the tabs below.
+        {/* ─── Footer ──────────────────────────────────────────── */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            © {new Date().getFullYear()} Batangas State University · The National Engineering University
           </Text>
-          <View style={styles.facilitatorPlaceholderCard}>
-            <Text style={styles.facilitatorPlaceholderText}>
-              Full dashboard with student progress tracking, risk alerts, and analytics coming soon.
-            </Text>
-          </View>
         </View>
-      )}
-
-      {/* ─── Footer ──────────────────────────────────────────── */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          © {new Date().getFullYear()} Batangas State University · The National Engineering University
-        </Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
+interface DashboardScreenProps {
+  portalName: string;
+}
+
+const screenWidth = Dimensions.get('window').width;
+
 const styles = StyleSheet.create({
+  /* ─── Full-bleed container (maroon background) ──────────── */
   container: {
     flex: 1,
-    backgroundColor: lightColors.background,
-  },
-  contentContainer: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 32,
+    backgroundColor: palette.spartanRedDark,
   },
 
-  /* ─── Welcome Banner ─────────────────────────────────────── */
-  welcomeBanner: {
-    backgroundColor: lightColors.primaryDark,
-    borderRadius: 16,
-    overflow: 'hidden',
-    padding: 20,
-    position: 'relative',
+  /* ─── Greeting row (on maroon) ──────────────────────────── */
+  greetingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 16,
+    backgroundColor: palette.spartanRedDark,
   },
-  goldAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: palette.spartanGold,
-  },
-  bannerContent: {
-    position: 'relative',
-  },
-  bannerGreeting: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1.5,
-    color: palette.spartanGold,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  bannerTitle: {
+  greetingText: {
     fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 8,
   },
-  bannerQuote: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
+  notificationBell: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* ─── White content sheet ────────────────────────────────── */
+  sheetScroll: {
+    flex: 1,
+  },
+  sheetContent: {
+    backgroundColor: palette.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 16,
+    paddingTop: 20,
+    paddingBottom: 32,
+    gap: 16,
+  },
+
+  /* ─── Hero Banner ────────────────────────────────────────── */
+  heroBanner: {
+    backgroundColor: palette.spartanRed,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 0,
+  },
+  heroQuote: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
     fontStyle: 'italic',
-    lineHeight: 18,
-    marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 6,
   },
-  bannerSubtext: {
+  heroAttribution: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 16,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
   },
 
   /* ─── Loading ────────────────────────────────────────────── */
@@ -460,8 +519,43 @@ const styles = StyleSheet.create({
     color: lightColors.textSecondary,
   },
 
-  /* ─── Stat Cards ─────────────────────────────────────────── */
-  statsRow: {
+  /* ─── Disclaimer ─────────────────────────────────────────── */
+  disclaimerCard: {
+    backgroundColor: lightColors.infoBackground,
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  disclaimerIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: palette.indigo50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  disclaimerContent: {
+    flex: 1,
+  },
+  disclaimerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: lightColors.infoText,
+    marginBottom: 3,
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: lightColors.textSecondary,
+    lineHeight: 17,
+  },
+
+  /* ─── Stat Cards 2x2 Grid ────────────────────────────────── */
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   statCard: {
@@ -483,9 +577,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  statIcon: {
-    fontSize: 20,
   },
   statContent: {
     flex: 1,
@@ -552,9 +643,9 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: lightColors.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -603,12 +694,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickActionIconText: {
-    fontSize: 16,
-  },
   quickActionLabel: {
     fontSize: 14,
     fontWeight: '500',
+    color: lightColors.textSecondary,
+  },
+
+  /* ─── Guidance & Counseling Services ────────────────────── */
+  servicesCard: {
+    backgroundColor: lightColors.surface,
+    borderRadius: 14,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  servicesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  servicesTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  servicesTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: lightColors.text,
+    marginBottom: 4,
+  },
+  servicesDescription: {
+    fontSize: 12,
+    color: lightColors.textSecondary,
+    lineHeight: 16,
+  },
+  servicesIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.red100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  servicesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  serviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: lightColors.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  serviceIconBg: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceLabel: {
+    fontSize: 12,
     color: lightColors.textSecondary,
   },
 
@@ -648,12 +802,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: palette.amber100,
+    backgroundColor: palette.red100,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  comingSoonIcon: {
-    fontSize: 20,
   },
   featureList: {
     flexDirection: 'row',

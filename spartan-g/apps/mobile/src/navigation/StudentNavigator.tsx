@@ -5,6 +5,7 @@ import {
   StudentMobileTabParamList,
 } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
+import { Feather } from '@expo/vector-icons';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { AssessmentsListScreen } from '../screens/assessment/AssessmentsListScreen';
 import { FindFacilitatorScreen } from '../screens/student/FindFacilitatorScreen';
@@ -27,19 +28,19 @@ function StudentTabs() {
         tabBarInactiveTintColor: lightColors.textMuted,
       }}
     >
-      <Tab.Screen name="StudentHome" options={{ title: 'Home' }}>
+      <Tab.Screen name="StudentHome" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} /> }}>
         {() => <DashboardScreen portalName="Student Portal" />}
       </Tab.Screen>
-      <Tab.Screen name="StudentCourses" options={{ title: 'Facilitators' }}>
+      <Tab.Screen name="StudentCourses" options={{ title: 'Facilitators', tabBarIcon: ({ color, size }) => <Feather name="users" size={size} color={color} /> }}>
         {() => <FindFacilitatorScreen />}
       </Tab.Screen>
-      <Tab.Screen name="StudentAssignments" options={{ title: 'Assessments' }}>
+      <Tab.Screen name="StudentAssignments" options={{ title: 'Assessments', tabBarIcon: ({ color, size }) => <Feather name="clipboard" size={size} color={color} /> }}>
         {() => <AssessmentsListScreen />}
       </Tab.Screen>
-      <Tab.Screen name="StudentMessages" options={{ title: 'Messages' }}>
+      <Tab.Screen name="StudentMessages" options={{ title: 'Messages', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
         {() => <MessagesScreen />}
       </Tab.Screen>
-      <Tab.Screen name="StudentProfile" options={{ title: 'Profile' }}>
+      <Tab.Screen name="StudentProfile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} /> }}>
         {() => <PlaceholderScreen routeName="StudentProfile" />}
       </Tab.Screen>
     </Tab.Navigator>
