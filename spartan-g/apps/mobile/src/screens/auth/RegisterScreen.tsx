@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
@@ -39,6 +40,8 @@ export function RegisterScreen({ navigation }: Props) {
     confirmPassword: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const isLoading = status === 'loading';
 
@@ -195,16 +198,32 @@ export function RegisterScreen({ navigation }: Props) {
           {/* Password */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, formErrors.password ? styles.inputError : null]}
-              placeholder="At least 6 characters"
-              placeholderTextColor={lightColors.textMuted}
-              value={formData.password}
-              onChangeText={(v) => handleFieldChange('password', v)}
-              secureTextEntry
-              autoComplete="new-password"
-              editable={!isLoading}
-            />
+            <View style={styles.passwordInputWrapper}>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.passwordInput,
+                  formErrors.password ? styles.inputError : null,
+                ]}
+                placeholder="At least 6 characters"
+                placeholderTextColor={lightColors.textMuted}
+                value={formData.password}
+                onChangeText={(v) => handleFieldChange('password', v)}
+                secureTextEntry={!showPassword}
+                autoComplete="new-password"
+                editable={!isLoading}
+              />
+              <Pressable
+                style={styles.eyeButton}
+                onPress={() => setShowPassword((prev) => !prev)}
+                hitSlop={8}
+                disabled={isLoading}
+              >
+                <Text style={styles.eyeIcon}>
+                  {showPassword ? '👁‍🗨' : '👁'}
+                </Text>
+              </Pressable>
+            </View>
             {formErrors.password && (
               <Text style={styles.fieldError}>{formErrors.password}</Text>
             )}
@@ -213,16 +232,32 @@ export function RegisterScreen({ navigation }: Props) {
           {/* Confirm Password */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={[styles.input, formErrors.confirmPassword ? styles.inputError : null]}
-              placeholder="Repeat your password"
-              placeholderTextColor={lightColors.textMuted}
-              value={formData.confirmPassword}
-              onChangeText={(v) => handleFieldChange('confirmPassword', v)}
-              secureTextEntry
-              autoComplete="new-password"
-              editable={!isLoading}
-            />
+            <View style={styles.passwordInputWrapper}>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.passwordInput,
+                  formErrors.confirmPassword ? styles.inputError : null,
+                ]}
+                placeholder="Repeat your password"
+                placeholderTextColor={lightColors.textMuted}
+                value={formData.confirmPassword}
+                onChangeText={(v) => handleFieldChange('confirmPassword', v)}
+                secureTextEntry={!showConfirmPassword}
+                autoComplete="new-password"
+                editable={!isLoading}
+              />
+              <Pressable
+                style={styles.eyeButton}
+                onPress={() => setShowConfirmPassword((prev) => !prev)}
+                hitSlop={8}
+                disabled={isLoading}
+              >
+                <Text style={styles.eyeIcon}>
+                  {showConfirmPassword ? '👁‍🗨' : '👁'}
+                </Text>
+              </Pressable>
+            </View>
             {formErrors.confirmPassword && (
               <Text style={styles.fieldError}>{formErrors.confirmPassword}</Text>
             )}
@@ -338,6 +373,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: lightColors.text,
+  },
+  passwordInputWrapper: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 44,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  eyeIcon: {
+    fontSize: 20,
   },
   inputError: {
     borderColor: lightColors.error,

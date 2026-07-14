@@ -177,6 +177,7 @@ export function RegisterPage() {
           error={formErrors.password}
           autoComplete="new-password"
           disabled={isLoading}
+          showPasswordToggle
           className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
@@ -189,6 +190,7 @@ export function RegisterPage() {
           error={formErrors.confirmPassword}
           autoComplete="new-password"
           disabled={isLoading}
+          showPasswordToggle
           className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 

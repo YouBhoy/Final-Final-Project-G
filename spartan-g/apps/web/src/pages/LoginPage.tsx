@@ -83,6 +83,7 @@ export function LoginPage() {
           error={formErrors.password}
           autoComplete="current-password"
           disabled={isLoading}
+          showPasswordToggle
           className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 

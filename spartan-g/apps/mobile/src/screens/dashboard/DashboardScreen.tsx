@@ -215,9 +215,18 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
       {/* ─── Greeting row on maroon background ─────────────────── */}
       <View style={styles.greetingRow}>
         <Text style={styles.greetingText}>Hello, {firstName}</Text>
-        <TouchableOpacity style={styles.notificationBell} activeOpacity={0.7}>
-          <Feather name="bell" size={22} color={palette.spartanGold} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.notificationBell} activeOpacity={0.7}>
+            <Feather name="bell" size={22} color={palette.spartanGold} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
+            <Feather name="log-out" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ─── White content sheet ───────────────────────────────── */}
@@ -460,7 +469,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   notificationBell: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
