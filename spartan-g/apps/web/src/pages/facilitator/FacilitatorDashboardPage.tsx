@@ -35,10 +35,13 @@ interface DashboardStats {
     time: string;
     date: string;
   }>;
-  messages: {
-    unreadConversations: number;
-    unreadMessages: number;
-  };
+  recentConversations: Array<{
+    id: string;
+    participantName: string;
+    lastMessage: string;
+    unreadCount: number;
+    updatedAt: Date;
+  }>;
 }
 
 export function FacilitatorDashboardPage() {
@@ -48,7 +51,7 @@ export function FacilitatorDashboardPage() {
     riskSummary: { high: 0, medium: 0, low: 0 },
     todayAppointments: { total: 0, completed: 0, requests: 0 },
     upcomingAppointments: [],
-    messages: { unreadConversations: 0, unreadMessages: 0 },
+    recentConversations: [],
   });
 
   // Extract upcomingAppointments for easier access in JSX
@@ -129,18 +132,37 @@ export function FacilitatorDashboardPage() {
         low: 21,   // TODO: Replace with actual count
       };
 
-      // Messages
-      // TODO: Implement getMessageStats() in messagingService
-      const messages = {
-        unreadConversations: 4, // TODO: Count conversations with unread messages
-        unreadMessages: 7,      // TODO: Count total unread messages across all conversations
-      };
+      // Recent Conversations
+      // TODO: Implement getRecentConversations() in messagingService
+      const recentConversations = [
+        {
+          id: "1",
+          participantName: "Juan Dela Cruz",
+          lastMessage: "Thank you for the appointment",
+          unreadCount: 2,
+          updatedAt: new Date(),
+        },
+        {
+          id: "2",
+          participantName: "Maria Santos",
+          lastMessage: "Can we reschedule?",
+          unreadCount: 1,
+          updatedAt: new Date(),
+        },
+        {
+          id: "3",
+          participantName: "John Cruz",
+          lastMessage: "See you tomorrow",
+          unreadCount: 0,
+          updatedAt: new Date(),
+        },
+      ];
 
       setStats({
         riskSummary,
         todayAppointments,
         upcomingAppointments,
-        messages,
+        recentConversations,
       });
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
@@ -320,12 +342,12 @@ export function FacilitatorDashboardPage() {
             </button>
           </div>
 
-          {/* Unread Messages Card */}
+          {/* Recent Conversations Card */}
           <div className="rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="type-section">Unread Messages</h3>
-                <p className="type-caption mt-1">Stay connected with your students</p>
+                <h3 className="type-section">Recent Messages</h3>
+                <p className="type-caption mt-1">Your latest conversations</p>
               </div>
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-pastel)]">
                 <svg className="h-5 w-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -334,18 +356,43 @@ export function FacilitatorDashboardPage() {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              {/* Unread Conversations */}
-              <div className="rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 text-center">
-                <p className="text-3xl font-bold text-[var(--color-text)]">{stats.messages.unreadConversations}</p>
-                <p className="mt-1 text-xs font-medium text-[var(--color-text-secondary)]">Conversations</p>
-              </div>
-
-              {/* Unread Messages */}
-              <div className="rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 text-center">
-                <p className="text-3xl font-bold text-[var(--color-text)]">{stats.messages.unreadMessages}</p>
-                <p className="mt-1 text-xs font-medium text-[var(--color-text-secondary)]">Messages</p>
-              </div>
+            <div className="mt-6 space-y-3">
+              {stats.recentConversations.length === 0 ? (
+                <p className="type-caption text-center py-4">No recent messages</p>
+              ) : (
+                stats.recentConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className="flex items-center justify-between rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 transition-all duration-150 hover:shadow-sm"
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-pastel)]">
+                        <svg className="h-5 w-5 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`font-semibold text-sm ${conversation.unreadCount > 0 ? 'text-[var(--color-text)]' : 'text-[var(--color-text-secondary)]'}`}>
+                            {conversation.participantName}
+                          </p>
+                          {conversation.unreadCount > 0 && (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-bold text-white">
+                              {conversation.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-sm truncate ${conversation.unreadCount > 0 ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-text-secondary)]'}`}>
+                          {conversation.lastMessage}
+                        </p>
+                      </div>
+                    </div>
+                    <svg className="h-5 w-5 flex-shrink-0 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </div>
+                ))
+              )}
             </div>
 
             <button
