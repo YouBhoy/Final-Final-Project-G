@@ -6,6 +6,15 @@ import { workHoursRepository } from '@spartan-g/shared-services';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// Helper function to convert 24-hour time to 12-hour AM/PM format
+function formatTimeTo12Hour(time24: string): string {
+  const [hours, minutes] = time24.split(':');
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+}
+
 export function FacilitatorWorkHoursPage() {
   const [schedules, setSchedules] = useState<(WorkHoursScheduleDocument & { id: string })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -155,7 +164,7 @@ export function FacilitatorWorkHoursPage() {
                   </div>
                 ) : (
                   <span className={`flex-1 text-sm ${isActive ? 'text-gray-600' : 'text-gray-400 italic'}`}>
-                    {isActive ? `${schedule?.startTime || '09:00'} - ${schedule?.endTime || '17:00'}` : 'Inactive'}
+                    {isActive ? `${formatTimeTo12Hour(schedule?.startTime || '09:00')} - ${formatTimeTo12Hour(schedule?.endTime || '17:00')}` : 'Inactive'}
                   </span>
                 )}
 
