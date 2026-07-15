@@ -293,39 +293,29 @@ export function TemplateAssessmentPage() {
           </p>
         </div>
 
-        {/* Question Navigation Grid */}
+        {/* Question Navigation Dropdown */}
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Question Navigation</h3>
-          <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+          <label htmlFor="question-nav" className="block text-sm font-semibold text-gray-700 mb-2">
+            Jump to Question
+          </label>
+          <select
+            id="question-nav"
+            value={currentStep}
+            onChange={(e) => handleNavigateToQuestion(Number(e.target.value))}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all duration-150 hover:border-indigo-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
             {questions.map((q, idx) => {
               const answer = answers[q.id];
               const isAnswered = answer !== undefined && answer !== "" && !(Array.isArray(answer) && (answer as readonly unknown[]).length === 0);
               const isCurrent = currentStep === idx;
               
               return (
-                <button
-                  key={q.id}
-                  onClick={() => handleNavigateToQuestion(idx)}
-                  className={`
-                    relative flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150
-                    ${isCurrent 
-                      ? 'ring-2 ring-indigo-500 ring-offset-2 bg-indigo-50 text-indigo-700' 
-                      : isAnswered 
-                        ? 'bg-green-50 text-green-700 hover:bg-green-100' 
-                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                    }
-                  `}
-                >
-                  {isAnswered && !isCurrent && (
-                    <svg className="absolute -top-1 -right-1 h-4 w-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                  {idx + 1}
-                </button>
+                <option key={q.id} value={idx}>
+                  Question {idx + 1}{isCurrent ? ' (Current)' : ''}{isAnswered ? ' ✓' : ''}
+                </option>
               );
             })}
-          </div>
+          </select>
         </div>
 
         {/* Save error banner */}
