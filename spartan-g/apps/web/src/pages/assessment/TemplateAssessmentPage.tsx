@@ -420,8 +420,28 @@ export function TemplateAssessmentPage() {
                 </Button>
               )}
             </div>
-            <div className="text-sm text-gray-500">
-              {currentStep + 1} / {totalSteps}
+            <div className="flex items-center gap-2">
+              <label htmlFor="question-nav-bottom" className="text-sm text-gray-500">
+                Question:
+              </label>
+              <select
+                id="question-nav-bottom"
+                value={currentStep}
+                onChange={(e) => handleNavigateToQuestion(Number(e.target.value))}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-all duration-150 hover:border-indigo-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                {questions.map((q, idx) => {
+                  const answer = answers[q.id];
+                  const isAnswered = answer !== undefined && answer !== "" && !(Array.isArray(answer) && (answer as readonly unknown[]).length === 0);
+                  
+                  return (
+                    <option key={q.id} value={idx}>
+                      {idx + 1}{isAnswered ? ' ✓' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              <span className="text-sm text-gray-500">of {totalSteps}</span>
             </div>
             <div className="flex gap-2">
               {allQuestionsAnswered && (
