@@ -730,6 +730,9 @@ export function AssessmentWizardPage() {
               onNext={handleNext}
               isFirstStep={isFirstStep}
               isLastStep={isLastStep}
+              questions={sectionQuestions}
+              answers={wizard.answers}
+              onNavigateToQuestion={handleNavigateToQuestion}
             />
           )}
         </div>
