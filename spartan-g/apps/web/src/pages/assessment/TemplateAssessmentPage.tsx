@@ -272,6 +272,13 @@ export function TemplateAssessmentPage() {
   }
 
   const currentQuestion = isOnReviewStep ? null : questions[currentStep];
+  
+  // Calculate answered count for Review & Submit button
+  const answeredCount = Object.keys(answers).filter(key => {
+    const answer = answers[key];
+    return answer !== undefined && answer !== "" && !(Array.isArray(answer) && (answer as unknown[]).length === 0);
+  }).length;
+  const allQuestionsAnswered = answeredCount === totalSteps;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -284,6 +291,41 @@ export function TemplateAssessmentPage() {
           <p className="mt-1 text-sm text-gray-500">
             {totalSteps} {totalSteps === 1 ? "question" : "questions"}
           </p>
+        </div>
+
+        {/* Question Navigation Grid */}
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Question Navigation</h3>
+          <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+            {questions.map((q, idx) => {
+              const answer = answers[q.id];
+              const isAnswered = answer !== undefined && answer !== "" && !(Array.isArray(answer) && (answer as readonly unknown[]).length === 0);
+              const isCurrent = currentStep === idx;
+              
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => handleNavigateToQuestion(idx)}
+                  className={`
+                    relative flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150
+                    ${isCurrent 
+                      ? 'ring-2 ring-indigo-500 ring-offset-2 bg-indigo-50 text-indigo-700' 
+                      : isAnswered 
+                        ? 'bg-green-50 text-green-700 hover:bg-green-100' 
+                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }
+                  `}
+                >
+                  {isAnswered && !isCurrent && (
+                    <svg className="absolute -top-1 -right-1 h-4 w-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Save error banner */}
@@ -391,9 +433,20 @@ export function TemplateAssessmentPage() {
             <div className="text-sm text-gray-500">
               {currentStep + 1} / {totalSteps}
             </div>
-            <Button variant="primary" onClick={handleNext}>
-              {isLastStep ? "Review Answers" : "Next"}
-            </Button>
+            <div className="flex gap-2">
+              {allQuestionsAnswered && (
+                <Button 
+                  variant="primary" 
+                  onClick={() => setCurrentStep(totalSteps)}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Review & Submit
+                </Button>
+              )}
+              <Button variant="primary" onClick={handleNext}>
+                {isLastStep ? "Review Answers" : "Next"}
+              </Button>
+            </div>
           </div>
         )}
       </div>
