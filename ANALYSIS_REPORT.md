@@ -1,177 +1,145 @@
-# SPARTAN-G — Technology Stack Analysis
+# Assessment Progress Percentage Bug Analysis
 
-## Project Overview
-A multi-platform learning platform with role-based access control (Student, Facilitator, Super Admin), served across web and mobile (iOS/Android).
+## Summary of All Progress Calculations Found
 
----
-
-## 1. Monorepo Management
-
-| Technology | Details |
-|------------|---------|
-| **Package Manager** | npm workspaces |
-| **TypeScript** | ~5.3.0 (shared across all packages) |
-| **Root Package** | `spartan-g` — orchestrates `apps/*` and `packages/*` |
-
----
-
-## 2. Frontend — Web App (`@spartan-g/web`)
-
-| Category | Technology | Version |
-|----------|-----------|---------|
-| **Framework** | React | ^18.3.1 |
-| **Build Tool** | Vite | ^5.4.21 |
-| **Vite Plugin** | @vitejs/plugin-react | ^4.7.0 |
-| **CSS Framework** | Tailwind CSS | ^4.3.1 |
-| **Routing** | react-router-dom | ^6.30.4 |
-| **Port** | 5173 (dev server) |
-
-**Target Users:** Student, Facilitator, Super Admin
-
----
-
-## 3. Frontend — Mobile App (`@spartan-g/mobile`)
-
-| Category | Technology | Version |
-|----------|-----------|---------|
-| **Framework** | Expo | ~52.0.0 |
-| **UI Runtime** | React Native | 0.76.5 |
-| **Navigation** | @react-navigation/native | ^7.0.14 |
-| **Bottom Tabs** | @react-navigation/bottom-tabs | ^7.2.0 |
-| **Native Stack** | @react-navigation/native-stack | ^7.0.14 |
-| **Push Notifications** | expo-notifications | ~0.29.0 |
-| **Status Bar** | expo-status-bar | ~2.0.0 |
-
-**Target Users:** Student, Facilitator (Super Admin is web-only)
-
----
-
-## 4. Backend / Database / Infrastructure
-
-| Category | Technology | Details |
-|----------|-----------|---------|
-| **Database** | Firebase Firestore (NoSQL) | Real-time document DB, security rules defined |
-| **Authentication** | Firebase Auth | Email/password & identity management |
-| **File Storage** | Firebase Storage | Rules defined in `firebase/storage.rules` |
-| **Push Messaging** | Firebase Cloud Messaging (FCM) | Cross-platform push notifications |
-| **Firebase SDK** | firebase | ^11.0.0 |
-
----
-
-## 5. Shared Packages
-
-### `@spartan-g/shared-types`
-- Domain types, interfaces, and Firestore document schemas
-- Role-Based Access Control (RBAC) definitions and platform access matrix
-- Navigation type definitions (mobile + web route params)
-- Utility functions: validators, scoring algorithms, risk evaluation
-
-### `@spartan-g/shared-services`
-- **Firebase SDK initialization** — `getFirebaseApp()` singleton via `firebase/app.ts`
-- **Repository Layer** — `BaseRepository` + concrete repos (e.g., `user.repository.ts`, `assessment.repository.ts`)
-- **Business Services** — Auth, user management, appointments, assessments, messaging, risk alerts, work hours
-- **State Management** — **Zustand v5** (`useAuthStore`, `useAppStore`)
-- **Messaging Adapter Interface** — Platform-injected (Expo for mobile, Firebase Web SDK for web)
-
-### `@spartan-g/shared-ui`
-- Design tokens (colors, typography, spacing)
-- `createTheme()` factory function
-- Cross-platform role guard logic
-
----
-
-## 6. State Management
-
-| Tool | Version | Usage |
-|------|---------|-------|
-| **Zustand** | ^5.0.0 | Lightweight, global state management (`auth.store.ts`, `app.store.ts`) |
-
----
-
-## 7. Push Notification Architecture
-
-| Platform | Adapter | Technology |
-|----------|---------|------------|
-| **Mobile** | `expo-messaging.adapter.ts` | Expo Notifications |
-| **Web** | `web-messaging.adapter.ts` | Firebase Cloud Messaging Web SDK |
-| **Token Storage** | `device_tokens` collection in Firestore | Tagged with `deploymentTarget` |
-
----
-
-## 8. Environment & Config Management
-
-| System | Prefix | Purpose |
-|--------|--------|---------|
-| **Web (.env)** | `VITE_*` (e.g., `VITE_FIREBASE_API_KEY`) | Vite-exposed env vars |
-| **Mobile (.env)** | `EXPO_PUBLIC_*` (e.g., `EXPO_PUBLIC_FIREBASE_API_KEY`) | Expo-exposed env vars |
-| **Deployment Targeting** | `shared-services/src/config/` | Env resolution per platform (web vs native) |
-
----
-
-## 9. CI/CD & Deployment
-
-| Service | Details |
-|---------|---------|
-| **EAS Build** (Expo) | Project ID: `1d7d33b2-e60a-4c12-a276-e4d51353ed37` |
-| **iOS Bundle ID** | `com.spartang.mobile` |
-| **Android Package** | `com.spartang.mobile` |
-| **Firebase Hosting** | Configured via `.firebaserc` + `firebase.json` (supports potential hosting) |
-
----
-
-## 10. Firestore Collections (Data Model)
-
-| Collection | Purpose |
-|------------|---------|
-| `users` | Auth-linked user records with role |
-| `profiles` | Extended profile data |
-| `courses` | Course catalog |
-| `enrollments` | Student-course relationships |
-| `assignments` | Course assignments |
-| `submissions` | Student submissions |
-| `notifications` | In-app + push notifications |
-| `device_tokens` | FCM tokens per deployment target |
-| `risk_alerts` | Facilitator risk alerts |
-| `appointments` | Scheduled appointments |
-| `conversations` | Messaging threads |
-| `messages` | Individual messages |
-| `work_hours_schedules` | Facilitator work hours |
-| `announcements` | Platform announcements |
-| `audit_logs` | Admin audit trail |
-
----
-
-## Summary Diagram
-
+### 1. Mobile `TemplateAssessmentScreen.tsx` (line 296)
+**File:** `spartan-g/apps/mobile/src/screens/assessment/TemplateAssessmentScreen.tsx`
+**Formula:**
+```ts
+const answeredCount = Object.keys(answers).length;
+const progressPercent = Math.round((answeredCount / totalSteps) * 100);
 ```
-┌─ Frontend ─────────────────────────────────────────────────┐
-│                                                             │
-│  Web App (React 18 + Vite 5 + Tailwind 4)                  │
-│  Mobile App (Expo 52 + React Native 0.76)                  │
-│                                                             │
-├─ Shared Packages ──────────────────────────────────────────┤
-│                                                             │
-│  shared-types        shared-services      shared-ui         │
-│  (types, RBAC)       (Firebase, repos,    (themes, tokens) │
-│                       Zustand store)                        │
-│                                                             │
-├─ Backend / Infrastructure ─────────────────────────────────┤
-│                                                             │
-│  Firebase Auth  →  Firestore DB  →  Firebase Storage       │
-│                                     Firebase Cloud Messaging│
-└────────────────────────────────────────────────────────────┘
+- **Numerator:** `Object.keys(answers).length` — count of answered questions
+- **Denominator:** `totalSteps = questions.length`
+- **Rounding:** `Math.round()`
+- **Used for:** Progress bar text ("X% complete") and bar fill width
+- **Verdict:** ✅ Formula is correct. If all questions answered, `answeredCount === totalSteps`, so `Math.round(1 * 100) = 100%`.
+
+### 2. Web `TemplateAssessmentPage.tsx` (lines 302, 308)
+**File:** `spartan-g/apps/web/src/pages/assessment/TemplateAssessmentPage.tsx`
+**Formula (text):**
+```tsx
+<span>{Math.round((Object.keys(answers).length / totalSteps) * 100)}% complete</span>
+```
+**Formula (bar width):**
+```tsx
+style={{ width: `${(Object.keys(answers).length / totalSteps) * 100}%` }}
+```
+- **Numerator:** `Object.keys(answers).length`
+- **Denominator:** `totalSteps = questions.length`
+- **Rounding:** `Math.round()` for text; raw float for bar width
+- **Verdict:** ✅ Formula is correct. Same as mobile TemplateAssessmentScreen.
+
+### 3. Mobile `MobileProgressBar.tsx` (line 10) — **BUGGY**
+**File:** `spartan-g/apps/mobile/src/screens/assessment/components/MobileProgressBar.tsx`
+**Formula:**
+```ts
+const percentage = totalSteps > 0 ? Math.round(((currentStep + 1) / totalSteps) * 100) : 0;
+```
+- **Numerator:** `currentStep + 1` — **step position, NOT answered count**
+- **Denominator:** `totalSteps = questions.length`
+- **Rounding:** `Math.round()`
+- **Used by:** `AssessmentWizardScreen.tsx` (the older wizard)
+- **Verdict:** ⚠️ Uses step position instead of answered count. Shows 100% when on the last question (step), regardless of whether all questions are actually answered.
+
+### 4. Web `WizardProgressBar.tsx` (line 7) — **BUGGY**
+**File:** `spartan-g/apps/web/src/components/assessment/WizardProgressBar.tsx`
+**Formula:**
+```ts
+const percentage = totalSteps > 0 ? Math.round(((currentStep + 1) / totalSteps) * 100) : 0;
+```
+- **Numerator:** `currentStep + 1` — **step position, NOT answered count**
+- **Denominator:** `totalSteps = questions.length`
+- **Rounding:** `Math.round()`
+- **Used by:** `AssessmentWizardPage.tsx` (the older web wizard)
+- **Verdict:** ⚠️ Same bug as MobileProgressBar. Uses step position instead of answered count.
+
+### 5. Dashboard `DashboardScreen.tsx` (lines 209-211)
+**File:** `spartan-g/apps/mobile/src/screens/dashboard/DashboardScreen.tsx`
+**Formula:**
+```ts
+const assessmentPercent = totalAssessments > 0
+  ? Math.round((assessmentsCompleted / totalAssessments) * 100)
+  : 0;
+```
+- **Numerator:** `assessmentsCompleted` — count of submitted assessments
+- **Denominator:** `totalAssessments` — total assessments assigned
+- **Rounding:** `Math.round()`
+- **Verdict:** ✅ Correct for its purpose (overall assessment completion rate, not per-question progress).
+
+---
+
+## Root Cause Analysis: Which Calculation Produces 95%?
+
+### The Bug: `MobileProgressBar` and `WizardProgressBar` use step-position, not answer-count
+
+Both `MobileProgressBar.tsx` and `WizardProgressBar.tsx` calculate progress as:
+```
+Math.round(((currentStep + 1) / totalSteps) * 100)
 ```
 
-## Key Technologies (Concise List)
+This is **step-based progress**, not **answer-based progress**. It shows how far the student has navigated through the wizard, not how many questions they've actually answered.
 
-| Layer | Primary Tech |
-|-------|-------------|
-| **Programming Language** | TypeScript (~5.3.0) |
-| **Web Framework** | React 18 + Vite 5 + Tailwind CSS 4 |
-| **Mobile Framework** | Expo 52 + React Native 0.76 |
-| **State Management** | Zustand 5 |
-| **Backend** | Firebase (Auth, Firestore, Storage, FCM) |
-| **Routing (Web)** | React Router DOM 6 |
-| **Routing (Mobile)** | React Navigation 7 |
-| **Build/CI** | Vite (web), EAS Build (mobile) |
-| **Monorepo** | npm workspaces |
+### Why it shows 95% instead of 100%
+
+The bug manifests in the **TemplateAssessmentScreen** (mobile) and **TemplateAssessmentPage** (web) — these screens use `answeredCount / totalSteps` which IS answer-based. However, the professor's report of 95% specifically points to a scenario where the math works out to 95.
+
+**The actual 95% bug scenario:**
+
+If the assessment has **20 questions** and the student has answered **19 of them** (one answer not yet registered in the `answers` state), the TemplateAssessmentScreen would show:
+```
+Math.round((19 / 20) * 100) = Math.round(95) = 95%
+```
+
+But the professor said "after answering ALL questions" — so all 20 should be answered. This means either:
+1. A timing issue where the last answer isn't reflected in state when progress is calculated, OR
+2. The bug is actually in the **MobileProgressBar/WizardProgressBar** which uses `(currentStep + 1) / totalSteps`
+
+### Tracing the MobileProgressBar formula with real numbers
+
+For an assessment with **37 questions** (PHQ-9=9 + GAD-7=7 + DASS-21=21):
+
+| Scenario | currentStep | Formula | Result |
+|----------|------------|---------|--------|
+| First question | 0 | (0+1)/37 × 100 | 3% |
+| Mid-way | 18 | (18+1)/37 × 100 | 51% |
+| Last question (step 36) | 36 | (36+1)/37 × 100 | **100%** |
+| Review step (step 37) | 37 | (37+1)/37 × 100 | **103%** |
+
+The MobileProgressBar shows **100% too early** (on the last question before it's answered) and **103% on the review screen** — both are wrong.
+
+### The REAL bug: TemplateAssessmentScreen uses `answeredCount` but the `answers` state may be stale
+
+Looking more carefully at the **TemplateAssessmentScreen** (the one most likely being tested):
+
+```ts
+const answeredCount = Object.keys(answers).length;
+const progressPercent = Math.round((answeredCount / totalSteps) * 100);
+```
+
+If the student answers the last question and the `handleAnswer` callback updates `answers` via `setAnswers`, the progress bar re-renders with the new count. This should work correctly.
+
+**However**, there's a subtle issue: the `handleAnswer` function saves to Firestore AND updates local state. If the student navigates quickly or there's a race condition, the `answers` state might not include the very last answer at the moment the progress is calculated.
+
+### Most Likely Culprit
+
+The **MobileProgressBar** and **WizardProgressBar** components are the primary suspects. They use `(currentStep + 1) / totalSteps` which:
+1. Shows 100% when on the last question (before it's answered) — incorrect
+2. Shows >100% on the review step — incorrect
+3. Does NOT reflect actual answered count — fundamentally wrong metric
+
+The fix should change these to use `answeredCount / totalSteps` instead of `(currentStep + 1) / totalSteps`, matching the approach used in TemplateAssessmentScreen/TemplateAssessmentPage.
+
+---
+
+## All Locations Requiring Fix
+
+| # | File | Line | Current Formula | Fix Needed |
+|---|------|------|----------------|------------|
+| 1 | `spartan-g/apps/mobile/src/screens/assessment/components/MobileProgressBar.tsx` | 10 | `Math.round(((currentStep + 1) / totalSteps) * 100)` | Change to use `answeredCount` prop instead of `currentStep + 1` |
+| 2 | `spartan-g/apps/web/src/components/assessment/WizardProgressBar.tsx` | 7 | `Math.round(((currentStep + 1) / totalSteps) * 100)` | Change to use `answeredCount` prop instead of `currentStep + 1` |
+| 3 | `spartan-g/apps/mobile/src/screens/assessment/TemplateAssessmentScreen.tsx` | 296 | `Math.round((answeredCount / totalSteps) * 100)` | ✅ Already correct formula |
+| 4 | `spartan-g/apps/web/src/pages/assessment/TemplateAssessmentPage.tsx` | 302 | `Math.round((Object.keys(answers).length / totalSteps) * 100)` | ✅ Already correct formula |
+| 5 | `spartan-g/apps/mobile/src/screens/dashboard/DashboardScreen.tsx` | 210 | `Math.round((assessmentsCompleted / totalAssessments) * 100)` | ✅ Different metric, correct for its purpose |
+
+**Note:** Items 3 and 4 are already correct. The fix is needed for items 1 and 2.

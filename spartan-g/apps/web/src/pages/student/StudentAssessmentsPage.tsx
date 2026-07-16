@@ -116,11 +116,6 @@ export function StudentAssessmentsPage() {
                 {a.description && (
                   <p className="mt-1 line-clamp-3 text-sm text-gray-500">{a.description}</p>
                 )}
-                {a.maxAttempts > 0 && (
-                  <p className="mt-2 text-xs text-gray-400">
-                    Max {a.maxAttempts} {a.maxAttempts === 1 ? "attempt" : "attempts"}
-                  </p>
-                )}
               </div>
               <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-6 py-3">
                 <Button

@@ -245,9 +245,9 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
         <View style={styles.successIcon}>
           <Text style={styles.successIconText}>✓</Text>
         </View>
-        <Text style={styles.successTitle}>Assessment Submitted!</Text>
+        <Text style={styles.successTitle}>Congratulations!</Text>
         <Text style={styles.successMessage}>
-          Your responses have been recorded successfully.
+          You've successfully completed your assessment.
         </Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>Back to Assessments</Text>

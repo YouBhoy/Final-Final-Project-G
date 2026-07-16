@@ -114,9 +114,6 @@ export function FacilitatorAssessmentsPage() {
                     Questions
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Max Attempts
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Status
                   </th>
                 </tr>
@@ -139,9 +136,6 @@ export function FacilitatorAssessmentsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {Array.isArray(a.questions) ? a.questions.length : 0}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {a.maxAttempts}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       {a.isPublished ? (

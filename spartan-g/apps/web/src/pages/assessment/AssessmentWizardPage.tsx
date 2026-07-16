@@ -86,8 +86,12 @@ export function AssessmentWizardPage() {
   // Resume state
   const [isResuming, setIsResuming] = useState(false);
 
+  // Came from review (Next should return to review screen)
+  const [cameFromReview, setCameFromReview] = useState(false);
+
   // Confirmation state
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isAlreadyCompleted, setIsAlreadyCompleted] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Load assessment on mount
@@ -112,11 +116,10 @@ export function AssessmentWizardPage() {
         const hasReachedLimit = attemptCount >= assessmentData.maxAttempts;
         const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, user.uid);
 
-        // If no in-progress attempt but attempts exist, the student already submitted — show success
         if (hasReachedLimit && !existingAttemptId) {
           if (!cancelled) {
             setAssessment(assessmentData);
-            setIsSubmitted(true);
+            setIsAlreadyCompleted(true);
             setIsLoading(false);
           }
           return;
@@ -260,11 +263,15 @@ export function AssessmentWizardPage() {
   }, []);
 
   const handleNext = useCallback(() => {
-    setWizard((prev) => ({
-      ...prev,
-      currentStep: Math.min(totalSteps, prev.currentStep + 1),
-    }));
-  }, [totalSteps]);
+    setWizard((prev) => {
+      // If came from review, return to review screen
+      if (cameFromReview) {
+        setCameFromReview(false);
+        return { ...prev, currentStep: totalSteps };
+      }
+      return { ...prev, currentStep: Math.min(totalSteps, prev.currentStep + 1) };
+    });
+  }, [totalSteps, cameFromReview]);
 
   const handleNavigateToQuestion = useCallback((step: number) => {
     setWizard((prev) => ({
@@ -275,6 +282,31 @@ export function AssessmentWizardPage() {
 
   const handleSubmit = useCallback(async () => {
     if (!attemptId) return;
+
+    // Validate all questions have answers before submitting
+    const unanswered = sortedAllQuestions.filter(
+      (q) => wizard.answers[q.id] === undefined || wizard.answers[q.id] === ''
+    );
+    if (unanswered.length > 0) {
+      const firstUnansweredIndex = sortedAllQuestions.findIndex(
+        (q) => wizard.answers[q.id] === undefined || wizard.answers[q.id] === ''
+      );
+      setSubmissionError(
+        `Please answer all questions before submitting — ${unanswered.length} remaining.`
+      );
+      // Navigate to the section containing the first unanswered question
+      const firstUnanswered = unanswered[0];
+      const section = getSectionForQuestion(firstUnanswered.id);
+      if (section) {
+        setSelectedSection(section);
+        setWizard((prev) => ({
+          ...prev,
+          currentStep: sortedAllQuestions.indexOf(firstUnanswered),
+        }));
+        setPhase('questions');
+      }
+      return;
+    }
 
     setWizard((prev) => ({ ...prev, isSubmitting: true }));
     setSubmissionError(null);
@@ -359,6 +391,44 @@ export function AssessmentWizardPage() {
     );
   }
 
+  // ─── Already Completed ─────────────────────────────────
+  if (isAlreadyCompleted) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="border-b border-gray-200 bg-white shadow-sm">
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center space-x-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600">
+                <span className="text-sm font-bold text-white">SG</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">{assessment?.title}</h1>
+                <p className="text-xs text-gray-500">Already completed</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <p className="text-right text-sm font-medium text-gray-700">{user?.displayName}</p>
+            </div>
+          </div>
+        </header>
+        <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+          <div className="rounded-xl border border-gray-200 bg-white p-12 shadow-sm">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+              <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="mt-4 text-2xl font-bold text-gray-900">Already Answered</h2>
+            <p className="mt-2 text-sm text-gray-500">You have already answered the assessment. Your responses have been recorded.</p>
+            <div className="mt-8">
+              <Button variant="primary" onClick={() => navigate('/student/dashboard')}>Return to Dashboard</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ─── Submitted ─────────────────────────────────────────
   if (isSubmitted) {
     return (
@@ -386,8 +456,8 @@ export function AssessmentWizardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 01-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">Assessment Submitted!</h2>
-            <p className="mt-2 text-sm text-gray-500">Thank you for completing the assessment. Your responses have been recorded.</p>
+            <h2 className="mt-4 text-2xl font-bold text-gray-900">Congratulations!</h2>
+            <p className="mt-2 text-sm text-gray-500">You've successfully completed your assessment.</p>
             <div className="mt-8">
               <Button variant="primary" onClick={() => navigate('/student/dashboard')}>Return to Dashboard</Button>
             </div>
@@ -586,6 +656,8 @@ export function AssessmentWizardPage() {
                   {sectionQs.map((question) => {
                     const answer = wizard.answers[question.id];
                     const isAnswered = answer !== undefined && answer !== '';
+                    // Find the global index of this question in sortedAllQuestions
+                    const globalIndex = sortedAllQuestions.findIndex((q) => q.id === question.id);
 
                     return (
                       <div
@@ -606,6 +678,24 @@ export function AssessmentWizardPage() {
                               {isAnswered ? `Answer: ${answer}` : 'Not answered'}
                             </p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const section = getSectionForQuestion(question.id);
+                              if (section) {
+                                setSelectedSection(section);
+                                setCameFromReview(true);
+                                setWizard((prev) => ({
+                                  ...prev,
+                                  currentStep: globalIndex,
+                                }));
+                                setPhase('questions');
+                              }
+                            }}
+                            className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          >
+                            Change
+                          </button>
                         </div>
                       </div>
                     );
@@ -614,10 +704,10 @@ export function AssessmentWizardPage() {
               );
             })}
 
-            {/* Unanswered warning */}
+            {/* Unanswered warning — blocks submission */}
             {!allAnswered && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                You have unanswered questions. You can still submit, but unanswered questions will not be recorded.
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                Please answer all questions before submitting — {totalCount - answeredCount} remaining.
               </div>
             )}
 
@@ -690,14 +780,17 @@ export function AssessmentWizardPage() {
             </div>
           )}
 
-          <WizardProgressBar currentStep={wizard.currentStep} totalSteps={totalSteps} />
+          <WizardProgressBar currentStep={wizard.currentStep} totalSteps={totalSteps} answeredCount={Object.keys(wizard.answers).length} />
 
           {isOnReviewStep ? (
             <ReviewScreen
               title={sectionConfig?.fullTitle ?? assessment.title}
               questions={sectionQuestions}
               answers={wizard.answers}
-              onNavigateToQuestion={handleNavigateToQuestion}
+              onNavigateToQuestion={(step: number) => {
+                setCameFromReview(true);
+                handleNavigateToQuestion(step);
+              }}
               onSubmit={() => {
                 // Mark section completed and go back to select
                 if (selectedSection) {

@@ -4,10 +4,11 @@ import { lightColors } from '@spartan-g/shared-ui';
 interface MobileProgressBarProps {
   currentStep: number;
   totalSteps: number;
+  answeredCount: number;
 }
 
-export function MobileProgressBar({ currentStep, totalSteps }: MobileProgressBarProps) {
-  const percentage = totalSteps > 0 ? Math.round(((currentStep + 1) / totalSteps) * 100) : 0;
+export function MobileProgressBar({ currentStep, totalSteps, answeredCount }: MobileProgressBarProps) {
+  const percentage = totalSteps > 0 ? Math.round((answeredCount / totalSteps) * 100) : 0;
 
   return (
     <View style={styles.container}>

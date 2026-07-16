@@ -137,10 +137,6 @@ export function FacilitatorAssessmentsScreen() {
                     {Array.isArray(a.questions) ? a.questions.length : 0}
                   </Text>
                 </View>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Max Attempts</Text>
-                  <Text style={styles.metaValue}>{a.maxAttempts}</Text>
-                </View>
               </View>
             </View>
           ))}

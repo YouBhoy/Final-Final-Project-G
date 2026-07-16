@@ -135,9 +135,6 @@ export function AssessmentsListScreen() {
                     {a.questions?.length ?? 0} questions
                   </Text>
                 </View>
-                <Text style={styles.questionCount}>
-                  {a.maxAttempts > 0 ? `${a.maxAttempts} attempt${a.maxAttempts > 1 ? 's' : ''}` : 'Unlimited'}
-                </Text>
               </View>
               <Text style={styles.templateTitle}>{a.title}</Text>
               {a.description && (
@@ -170,11 +167,6 @@ export function AssessmentsListScreen() {
                       {selectedAssessment.questions?.length ?? 0} questions
                     </Text>
                   </View>
-                  <Text style={styles.modalQuestionCount}>
-                    {selectedAssessment.maxAttempts > 0
-                      ? `${selectedAssessment.maxAttempts} attempt${selectedAssessment.maxAttempts > 1 ? 's' : ''}`
-                      : 'Unlimited attempts'}
-                  </Text>
                 </View>
 
                 <Text style={styles.modalTitle}>{selectedAssessment.title}</Text>

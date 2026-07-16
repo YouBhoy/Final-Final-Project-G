@@ -223,9 +223,9 @@ export function TemplateAssessmentPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="mt-4 text-2xl font-bold text-gray-900">Assessment Submitted!</h2>
+          <h2 className="mt-4 text-2xl font-bold text-gray-900">Congratulations!</h2>
           <p className="mt-2 text-sm text-gray-500">
-            Your responses have been recorded successfully.
+            You've successfully completed your assessment.
           </p>
           <div className="mt-8">
             <Button variant="primary" onClick={() => navigate("/student/assessments")}>

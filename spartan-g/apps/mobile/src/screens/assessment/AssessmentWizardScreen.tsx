@@ -35,8 +35,12 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
   // Resume state
   const [isResuming, setIsResuming] = useState(false);
 
+  // Came from review (Next should return to review screen)
+  const [cameFromReview, setCameFromReview] = useState(false);
+
   // Confirmation
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isAlreadyCompleted, setIsAlreadyCompleted] = useState(false);
 
   // Load assessment on mount
   useEffect(() => {
@@ -64,7 +68,11 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
         const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, session.uid);
 
         if (hasReachedLimit && !existingAttemptId) {
-          setError(`You have used all ${assessmentData.maxAttempts} attempt(s) for this assessment.`);
+          if (!cancelled) {
+            setAssessment(assessmentData);
+            setIsAlreadyCompleted(true);
+            setIsLoading(false);
+          }
           return;
         }
 
@@ -172,8 +180,15 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
   }, []);
 
   const handleNext = useCallback(() => {
-    setWizard((prev) => ({ ...prev, currentStep: Math.min(totalSteps, prev.currentStep + 1) }));
-  }, [totalSteps]);
+    setWizard((prev) => {
+      // If came from review, return to review screen
+      if (cameFromReview) {
+        setCameFromReview(false);
+        return { ...prev, currentStep: totalSteps };
+      }
+      return { ...prev, currentStep: Math.min(totalSteps, prev.currentStep + 1) };
+    });
+  }, [totalSteps, cameFromReview]);
 
   const handleNavigateToQuestion = useCallback((step: number) => {
     setWizard((prev) => ({ ...prev, currentStep: step }));
@@ -181,6 +196,21 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
 
   const handleSubmit = useCallback(async () => {
     if (!attemptId) return;
+
+    // Validate all questions have answers before submitting
+    const unanswered = questions.filter(
+      (q) => wizard.answers[q.id] === undefined || wizard.answers[q.id] === ''
+    );
+    if (unanswered.length > 0) {
+      const firstUnansweredIndex = questions.findIndex(
+        (q) => wizard.answers[q.id] === undefined || wizard.answers[q.id] === ''
+      );
+      setError(`Please answer all questions before submitting — ${unanswered.length} remaining.`);
+      if (firstUnansweredIndex >= 0) {
+        setWizard((prev) => ({ ...prev, currentStep: firstUnansweredIndex }));
+      }
+      return;
+    }
 
     setWizard((prev) => ({ ...prev, isSubmitting: true }));
 
@@ -229,6 +259,24 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
     );
   }
 
+  // Already completed state
+  if (isAlreadyCompleted) {
+    return (
+      <View style={styles.centerContainer}>
+        <View style={styles.successIcon}>
+          <Text style={styles.successIconText}>✓</Text>
+        </View>
+        <Text style={styles.successTitle}>Already Answered</Text>
+        <Text style={styles.successMessage}>
+          You have already answered the assessment. Your responses have been recorded.
+        </Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>Back to Assessments</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // Submitted state
   if (isSubmitted) {
     return (
@@ -236,9 +284,9 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
         <View style={styles.successIcon}>
           <Text style={styles.successIconText}>✓</Text>
         </View>
-        <Text style={styles.successTitle}>Assessment Submitted!</Text>
+        <Text style={styles.successTitle}>Congratulations!</Text>
         <Text style={styles.successMessage}>
-          Your answers have been submitted successfully.
+          You've successfully completed your assessment.
         </Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>Return</Text>
@@ -274,7 +322,7 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
       )}
 
       {/* Progress */}
-      <MobileProgressBar currentStep={wizard.currentStep} totalSteps={totalSteps} />
+      <MobileProgressBar currentStep={wizard.currentStep} totalSteps={totalSteps} answeredCount={Object.keys(wizard.answers).length} />
 
       {/* Question or Review */}
       {isOnReviewStep ? (
@@ -282,7 +330,10 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
           title={assessment.title}
           questions={questions}
           answers={wizard.answers}
-          onNavigateToQuestion={handleNavigateToQuestion}
+          onNavigateToQuestion={(step: number) => {
+            setCameFromReview(true);
+            handleNavigateToQuestion(step);
+          }}
           onSubmit={handleSubmit}
           isSubmitting={wizard.isSubmitting}
         />

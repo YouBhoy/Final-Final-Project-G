@@ -11,7 +11,7 @@ const assessmentData = {
     "A combined PHQ-9, DASS-21, and GAD-7 screening to monitor and evaluate student psychological health.",
   instructions:
     "Please answer each question honestly based on how you have been feeling over the past 2 weeks. There are no right or wrong answers. Your responses are confidential.",
-  maxAttempts: 10,
+  maxAttempts: 1,
   isPublished: true,
   facilitatorId: "test-facilitator",
   passingScore: 0,

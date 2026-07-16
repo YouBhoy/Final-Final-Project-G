@@ -1,10 +1,11 @@
 interface WizardProgressBarProps {
   currentStep: number;
   totalSteps: number;
+  answeredCount: number;
 }
 
-export function WizardProgressBar({ currentStep, totalSteps }: WizardProgressBarProps) {
-  const percentage = totalSteps > 0 ? Math.round(((currentStep + 1) / totalSteps) * 100) : 0;
+export function WizardProgressBar({ currentStep, totalSteps, answeredCount }: WizardProgressBarProps) {
+  const percentage = totalSteps > 0 ? Math.round((answeredCount / totalSteps) * 100) : 0;
 
   return (
     <div className="space-y-2">
