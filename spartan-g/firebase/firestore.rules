@@ -138,6 +138,21 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ─── Assessment Overrides (facilitator feature) ──────────────
+    match /assessment_overrides/{overrideId} {
+      allow read: if isFacilitatorOrAdmin();
+      allow create: if isFacilitatorOrAdmin()
+        && request.resource.data.grantedBy == request.auth.uid
+        && request.resource.data.maxAttemptsOverride is int
+        && request.resource.data.maxAttemptsOverride >= 1
+        && request.resource.data.maxAttemptsOverride <= 10;
+      allow update: if isFacilitatorOrAdmin()
+        && request.resource.data.maxAttemptsOverride is int
+        && request.resource.data.maxAttemptsOverride >= 1
+        && request.resource.data.maxAttemptsOverride <= 10;
+      allow delete: if isSuperAdmin();
+    }
+
     // ─── Appointments ──────────────────────────────────────────
     match /appointments/{appointmentId} {
       // Students can read their own appointments plus active appointment records for availability checks.

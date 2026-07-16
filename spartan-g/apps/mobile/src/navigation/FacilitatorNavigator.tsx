@@ -5,13 +5,17 @@ import {
   FacilitatorMobileTabParamList,
 } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
+import { Feather } from '@expo/vector-icons';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { FacilitatorAssessmentsScreen } from '../screens/assessment/FacilitatorAssessmentsScreen';
 import { FacilitatorStudentsScreen } from '../screens/facilitator/FacilitatorStudentsScreen';
 import { RiskAlertsScreen } from '../screens/facilitator/RiskAlertsScreen';
 import { WorkHoursScreen } from '../screens/facilitator/WorkHoursScreen';
 import { SlotsScreen } from '../screens/facilitator/SlotsScreen';
+import { AssessmentOverrideListScreen } from '../screens/facilitator/AssessmentOverrideListScreen';
+import { AssessmentOverrideDetailScreen } from '../screens/facilitator/AssessmentOverrideDetailScreen';
 import { AppointmentsScreen } from '../screens/facilitator/AppointmentsScreen';
+import { FacilitatorProfileScreen } from '../screens/facilitator/FacilitatorProfileScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { FacilitatorMessagesScreen } from '../screens/facilitator/MessagesScreen';
 import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
@@ -28,23 +32,26 @@ function FacilitatorTabs() {
         tabBarInactiveTintColor: lightColors.textMuted,
       }}
     >
-      <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Dashboard' }}>
+      <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Dashboard', tabBarIcon: ({ color, size }) => <Feather name="grid" size={size} color={color} /> }}>
         {() => <DashboardScreen portalName="Facilitator Portal" />}
       </Tab.Screen>
-      <Tab.Screen name="RiskAlerts" options={{ title: 'Risk Alerts' }}>
+      <Tab.Screen name="RiskAlerts" options={{ title: 'Risk Alerts', tabBarIcon: ({ color, size }) => <Feather name="alert-triangle" size={size} color={color} /> }}>
         {() => <RiskAlertsScreen />}
       </Tab.Screen>
-      <Tab.Screen name="Appointments" options={{ title: 'Appointments' }}>
+      <Tab.Screen name="Appointments" options={{ title: 'Appointments', tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} /> }}>
         {() => <AppointmentsScreen />}
       </Tab.Screen>
-      <Tab.Screen name="Messaging" options={{ title: 'Messages' }}>
+      <Tab.Screen name="Messaging" options={{ title: 'Messages', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
         {() => <FacilitatorMessagesScreen />}
       </Tab.Screen>
-      <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Work Hours' }}>
+      <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Work Hours', tabBarIcon: ({ color, size }) => <Feather name="clock" size={size} color={color} /> }}>
         {() => <WorkHoursScreen />}
       </Tab.Screen>
-      <Tab.Screen name="FacilitatorProfile" options={{ title: 'Profile' }}>
-        {() => <PlaceholderScreen routeName="FacilitatorProfile" />}
+      <Tab.Screen name="AssessmentOverrides" options={{ title: 'Overrides', tabBarIcon: ({ color, size }) => <Feather name="sliders" size={size} color={color} /> }}>
+        {() => <AssessmentOverrideListScreen />}
+      </Tab.Screen>
+      <Tab.Screen name="FacilitatorProfile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} /> }}>
+        {() => <FacilitatorProfileScreen />}
       </Tab.Screen>
     </Tab.Navigator>
   );
@@ -90,6 +97,11 @@ export function FacilitatorNavigator() {
       <Stack.Screen name="GradeSubmission" options={{ title: 'Grade' }}>
         {() => <PlaceholderScreen routeName="GradeSubmission" />}
       </Stack.Screen>
+      <Stack.Screen
+        name="AssessmentOverrideDetail"
+        component={AssessmentOverrideDetailScreen}
+        options={{ title: 'Override Attempts' }}
+      />
     </Stack.Navigator>
   );
 }

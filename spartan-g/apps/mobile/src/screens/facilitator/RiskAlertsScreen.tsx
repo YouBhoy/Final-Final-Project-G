@@ -86,17 +86,21 @@ export function RiskAlertsScreen() {
 
   const [selectedAlert, setSelectedAlert] = useState<AlertWithId | null>(null);
   const [studentNames, setStudentNames] = useState<Record<string, string>>({});
+  const [acknowledging, setAcknowledging] = useState<string | null>(null);
+  const [resolving, setResolving] = useState<string | null>(null);
 
   // Load alerts
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
+    const uid = session.uid;
+    const role = session.role;
 
     async function load() {
       try {
         setLoading(true);
         setError(null);
-        const data = await riskAlertService.getAlertsForFacilitator(session.uid, session.role);
+        const data = await riskAlertService.getAlertsForFacilitator(uid, role);
         if (!cancelled) {
           setAlerts(data as AlertWithId[]);
         }
@@ -196,6 +200,7 @@ export function RiskAlertsScreen() {
   const handleAcknowledge = useCallback(async (alertId: string) => {
     const s = session;
     if (!s) return;
+    setAcknowledging(alertId);
     try {
       await riskAlertService.acknowledgeAlert(alertId, s.role);
       setAlerts((prev) =>
@@ -206,12 +211,15 @@ export function RiskAlertsScreen() {
       );
     } catch {
       // handled silently
+    } finally {
+      setAcknowledging(null);
     }
   }, [session]);
 
   const handleResolve = useCallback(async (alertId: string) => {
     const s = session;
     if (!s) return;
+    setResolving(alertId);
     try {
       await riskAlertService.resolveAlert(alertId, s.role);
       setAlerts((prev) =>
@@ -222,6 +230,8 @@ export function RiskAlertsScreen() {
       );
     } catch {
       // handled silently
+    } finally {
+      setResolving(null);
     }
   }, [session]);
 
@@ -390,16 +400,26 @@ export function RiskAlertsScreen() {
                     <TouchableOpacity
                       onPress={() => handleAcknowledge(alert.id)}
                       style={styles.actionButton}
+                      disabled={acknowledging === alert.id}
                     >
-                      <Text style={styles.actionButtonText}>Ack</Text>
+                      {acknowledging === alert.id ? (
+                        <ActivityIndicator size="small" color={lightColors.primary} />
+                      ) : (
+                        <Text style={styles.actionButtonText}>Ack</Text>
+                      )}
                     </TouchableOpacity>
                   )}
                   {(alert.status === 'open' || alert.status === 'acknowledged') && (
                     <TouchableOpacity
                       onPress={() => handleResolve(alert.id)}
                       style={[styles.actionButton, { backgroundColor: lightColors.primary }]}
+                      disabled={resolving === alert.id}
                     >
-                      <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Resolve</Text>
+                      {resolving === alert.id ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Resolve</Text>
+                      )}
                     </TouchableOpacity>
                   )}
                 </View>
@@ -436,8 +456,9 @@ export function RiskAlertsScreen() {
                       <Text style={styles.modalInfoValue}>
                         {(() => {
                           const showReal = selectedAlert.severity === 'critical' || selectedAlert.severity === 'high';
-                          const name = studentNames[selectedAlert.studentId];
-                          return showReal && name ? name : 'Student ' + selectedAlert.studentId.slice(-4);
+                          const sid = selectedAlert.studentId ?? '';
+                          const name = studentNames[sid];
+                          return showReal && name ? name : 'Student ' + sid.slice(-4);
                         })()}
                       </Text>
                     </View>

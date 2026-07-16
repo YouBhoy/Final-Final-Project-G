@@ -14,6 +14,7 @@ export {
   type UpdateAssessmentTemplatePayload,
 } from './assessment-template.service';
 export { assessmentService } from './assessment.service';
+export { assessmentOverrideService } from './assessment-override.service';
 export { assessmentResponseService, type SaveResponsePayload } from './assessment-response.service';
 export { notificationRepository } from '../repositories/notification.repository';
 export { profileRepository } from '../repositories/profile.repository';

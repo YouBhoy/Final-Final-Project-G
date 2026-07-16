@@ -24,6 +24,8 @@ export const COLLECTIONS = {
   ASSESSMENT_RESPONSES: 'assessment_responses',
   // Assessment feature collections (Phase 3B)
   ASSESSMENT_ATTEMPTS: 'assessment_attempts',
+  // Assessment overrides (facilitator per-student attempt limit override)
+  ASSESSMENT_OVERRIDES: 'assessment_overrides',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

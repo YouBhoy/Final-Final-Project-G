@@ -416,7 +416,7 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
         {role === 'facilitator' && (
           <View style={styles.facilitatorComingSoon}>
             <View style={styles.facilitatorComingSoonIconContainer}>
-              <Text style={styles.facilitatorComingSoonIcon}>🛠️</Text>
+              <Feather name="tool" size={28} color={palette.spartanGold} />
             </View>
             <Text style={styles.facilitatorComingSoonTitle}>Facilitator Portal</Text>
             <Text style={styles.facilitatorComingSoonDescription}>

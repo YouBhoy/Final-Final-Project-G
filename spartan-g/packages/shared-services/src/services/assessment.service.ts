@@ -18,6 +18,7 @@ import { assessmentQuestionRepository } from '../repositories/assessment-questio
 import { assessmentResponseRepository } from '../repositories/assessment-response.repository';
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
 import { riskAlertService } from './risk-alert.service';
+import { assessmentOverrideService } from './assessment-override.service';
 
 class AssessmentService {
   // =================== Phase 3A Methods (Template-based assessments) ===================
@@ -177,7 +178,12 @@ class AssessmentService {
     }
 
     const attemptCount = await this.getAttemptCount(assessmentId, studentId);
-    if (attemptCount >= (assessment as any).maxAttempts) {
+    const effectiveMax = await assessmentOverrideService.getEffectiveMaxAttempts(
+      assessmentId,
+      studentId,
+      (assessment as any).maxAttempts,
+    );
+    if (attemptCount >= effectiveMax) {
       throw new Error('Maximum number of attempts reached');
     }
 

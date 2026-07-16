@@ -40,6 +40,7 @@ export type FacilitatorMobileTabParamList = {
   Appointments: undefined;
   Messaging: undefined;
   WorkHoursSchedule: undefined;
+  AssessmentOverrides: undefined;
   FacilitatorProfile: undefined;
 };
 
@@ -53,6 +54,7 @@ export type FacilitatorMobileStackParamList = {
   ConversationDetail: { conversationId: string };
   ManageCourse: { courseId: string };
   GradeSubmission: { submissionId: string };
+  AssessmentOverrideDetail: { assessmentId: string; studentId: string };
 };
 
 export type MobileRootStackParamList = {

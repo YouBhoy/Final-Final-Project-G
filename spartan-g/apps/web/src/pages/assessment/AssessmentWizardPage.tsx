@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { assessmentService } from '@spartan-g/shared-services';
+import { assessmentService, assessmentOverrideService } from '@spartan-g/shared-services';
 import type { AssessmentDefinitionDocument, AssessmentQuestion, WizardState, AssessmentAnswer } from '@spartan-g/shared-types';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { WizardProgressBar } from '../../components/assessment/WizardProgressBar';
@@ -113,7 +113,12 @@ export function AssessmentWizardPage() {
         }
 
         const attemptCount = await assessmentService.getAttemptCount(assessmentId, user.uid);
-        const hasReachedLimit = attemptCount >= assessmentData.maxAttempts;
+        const effectiveMax = await assessmentOverrideService.getEffectiveMaxAttempts(
+          assessmentId,
+          user.uid,
+          assessmentData.maxAttempts,
+        );
+        const hasReachedLimit = attemptCount >= effectiveMax;
         const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, user.uid);
 
         if (hasReachedLimit && !existingAttemptId) {

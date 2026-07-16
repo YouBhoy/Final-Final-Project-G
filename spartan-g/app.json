@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "406741b8-2834-488d-9e9f-2e85632fbc98"
+      }
+    },
+    "android": {
+      "package": "com.kalbs.spartang"
+    }
+  }
+}
