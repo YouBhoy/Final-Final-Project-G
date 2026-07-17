@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,13 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, userService, workHoursService } from '@spartan-g/shared-services';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, palette } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -23,55 +24,65 @@ export function FindFacilitatorScreen() {
   const [workHoursMap, setWorkHoursMap] = useState<Record<string, any[]>>({});
   const [selectedFacilitator, setSelectedFacilitator] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Mount guard: prevents setState after unmount (replaces old `cancelled` flag pattern)
+  const isMounted = useRef(true);
   useEffect(() => {
-    if (!authSession) { setIsLoading(false); return; }
-    const session = authSession;
-    let cancelled = false;
+    return () => { isMounted.current = false; };
+  }, []);
 
-    async function load() {
-      try {
-        setError(null);
-        setFacilitators([]);
-        setWorkHoursMap({});
+  const loadFacilitators = useCallback(async () => {
+    if (!authSession) { setIsLoading(false); setIsRefreshing(false); return; }
 
-        const users = await userService.listUsersByRole('facilitator', session.role);
-        if (cancelled) return;
+    try {
+      setError(null);
+      setFacilitators([]);
+      setWorkHoursMap({});
 
-        const mapped = users.map((u: any) => ({
-          id: u.id,
-          displayName: u.displayName || 'Facilitator',
-          email: u.email || '',
-        }));
-        setFacilitators(mapped);
+      const users = await userService.listUsersByRole('facilitator', authSession.role);
+      if (!isMounted.current) return;
 
-        const whMap: Record<string, any[]> = {};
-        await Promise.allSettled(
-          mapped.map(async (fac) => {
-            try {
-              const schedule = await workHoursService.getActiveSchedule(fac.id, session.role);
-              whMap[fac.id] = schedule;
-            } catch {
-              whMap[fac.id] = [];
-            }
-          }),
-        );
-        if (!cancelled) setWorkHoursMap(whMap);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load facilitators.');
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
+      const mapped = users.map((u: any) => ({
+        id: u.id,
+        displayName: u.displayName || 'Facilitator',
+        email: u.email || '',
+      }));
+      setFacilitators(mapped);
+
+      const whMap: Record<string, any[]> = {};
+      await Promise.allSettled(
+        mapped.map(async (fac) => {
+          try {
+            const schedule = await workHoursService.getActiveSchedule(fac.id, authSession.role);
+            whMap[fac.id] = schedule;
+          } catch {
+            whMap[fac.id] = [];
+          }
+        }),
+      );
+      if (!isMounted.current) return;
+      setWorkHoursMap(whMap);
+    } catch (err) {
+      if (!isMounted.current) return;
+      setError(err instanceof Error ? err.message : 'Failed to load facilitators.');
+    } finally {
+      if (isMounted.current) { setIsLoading(false); setIsRefreshing(false); }
     }
-
-    load();
-    return () => { cancelled = true; };
   }, [authSession]);
 
-  if (isLoading) {
+  useEffect(() => {
+    loadFacilitators();
+  }, [loadFacilitators]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadFacilitators();
+    setIsRefreshing(false);
+  }, [loadFacilitators]);
+
+  if (isLoading && !isRefreshing) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={lightColors.primary} />
@@ -81,7 +92,13 @@ export function FindFacilitatorScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={palette.spartanRed} />
+      }
+    >
       <Text style={styles.title}>Find a Facilitator</Text>
 
       {error && (

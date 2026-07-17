@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -41,6 +42,16 @@ export function ConversationDetailScreen() {
   const [inputText, setInputText] = useState('');
   const [participantName, setParticipantName] = useState('Conversation');
   const flatListRef = useRef<FlatList>(null);
+
+  // Mark conversation as read when the screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!session) return;
+      messagingService.markConversationAsRead(conversationId, session.uid, session.role).catch(() => {
+        // Silently fail — unread count will update on next focus
+      });
+    }, [conversationId, session]),
+  );
 
   useEffect(() => {
     if (!session) return;

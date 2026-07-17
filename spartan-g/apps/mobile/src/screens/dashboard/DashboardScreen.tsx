@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import {
   View,
@@ -8,11 +9,12 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
-import { useAuthStore, assessmentService, appointmentRepository, notificationRepository } from '@spartan-g/shared-services';
+import { useAuthStore, assessmentService, appointmentRepository, messagingService } from '@spartan-g/shared-services';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 
 /* ─── Circular Progress Component ─────────────────────────── */
@@ -120,71 +122,99 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
   const [nextAppointment, setNextAppointment] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch real dashboard data
-  useEffect(() => {
+  // Fetch real dashboard data — wrapped in a callable function so we can
+  // both run it on mount and re-run it when the screen gains focus.
+  const loadDashboardData = useCallback(async () => {
     if (!userId || role !== 'student') {
       setIsLoadingData(false);
       return;
     }
 
-    async function loadDashboardData() {
-      try {
-        // Assessment data
-        const myAssessments = await assessmentService.getMyAssessments(userId, 'student');
-        const submitted = myAssessments.filter((a) => a.status === 'submitted');
-        const inProg = myAssessments.filter((a) => a.status === 'in_progress');
-        setAssessmentsCompleted(submitted.length);
-        setInProgress(inProg.length);
-        setTotalAssessments(myAssessments.length);
+    try {
+      // ── Assessment data (Phase 3B: assessment_attempts collection) ──
+      // Query assessment_attempts filtered by studentId with status submitted/graded.
+      // This matches the data model used by submit, resume, and attempt-override logic.
+      const attempts = await assessmentService.getAttemptsByStudent(userId);
+      const submitted = attempts.filter((a) => a.status === 'submitted' || a.status === 'graded');
+      const inProg = attempts.filter((a) => a.status === 'in_progress');
+      setAssessmentsCompleted(submitted.length);
+      setInProgress(inProg.length);
+      setTotalAssessments(attempts.length);
 
-        // Not started = total templates minus what they've started
-        // For now, we estimate: if they have no assessments at all, show 0/0
-        if (myAssessments.length === 0) {
-          setTotalAssessments(0);
-          setNotStarted(0);
-        } else {
-          setNotStarted(Math.max(0, myAssessments.length - submitted.length - inProg.length));
-        }
+      // Not started is not applicable to Phase 3B (assessments are course-based,
+      // not template-based). We set it to 0 to avoid confusion.
+      setNotStarted(0);
 
-        // Next appointment
-        const appointments = await appointmentRepository.getByStudent(userId);
-        const upcoming = appointments
-          .filter((a) => a.status === 'accepted' || a.status === 'requested')
-          .sort((a, b) => {
-            const aTime = a.scheduledAt?.toDate?.()?.getTime() ?? 0;
-            const bTime = b.scheduledAt?.toDate?.()?.getTime() ?? 0;
-            return aTime - bTime;
-          });
-        if (upcoming.length > 0) {
-          const next = upcoming[0].scheduledAt?.toDate?.();
-          if (next) {
-            const now = new Date();
-            const isToday = next.toDateString() === now.toDateString();
-            const isTomorrow = new Date(now.getTime() + 86400000).toDateString() === next.toDateString();
-            const timeStr = next.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            if (isToday) {
-              setNextAppointment(`Today · ${timeStr}`);
-            } else if (isTomorrow) {
-              setNextAppointment(`Tomorrow · ${timeStr}`);
-            } else {
-              setNextAppointment(next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${timeStr}`);
-            }
+      // ── Next appointment ──
+      const appointments = await appointmentRepository.getByStudent(userId);
+      const now = new Date();
+      const upcoming = appointments
+        .filter((a) => {
+          // Only future appointments with active statuses
+          const aptTime = a.scheduledAt?.toDate?.();
+          return aptTime && aptTime > now && (a.status === 'accepted' || a.status === 'requested');
+        })
+        .sort((a, b) => {
+          const aTime = a.scheduledAt?.toDate?.()?.getTime() ?? 0;
+          const bTime = b.scheduledAt?.toDate?.()?.getTime() ?? 0;
+          return aTime - bTime;
+        });
+      if (upcoming.length > 0) {
+        const next = upcoming[0].scheduledAt?.toDate?.();
+        if (next) {
+          const isToday = next.toDateString() === now.toDateString();
+          const isTomorrow = new Date(now.getTime() + 86400000).toDateString() === next.toDateString();
+          const timeStr = next.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          if (isToday) {
+            setNextAppointment(`Today · ${timeStr}`);
+          } else if (isTomorrow) {
+            setNextAppointment(`Tomorrow · ${timeStr}`);
+          } else {
+            setNextAppointment(next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${timeStr}`);
           }
         }
-
-        // Unread messages (notifications)
-        const unread = await notificationRepository.getUnreadByUserId(userId);
-        setUnreadMessages(unread.length);
-      } catch {
-        // Silently fail — dashboard shows zeros gracefully
-      } finally {
-        setIsLoadingData(false);
+      } else {
+        setNextAppointment(null);
       }
-    }
 
-    loadDashboardData();
+      // ── Unread messages (sum of unreadCount across conversations) ──
+      const conversations = await messagingService.getConversations(userId, 'student');
+      const totalUnread = conversations.reduce(
+        (sum, c) => sum + (c.unreadCount?.[userId] ?? 0),
+        0,
+      );
+      setUnreadMessages(totalUnread);
+    } catch {
+      // Silently fail — dashboard shows zeros gracefully
+    } finally {
+      setIsLoadingData(false);
+    }
   }, [userId, role]);
+
+  // Fetch on mount + initial data load
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  // Re-fetch every time this screen gains focus (so data is fresh after
+  // submitting an assessment, booking/cancelling an appointment, etc.)
+  useFocusEffect(
+    useCallback(() => {
+      // Only re-fetch if we've already completed the first load
+      if (!isLoadingData) {
+        loadDashboardData();
+      }
+    }, [loadDashboardData, isLoadingData]),
+  );
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadDashboardData();
+    setIsRefreshing(false);
+  }, [loadDashboardData]);
 
   const handleSignOut = useCallback(async () => {
     await signOut();
@@ -230,7 +260,13 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
       </View>
 
       {/* ─── White content sheet ───────────────────────────────── */}
-      <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetContent}>
+      <ScrollView
+        style={styles.sheetScroll}
+        contentContainerStyle={styles.sheetContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={palette.spartanRed} />
+        }
+      >
         {/* Hero Banner */}
         <View style={styles.heroBanner}>
           <Text style={styles.heroQuote}>"Leading Innovations, Transforming Lives, Building the Nation."</Text>
@@ -238,7 +274,7 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
         </View>
 
         {/* Loading state */}
-        {isLoadingData && (
+        {isLoadingData && !isRefreshing && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={lightColors.primary} />
             <Text style={styles.loadingText}>Loading your dashboard...</Text>
@@ -282,8 +318,8 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
                 icon="clock"
                 iconBg={palette.red100}
                 iconColor={palette.spartanRed}
-                label="Next Check-in"
-                value={inProgress > 0 ? `${inProgress} in progress` : 'All done'}
+                label="In Progress Assessments"
+                value={inProgress > 0 ? `${inProgress} in progress` : 'None'}
               />
               <StatCard
                 icon="message-circle"

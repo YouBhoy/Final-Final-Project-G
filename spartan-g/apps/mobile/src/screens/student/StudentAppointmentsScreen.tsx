@@ -6,13 +6,14 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, appointmentService, userService } from '@spartan-g/shared-services';
 import type { AppointmentDocument } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, palette } from '@spartan-g/shared-ui';
 
 const STATUS_ORDER = ['requested', 'accepted', 'completed', 'cancelled', 'rejected', 'no_show'];
 
@@ -55,6 +56,7 @@ export function StudentAppointmentsScreen() {
   const [appointments, setAppointments] = useState<(AppointmentDocument & { id: string })[]>([]);
   const [facilitatorNames, setFacilitatorNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const loadAppointments = useCallback(async () => {
@@ -90,6 +92,12 @@ export function StudentAppointmentsScreen() {
 
   useEffect(() => {
     loadAppointments();
+  }, [loadAppointments]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadAppointments();
+    setIsRefreshing(false);
   }, [loadAppointments]);
 
   const handleCancel = useCallback(async (appointmentId: string) => {
@@ -133,7 +141,13 @@ export function StudentAppointmentsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={palette.spartanRed} />
+      }
+    >
       <Text style={styles.title}>My Appointments</Text>
       <View style={styles.appointmentList}>
         {appointments.map(apt => (

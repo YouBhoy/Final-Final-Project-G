@@ -111,6 +111,8 @@ export interface ConversationDocument extends FirestoreDocument {
   participantIds: string[];
   lastMessageAt: Timestamp;
   lastMessagePreview: string;
+  /** Per-participant unread message count, keyed by user UID. */
+  unreadCount?: Record<string, number>;
 }
 
 export interface MessageDocument extends FirestoreDocument {
