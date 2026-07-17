@@ -32,19 +32,19 @@ function FacilitatorTabs() {
         tabBarInactiveTintColor: lightColors.textMuted,
       }}
     >
-      <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Dashboard', tabBarIcon: ({ color, size }) => <Feather name="grid" size={size} color={color} /> }}>
+      <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Feather name="grid" size={size} color={color} /> }}>
         {() => <DashboardScreen portalName="Facilitator Portal" />}
       </Tab.Screen>
-      <Tab.Screen name="RiskAlerts" options={{ title: 'Risk Alerts', tabBarIcon: ({ color, size }) => <Feather name="alert-triangle" size={size} color={color} /> }}>
+      <Tab.Screen name="RiskAlerts" options={{ title: 'Alerts', tabBarIcon: ({ color, size }) => <Feather name="alert-triangle" size={size} color={color} /> }}>
         {() => <RiskAlertsScreen />}
       </Tab.Screen>
-      <Tab.Screen name="Appointments" options={{ title: 'Appointments', tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} /> }}>
+      <Tab.Screen name="Appointments" options={{ title: 'Appts', tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} /> }}>
         {() => <AppointmentsScreen />}
       </Tab.Screen>
-      <Tab.Screen name="Messaging" options={{ title: 'Messages', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
+      <Tab.Screen name="Messaging" options={{ title: 'Chats', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
         {() => <FacilitatorMessagesScreen />}
       </Tab.Screen>
-      <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Work Hours', tabBarIcon: ({ color, size }) => <Feather name="clock" size={size} color={color} /> }}>
+      <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Hours', tabBarIcon: ({ color, size }) => <Feather name="clock" size={size} color={color} /> }}>
         {() => <WorkHoursScreen />}
       </Tab.Screen>
       <Tab.Screen name="AssessmentOverrides" options={{ title: 'Overrides', tabBarIcon: ({ color, size }) => <Feather name="sliders" size={size} color={color} /> }}>

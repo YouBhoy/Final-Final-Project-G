@@ -140,7 +140,8 @@ service cloud.firestore {
 
     // ─── Assessment Overrides (facilitator feature) ──────────────
     match /assessment_overrides/{overrideId} {
-      allow read: if isFacilitatorOrAdmin();
+      allow read: if isFacilitatorOrAdmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid);
       allow create: if isFacilitatorOrAdmin()
         && request.resource.data.grantedBy == request.auth.uid
         && request.resource.data.maxAttemptsOverride is int

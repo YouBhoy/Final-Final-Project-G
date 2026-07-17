@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
-import { assessmentService } from '@spartan-g/shared-services';
+import { assessmentService, assessmentOverrideService } from '@spartan-g/shared-services';
 import type { AssessmentDocument, WizardState, AssessmentAnswer } from '@spartan-g/shared-types';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useAuthStore } from '@spartan-g/shared-services';
@@ -62,7 +62,12 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
 
         // Check attempt count — but only count submitted/graded attempts
         const attemptCount = await assessmentService.getAttemptCount(assessmentId, session.uid);
-        const hasReachedLimit = attemptCount >= assessmentData.maxAttempts;
+        const effectiveMax = await assessmentOverrideService.getEffectiveMaxAttempts(
+          assessmentId,
+          session.uid,
+          assessmentData.maxAttempts,
+        );
+        const hasReachedLimit = attemptCount >= effectiveMax;
 
         // Check for in-progress attempt (this can bypass the limit)
         const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, session.uid);

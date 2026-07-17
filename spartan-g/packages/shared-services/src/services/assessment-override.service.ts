@@ -29,13 +29,18 @@ class AssessmentOverrideService {
     studentId: string,
     defaultMaxAttempts: number,
   ): Promise<number> {
+    const docId = `${assessmentId}_${studentId}`;
+    console.log('[OverrideService] getEffectiveMaxAttempts called', { assessmentId, studentId, defaultMaxAttempts, docId });
     try {
-      const docId = `${assessmentId}_${studentId}`;
       const override = await assessmentOverrideRepository.getById(docId);
+      console.log('[OverrideService] getById result:', override ? `found (maxAttemptsOverride=${override.maxAttemptsOverride})` : 'not found');
       if (override && override.maxAttemptsOverride > 0) {
+        console.log('[OverrideService] returning override value:', override.maxAttemptsOverride);
         return override.maxAttemptsOverride;
       }
-    } catch {
+      console.log('[OverrideService] no valid override found, falling back to default:', defaultMaxAttempts);
+    } catch (err) {
+      console.error('[OverrideService] ERROR reading override:', err instanceof Error ? err.message : err);
       // Silently fall through to default
     }
     return defaultMaxAttempts;
