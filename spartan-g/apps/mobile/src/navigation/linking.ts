@@ -34,14 +34,12 @@ export const mobileLinking: LinkingOptions<MobileRootStackParamList> = {
           FacilitatorTabs: {
             screens: {
               FacilitatorDashboard: 'facilitator',
-              RiskAlerts: 'facilitator/risk-alerts',
               Appointments: 'facilitator/appointments',
               Messaging: 'facilitator/messages',
               WorkHoursSchedule: 'facilitator/work-hours',
               FacilitatorProfile: 'facilitator/profile',
             },
           },
-          RiskAlertDetail: 'facilitator/risk-alert/:alertId',
           AppointmentDetail: 'facilitator/appointment/:appointmentId',
           ConversationDetail: 'facilitator/conversation/:conversationId',
           ManageCourse: 'facilitator/course/:courseId',

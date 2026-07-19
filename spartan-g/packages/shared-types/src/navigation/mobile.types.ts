@@ -36,7 +36,6 @@ export type StudentMobileStackParamList = {
 // ─── Facilitator Mobile ──────────────────────────────────────
 export type FacilitatorMobileTabParamList = {
   FacilitatorDashboard: undefined;
-  RiskAlerts: undefined;
   Appointments: undefined;
   Messaging: undefined;
   WorkHoursSchedule: undefined;
@@ -49,7 +48,6 @@ export type FacilitatorMobileStackParamList = {
   FacilitatorAssessmentsList: undefined;
   FacilitatorStudentsList: undefined;
   FacilitatorSlotsList: undefined;
-  RiskAlertDetail: { alertId: string };
   AppointmentDetail: { appointmentId: string };
   ConversationDetail: { conversationId: string };
   ManageCourse: { courseId: string };

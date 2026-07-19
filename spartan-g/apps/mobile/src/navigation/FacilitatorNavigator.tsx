@@ -9,7 +9,6 @@ import { Feather } from '@expo/vector-icons';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { FacilitatorAssessmentsScreen } from '../screens/assessment/FacilitatorAssessmentsScreen';
 import { FacilitatorStudentsScreen } from '../screens/facilitator/FacilitatorStudentsScreen';
-import { RiskAlertsScreen } from '../screens/facilitator/RiskAlertsScreen';
 import { WorkHoursScreen } from '../screens/facilitator/WorkHoursScreen';
 import { SlotsScreen } from '../screens/facilitator/SlotsScreen';
 import { AssessmentOverrideListScreen } from '../screens/facilitator/AssessmentOverrideListScreen';
@@ -34,9 +33,6 @@ function FacilitatorTabs() {
     >
       <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Feather name="grid" size={size} color={color} /> }}>
         {() => <DashboardScreen portalName="Facilitator Portal" />}
-      </Tab.Screen>
-      <Tab.Screen name="RiskAlerts" options={{ title: 'Alerts', tabBarIcon: ({ color, size }) => <Feather name="alert-triangle" size={size} color={color} /> }}>
-        {() => <RiskAlertsScreen />}
       </Tab.Screen>
       <Tab.Screen name="Appointments" options={{ title: 'Appts', tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} /> }}>
         {() => <AppointmentsScreen />}
@@ -80,9 +76,6 @@ export function FacilitatorNavigator() {
         component={SlotsScreen}
         options={{ title: 'Slots' }}
       />
-      <Stack.Screen name="RiskAlertDetail" options={{ title: 'Risk Alert' }}>
-        {() => <PlaceholderScreen routeName="RiskAlertDetail" />}
-      </Stack.Screen>
       <Stack.Screen name="AppointmentDetail" options={{ title: 'Appointment' }}>
         {() => <PlaceholderScreen routeName="AppointmentDetail" />}
       </Stack.Screen>

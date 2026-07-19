@@ -18,10 +18,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.spartang.mobile',
   },
   android: {
-    adaptiveIcon: { backgroundColor: '#0F172A' },
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      backgroundColor: '#FFFFFF',
+    },
     package: 'com.spartang.mobile',
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
   },
+  icon: './assets/icon.png',
   plugins: [
     [
       'expo-build-properties',
