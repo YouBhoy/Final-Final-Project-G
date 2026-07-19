@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useAuthStore, appointmentSlotService, workHoursService, userService } from '@spartan-g/shared-services';
 import type { AppointmentSlotDocument, WorkHoursScheduleDocument } from '@spartan-g/shared-types';
-import { lightColors, formatDateTime } from '@spartan-g/shared-ui';
+import { lightColors, formatDateTime, formatWorkHours } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -217,13 +217,13 @@ export function SlotsScreen() {
           ) : !daySchedule.isActive ? (
             <View style={[styles.workHoursInfo, { backgroundColor: lightColors.warningBackground, borderColor: lightColors.warningBorder }]}>
               <Text style={[styles.workHoursInfoText, { color: lightColors.warningText }]}>
-                Work hours for {DAYS[dayIndex]} ({daySchedule.startTime} - {daySchedule.endTime}) are currently inactive. Enable them in the Work Hours page.
+                Work hours for {DAYS[dayIndex]} ({formatWorkHours(daySchedule.startTime, daySchedule.endTime)}) are currently inactive. Enable them in the Work Hours page.
               </Text>
             </View>
           ) : (
             <View style={[styles.workHoursInfo, { backgroundColor: lightColors.infoBackground, borderColor: lightColors.infoBorder }]}>
               <Text style={[styles.workHoursInfoText, { color: lightColors.infoText }]}>
-                Work hours for {DAYS[dayIndex]}: <Text style={{ fontWeight: '700' }}>{daySchedule.startTime} - {daySchedule.endTime}</Text>
+                Work hours for {DAYS[dayIndex]}: <Text style={{ fontWeight: '700' }}>{formatWorkHours(daySchedule.startTime, daySchedule.endTime)}</Text>
               </Text>
             </View>
           )}

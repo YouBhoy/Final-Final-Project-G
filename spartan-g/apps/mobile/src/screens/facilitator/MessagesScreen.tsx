@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -6,13 +7,14 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, messagingService, userService } from '@spartan-g/shared-services';
 import type { ConversationDocument } from '@spartan-g/shared-types';
-import { lightColors, formatTimeOnly } from '@spartan-g/shared-ui';
+import { lightColors, palette, formatTimeOnly } from '@spartan-g/shared-ui';
 
 export function FacilitatorMessagesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<FacilitatorMobileStackParamList>>();
@@ -21,6 +23,8 @@ export function FacilitatorMessagesScreen() {
   const [conversations, setConversations] = useState<(ConversationDocument & { id: string })[]>([]);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadConversations = useCallback(async () => {
     if (!session) return;
@@ -46,11 +50,25 @@ export function FacilitatorMessagesScreen() {
       console.error('Failed to load conversations:', error);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [session]);
 
   useEffect(() => {
     loadConversations();
+  }, [loadConversations]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isLoading) {
+        loadConversations();
+      }
+    }, [loadConversations, isLoading]),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadConversations();
   }, [loadConversations]);
 
   const handleSelectConversation = (conversationId: string) => {
@@ -62,7 +80,7 @@ export function FacilitatorMessagesScreen() {
     return otherId ? participantNames[otherId] || 'Unknown User' : 'Unknown User';
   };
 
-  if (isLoading) {
+  if (isLoading && !isRefreshing) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={lightColors.primary} />
@@ -90,32 +108,49 @@ export function FacilitatorMessagesScreen() {
         data={conversations}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.conversationCard}
-            onPress={() => handleSelectConversation(item.id)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>
-                {getOtherParticipantName(item).charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.conversationInfo}>
-              <View style={styles.conversationHeader}>
-                <Text style={styles.participantName} numberOfLines={1}>
-                  {getOtherParticipantName(item)}
-                </Text>
-                <Text style={styles.timestamp}>
-                    {formatTimeOnly(item.lastMessageAt)}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={palette.spartanRed} />
+        }
+        renderItem={({ item }) => {
+          const unreadCount = item.unreadCount?.[session?.uid ?? ''] ?? 0;
+          const hasUnread = unreadCount > 0;
+          return (
+            <TouchableOpacity
+              style={[styles.conversationCard, hasUnread && styles.conversationCardUnread]}
+              onPress={() => handleSelectConversation(item.id)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>
+                  {getOtherParticipantName(item).charAt(0).toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.lastMessage} numberOfLines={1}>
-                {item.lastMessagePreview || 'No messages yet'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
+              <View style={styles.conversationInfo}>
+                <View style={styles.conversationHeader}>
+                  <View style={styles.nameRow}>
+                    <Text
+                      style={[styles.participantName, hasUnread && styles.participantNameUnread]}
+                      numberOfLines={1}
+                    >
+                      {getOtherParticipantName(item)}
+                    </Text>
+                    {hasUnread && (
+                      <View style={styles.unreadDot}>
+                        <Text style={styles.unreadDotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.timestamp}>
+                    {formatTimeOnly(item.lastMessageAt)}
+                  </Text>
+                </View>
+                <Text style={[styles.lastMessage, hasUnread && styles.lastMessageUnread]} numberOfLines={1}>
+                  {item.lastMessagePreview || 'No messages yet'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
       />
     </View>
   );
@@ -140,6 +175,10 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 8,
   },
+  conversationCardUnread: {
+    backgroundColor: palette.red50,
+    borderColor: palette.red200,
+  },
   avatarCircle: {
     width: 44,
     height: 44,
@@ -152,7 +191,20 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
   conversationInfo: { flex: 1 },
   conversationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  participantName: { fontSize: 15, fontWeight: '700', color: lightColors.text, flex: 1, marginRight: 8 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8, gap: 6 },
+  participantName: { fontSize: 15, fontWeight: '700', color: lightColors.text, flexShrink: 1 },
+  participantNameUnread: { fontWeight: '800', color: palette.spartanRed },
+  unreadDot: {
+    backgroundColor: palette.spartanRed,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  unreadDotText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
   timestamp: { fontSize: 11, color: lightColors.textMuted },
   lastMessage: { fontSize: 13, color: lightColors.textSecondary },
+  lastMessageUnread: { fontWeight: '600', color: lightColors.text },
 });

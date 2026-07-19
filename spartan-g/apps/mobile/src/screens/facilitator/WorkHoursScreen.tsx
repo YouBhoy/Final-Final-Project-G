@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useAuthStore, workHoursService } from '@spartan-g/shared-services';
 import type { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, formatWorkHours } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -173,7 +173,7 @@ export function WorkHoursScreen() {
                 ) : (
                   <View style={styles.timeDisplay}>
                     <Text style={[styles.timeText, !isActive && styles.timeTextInactive]}>
-                      {isActive ? `${schedule?.startTime || '09:00'} - ${schedule?.endTime || '17:00'}` : 'Inactive'}
+                      {isActive ? formatWorkHours(schedule?.startTime || '09:00', schedule?.endTime || '17:00') : 'Inactive'}
                     </Text>
                     <TouchableOpacity onPress={() => startEdit(index)} style={styles.editLink}>
                       <Text style={styles.editLinkText}>

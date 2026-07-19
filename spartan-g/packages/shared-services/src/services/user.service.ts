@@ -30,14 +30,14 @@ class UserService {
     if (uid !== actorUid && !canEditOthers) {
       throw new PermissionError();
     }
-    return profileRepository.update(uid, data);
+    return profileRepository.upsert(uid, data);
   }
 
   async uploadAvatar(uid: string, blob: Blob, fileName: string): Promise<string> {
     const storageRef = ref(getFirebaseStorage(), `${STORAGE_PATHS.AVATARS}/${uid}/${fileName}`);
     await uploadBytes(storageRef, blob);
     const url = await getDownloadURL(storageRef);
-    await profileRepository.update(uid, { avatarUrl: url });
+    await profileRepository.upsert(uid, { avatarUrl: url } as Partial<ProfileDocument>);
     return url;
   }
 

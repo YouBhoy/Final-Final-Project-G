@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, userService, workHoursService } from '@spartan-g/shared-services';
-import { lightColors, palette } from '@spartan-g/shared-ui';
+import { lightColors, palette, formatWorkHours } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -147,7 +147,7 @@ export function FindFacilitatorScreen() {
                         {schedule.filter((s: any) => s.isActive).map((s: any) => (
                           <View key={s.id} style={styles.scheduleRow}>
                             <Text style={styles.scheduleDay}>{DAYS[s.dayOfWeek] ?? 'Unknown'}</Text>
-                            <Text style={styles.scheduleTime}>{s.startTime} - {s.endTime}</Text>
+                            <Text style={styles.scheduleTime}>{formatWorkHours(s.startTime, s.endTime)}</Text>
                           </View>
                         ))}
                       </View>

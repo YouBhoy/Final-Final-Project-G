@@ -263,19 +263,21 @@ export function StudentProfileScreen() {
         useAuthStore.getState().setSession({ ...session, displayName });
       }
 
-      // Step 2: Update profile fields on ProfileDocument
+      // Step 2: Upsert profile fields on ProfileDocument
+      // Uses setDoc({merge:true}) so it works whether the doc exists or not
       const profileData: Partial<ProfileDocument> = {
         yearLevel: yearLevel || undefined,
         campus: campus || undefined,
         college: college || undefined,
         course: course || undefined,
       };
-      await profileRepository.update(session.uid, profileData);
+      await profileRepository.upsert(session.uid, profileData);
 
       Alert.alert('Success', 'Your profile has been updated.', [
         { text: 'OK', onPress: () => { setIsEditing(false); load(); } },
       ]);
     } catch (err) {
+      console.error('[StudentProfile] Save error:', err);
       const message = err instanceof Error ? err.message : 'Failed to save profile';
       Alert.alert('Error', message);
     } finally {
