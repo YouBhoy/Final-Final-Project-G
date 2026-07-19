@@ -13,17 +13,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, appointmentService, userService } from '@spartan-g/shared-services';
 import type { AppointmentDocument } from '@spartan-g/shared-types';
-import { lightColors, palette } from '@spartan-g/shared-ui';
+import { lightColors, palette, formatDateTime } from '@spartan-g/shared-ui';
 
 const STATUS_ORDER = ['requested', 'accepted', 'completed', 'cancelled', 'rejected', 'no_show'];
-
-function formatDateTime(timestamp: any): string {
-  if (!timestamp) return '';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
-  });
-}
 
 function getStatusColor(status: string): string {
   switch (status) {

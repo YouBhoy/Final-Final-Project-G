@@ -12,24 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, messagingService, userService } from '@spartan-g/shared-services';
 import type { ConversationDocument } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
-
-function formatTime(timestamp: any): string {
-  if (!timestamp) return '';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  } else if (diffDays === 1) {
-    return 'Yesterday';
-  } else if (diffDays < 7) {
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
-  }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+import { lightColors, formatTimeOnly } from '@spartan-g/shared-ui';
 
 export function FacilitatorMessagesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<FacilitatorMobileStackParamList>>();
@@ -124,7 +107,7 @@ export function FacilitatorMessagesScreen() {
                   {getOtherParticipantName(item)}
                 </Text>
                 <Text style={styles.timestamp}>
-                  {formatTime(item.lastMessageAt)}
+                    {formatTimeOnly(item.lastMessageAt)}
                 </Text>
               </View>
               <Text style={styles.lastMessage} numberOfLines={1}>

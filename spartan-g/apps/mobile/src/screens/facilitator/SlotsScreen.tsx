@@ -11,21 +11,9 @@ import {
 } from 'react-native';
 import { useAuthStore, appointmentSlotService, workHoursService, userService } from '@spartan-g/shared-services';
 import type { AppointmentSlotDocument, WorkHoursScheduleDocument } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, formatDateTime } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-function formatDateTime(timestamp: any): string {
-  if (!timestamp) return '';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 function formatDateOnly(date: Date): string {
   return date.toLocaleDateString('en-US', {

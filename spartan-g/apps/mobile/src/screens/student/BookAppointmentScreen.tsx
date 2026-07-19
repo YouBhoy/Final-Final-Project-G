@@ -12,7 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, appointmentService, workHoursService, userService } from '@spartan-g/shared-services';
 import type { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, formatWorkHours } from '@spartan-g/shared-ui';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_HEADERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -219,7 +219,7 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
         ) : (
           <View style={styles.timePickerContainer}>
             <Text style={styles.workHoursInfo}>
-              Available hours: <Text style={{ fontWeight: '700' }}>{workHoursForDay.startTime} - {workHoursForDay.endTime}</Text>
+              Available hours: <Text style={{ fontWeight: '700' }}>{formatWorkHours(workHoursForDay.startTime, workHoursForDay.endTime)}</Text>
             </Text>
             <View style={styles.timeRow}>
               <TextInput

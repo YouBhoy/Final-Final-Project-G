@@ -11,15 +11,7 @@ import {
 } from 'react-native';
 import { useAuthStore, appointmentService, userService } from '@spartan-g/shared-services';
 import type { AppointmentDocument } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
-
-function formatDateTime(timestamp: any): string {
-  if (!timestamp) return '';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
-  });
-}
+import { lightColors, formatDateTime } from '@spartan-g/shared-ui';
 
 function getStatusColor(status: string): string {
   switch (status) {

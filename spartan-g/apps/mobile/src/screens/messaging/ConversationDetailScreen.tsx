@@ -17,18 +17,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList, FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, messagingService, userService } from '@spartan-g/shared-services';
 import type { MessageDocument } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, formatTimeOnly } from '@spartan-g/shared-ui';
 
 type ConversationDetailRouteProp = RouteProp<
   StudentMobileStackParamList & FacilitatorMobileStackParamList,
   'ConversationDetail'
 >;
-
-function formatTime(timestamp: any): string {
-  if (!timestamp) return '';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-}
 
 export function ConversationDetailScreen() {
   const route = useRoute<ConversationDetailRouteProp>();
@@ -119,7 +113,7 @@ export function ConversationDetailScreen() {
             {item.body}
           </Text>
           <Text style={[styles.messageTime, isCurrentUser ? styles.sentTime : styles.receivedTime]}>
-            {formatTime(item.createdAt)}
+            {formatTimeOnly(item.createdAt)}
           </Text>
         </View>
       </View>
