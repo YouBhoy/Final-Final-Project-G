@@ -11,6 +11,7 @@ import { AssessmentsListScreen } from '../screens/assessment/AssessmentsListScre
 import { FindFacilitatorScreen } from '../screens/student/FindFacilitatorScreen';
 import { BookAppointmentScreen } from '../screens/student/BookAppointmentScreen';
 import { StudentAppointmentsScreen } from '../screens/student/StudentAppointmentsScreen';
+import { StudentProfileScreen } from '../screens/student/StudentProfileScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessmentScreen';
 import { MessagesScreen } from '../screens/student/MessagesScreen';
@@ -41,7 +42,7 @@ function StudentTabs() {
         {() => <MessagesScreen />}
       </Tab.Screen>
       <Tab.Screen name="StudentProfile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} /> }}>
-        {() => <PlaceholderScreen routeName="StudentProfile" />}
+        {() => <StudentProfileScreen />}
       </Tab.Screen>
     </Tab.Navigator>
   );

@@ -19,6 +19,7 @@ interface AuthState {
   platform: Platform | null;
 
   setPlatform: (platform: Platform) => void;
+  setSession: (session: AuthSession) => void;
   initialize: () => () => void;
   signIn: (credentials: AuthCredentials) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
@@ -36,6 +37,8 @@ export const createAuthStore = () =>
     platform: null,
 
     setPlatform: (platform) => set({ platform }),
+
+    setSession: (session) => set({ session }),
 
     initialize: () => {
       set({ status: 'loading' });

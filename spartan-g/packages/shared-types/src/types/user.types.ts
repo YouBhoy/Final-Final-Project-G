@@ -23,6 +23,10 @@ export interface ProfileDocument {
   avatarUrl?: string;
   pronouns?: string;
   gender?: Gender;
+  yearLevel?: string;
+  campus?: string;
+  college?: string;
+  course?: string;
   metadata?: Record<string, unknown>;
   updatedAt: Timestamp;
 }
