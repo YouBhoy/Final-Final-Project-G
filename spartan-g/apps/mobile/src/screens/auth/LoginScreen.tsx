@@ -164,15 +164,6 @@ export function LoginScreen({ navigation }: Props) {
             )}
           </View>
 
-          {/* Forgot password link */}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}
-            style={styles.forgotPassword}
-            disabled={isLoading}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-          </TouchableOpacity>
-
           {/* Submit button */}
           <TouchableOpacity
             onPress={handleSubmit}
@@ -320,15 +311,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: lightColors.error,
     marginTop: 4,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 20,
-  },
-  forgotPasswordText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: lightColors.primary,
   },
   submitButton: {
     backgroundColor: lightColors.primary,

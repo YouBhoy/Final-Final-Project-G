@@ -11,9 +11,6 @@ export function AuthNavigator() {
     <Stack.Navigator>
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Sign In' }} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
-      <Stack.Screen name="ForgotPassword" options={{ title: 'Reset Password' }}>
-        {() => <PlaceholderScreen routeName="ForgotPassword" />}
-      </Stack.Screen>
       <Stack.Screen
         name="WebOnlyRedirect"
         options={{ title: 'Web Portal Required' }}

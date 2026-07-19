@@ -9,7 +9,6 @@ export const mobileLinking: LinkingOptions<MobileRootStackParamList> = {
         screens: {
           Login: 'login',
           Register: 'register',
-          ForgotPassword: 'forgot-password',
           WebOnlyRedirect: 'web-only',
         },
       },
