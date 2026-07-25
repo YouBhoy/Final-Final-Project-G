@@ -20,6 +20,8 @@ import {
 import { conversationRepository } from '../repositories/conversation.repository';
 import { messageRepository } from '../repositories/message.repository';
 import { COLLECTIONS } from '@spartan-g/shared-types';
+import { pushNotificationService } from './push-notification.service';
+import { userService } from './user.service';
 
 /**
  * MessagingService - Core business logic for messaging.
@@ -89,6 +91,7 @@ class MessagingService {
     const db = getFirestoreDb();
     const messageType: MessageType = attachmentUrl ? 'attachment' : 'text';
     const normalizedBody = this.validateMessageBody(body);
+    let otherParticipants: string[] = [];
 
     try {
       // Use transaction to ensure atomic message + conversation update
@@ -107,7 +110,7 @@ class MessagingService {
           throw new Error('Sender is not a participant in this conversation');
         }
 
-        const otherParticipants = conversation.participantIds.filter(
+        otherParticipants = conversation.participantIds.filter(
           (id) => id !== senderId,
         );
 
@@ -151,6 +154,18 @@ class MessagingService {
         transaction.update(conversationRef, updateData);
       });
 
+      // Send push notification to other participants (non-blocking)
+      if (otherParticipants.length > 0) {
+        this.sendMessagePushNotification(
+          conversationId,
+          senderId,
+          normalizedBody,
+          otherParticipants,
+        ).catch(() => {
+          /* Intentionally swallowed — message was already sent */
+        });
+      }
+
       return messageRef.id;
     } catch (error: any) {
       console.error('[MessagingService] Failed to send message:', {
@@ -159,6 +174,36 @@ class MessagingService {
         error: error.message,
       });
       throw new Error(error.message || 'Failed to send message');
+    }
+  }
+
+  /**
+   * Send a push notification to other conversation participants about a new message.
+   * Non-blocking — the message has already been sent and committed.
+   */
+  private async sendMessagePushNotification(
+    conversationId: string,
+    senderId: string,
+    body: string,
+    recipientIds: string[],
+  ): Promise<void> {
+    try {
+      // Look up sender name
+      const senderUser = await userService.getUser(senderId);
+      const senderName = senderUser?.displayName ?? 'New Message';
+
+      const pushBody = body.length > 100 ? body.slice(0, 97) + '...' : body;
+
+      for (const recipientId of recipientIds) {
+        await pushNotificationService.sendPushToRecipient(
+          recipientId,
+          senderName,
+          pushBody,
+          { url: `spartan-g://student/conversation/${conversationId}` },
+        );
+      }
+    } catch (err) {
+      console.error('[MessagingService] Failed to send message push notification:', err);
     }
   }
 

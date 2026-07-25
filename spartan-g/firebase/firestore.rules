@@ -108,7 +108,14 @@ service cloud.firestore {
 
     // ─── Device Tokens (FCM) ───────────────────────────────────
     match /device_tokens/{tokenId} {
-      allow read: if isOwner(resource.data.uid) || isSuperAdmin();
+      allow read: if isOwner(resource.data.uid)
+        || isSuperAdmin()
+        || (isAuthenticated() && (
+          exists(/databases/$(database)/documents/conversations/$(request.auth.uid + '_' + resource.data.uid))
+          || exists(/databases/$(database)/documents/conversations/$(resource.data.uid + '_' + request.auth.uid))
+          || exists(/databases/$(database)/documents/facilitator_student_links/$(request.auth.uid + '_' + resource.data.uid))
+          || exists(/databases/$(database)/documents/facilitator_student_links/$(resource.data.uid + '_' + request.auth.uid))
+        ));
       allow create, update: if isAuthenticated()
         && request.resource.data.uid == request.auth.uid;
       allow delete: if isOwner(resource.data.uid) || isSuperAdmin();
@@ -323,6 +330,15 @@ service cloud.firestore {
       allow update: if isStudent()
         && resource.data.studentId == request.auth.uid;
       allow delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Assessment AI Summaries (facilitator-only) ──────────────
+    match /assessment_ai_summaries/{summaryId} {
+      allow read: if isFacilitatorOrAdmin();
+      allow create, update: if isFacilitatorOrAdmin()
+        && request.resource.data.attemptId is string
+        && request.resource.data.summary is string;
+      allow delete: if isSuperAdmin();
     }
 
     // ─── Assessment Attempts (Phase 3B) ────────────────────────

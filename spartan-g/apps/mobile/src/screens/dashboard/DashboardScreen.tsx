@@ -18,7 +18,7 @@ import { useAuthStore, assessmentService, appointmentRepository, messagingServic
 import { lightColors, palette } from '@spartan-g/shared-ui';
 
 /* ─── Circular Progress Component ─────────────────────────── */
-function CircularProgress({ value, size = 80, strokeWidth = 6 }: { value: number; size?: number; strokeWidth?: number }) {
+function CircularProgress({ value, size = 104, strokeWidth = 8 }: { value: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (value / 100) * circumference;
@@ -52,7 +52,7 @@ function CircularProgress({ value, size = 80, strokeWidth = 6 }: { value: number
         }}
       />
       {/* Center text */}
-      <Text style={{ fontSize: 16, fontWeight: '700', color: lightColors.text }}>
+      <Text style={{ fontSize: 22, fontWeight: '800', color: lightColors.text }}>
         {Math.round(value)}%
       </Text>
     </View>
@@ -267,12 +267,6 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={palette.spartanRed} />
         }
       >
-        {/* Hero Banner */}
-        <View style={styles.heroBanner}>
-          <Text style={styles.heroQuote}>"Leading Innovations, Transforming Lives, Building the Nation."</Text>
-          <Text style={styles.heroAttribution}>— Batangas State University</Text>
-        </View>
-
         {/* Loading state */}
         {isLoadingData && !isRefreshing && (
           <View style={styles.loadingContainer}>
@@ -640,11 +634,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 9,
+    fontWeight: '700',
     color: lightColors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     marginBottom: 2,
   },
   statValue: {

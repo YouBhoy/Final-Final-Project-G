@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { assessmentService, userRepository } from "@spartan-g/shared-services";
+import { assessmentService, userRepository, geminiService } from "@spartan-g/shared-services";
 import {
   calculatePHQ9Score,
   calculateGAD7Score,
@@ -141,6 +141,99 @@ function ScoreCard({ title, score, maxScore, severity, isCritical, subRows }: Sc
   );
 }
 
+interface AiSummaryScores {
+  phqScore: number;
+  phqSeverity: string;
+  gadScore: number;
+  gadSeverity: string;
+  dassDepressionScore: number;
+  dassDepressionSeverity: string;
+  dassAnxietyScore: number;
+  dassAnxietySeverity: string;
+  dassStressScore: number;
+  dassStressSeverity: string;
+  overallRiskLevel: string;
+  overallRiskScore: number;
+}
+
+function AiSummaryCard({ attemptId, scores }: { attemptId: string; scores: AiSummaryScores }) {
+  const [summary, setSummary] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  const loadSummary = useCallback(async () => {
+    setIsLoading(true);
+    setHasError(false);
+    try {
+      let text = await geminiService.getCachedSummary(attemptId);
+      if (!text) {
+        text = await geminiService.generateSummary(scores);
+        if (text) {
+          geminiService.cacheSummary(attemptId, text).catch(() => {});
+        }
+      }
+      if (text) {
+        setSummary(text);
+      } else {
+        setHasError(true);
+      }
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [attemptId, scores]);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg">🤖</span>
+          <span className="text-sm font-semibold text-violet-800">AI-Generated Summary</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-violet-600">
+          <Spinner />
+          <span>Generating summary...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasError && !summary) {
+    return (
+      <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg">🤖</span>
+          <span className="text-sm font-semibold text-violet-800">AI-Generated Summary</span>
+        </div>
+        <button onClick={loadSummary} className="text-sm font-medium text-violet-700 hover:text-violet-900 border border-violet-300 rounded px-3 py-1">
+          Generate Summary
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-lg">🤖</span>
+        <span className="text-sm font-semibold text-violet-800">AI-Generated Summary</span>
+        <button onClick={loadSummary} className="ml-auto text-xs font-medium text-violet-600 hover:text-violet-800 border border-violet-300 rounded px-2 py-0.5">
+          Regenerate
+        </button>
+      </div>
+      <p className="text-sm text-violet-900 leading-relaxed">{summary}</p>
+      <p className="mt-2 text-xs text-violet-500 italic">
+        This summary is AI-generated and is not a clinical diagnosis. It is a communication aid based on the computed scores above.
+      </p>
+    </div>
+  );
+}
+
 interface AttemptScorePanelProps {
   attempt: AssessmentAttemptDocument & { id: string };
 }
@@ -154,6 +247,21 @@ function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
 
   const isAnyCritical = phqResult.isCritical || gadResult.isCritical || dassResult.isCritical;
 
+  const aiScores: AiSummaryScores = {
+    phqScore: phqResult.score,
+    phqSeverity: phqResult.severity,
+    gadScore: gadResult.score,
+    gadSeverity: gadResult.severity,
+    dassDepressionScore: dassResult.depression.score,
+    dassDepressionSeverity: dassResult.depression.severity,
+    dassAnxietyScore: dassResult.anxiety.score,
+    dassAnxietySeverity: dassResult.anxiety.severity,
+    dassStressScore: dassResult.stress.score,
+    dassStressSeverity: dassResult.stress.severity,
+    overallRiskLevel: attempt.overallRiskLevel ?? 'unknown',
+    overallRiskScore: attempt.overallRiskScore ?? 0,
+  };
+
   return (
     <div className="space-y-4">
       {isAnyCritical && (
@@ -161,6 +269,8 @@ function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
           <strong>⚠ Critical Score Detected</strong> — This student may need immediate attention
         </div>
       )}
+
+      <AiSummaryCard attemptId={attempt.id} scores={aiScores} />
 
       <div className="flex items-center justify-between text-xs text-gray-500">
         <span>Attempt #{attempt.attemptNumber}</span>

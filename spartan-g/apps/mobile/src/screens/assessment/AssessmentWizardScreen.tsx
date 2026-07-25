@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
@@ -194,6 +194,19 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
       return { ...prev, currentStep: Math.min(totalSteps, prev.currentStep + 1) };
     });
   }, [totalSteps, cameFromReview]);
+
+  // Auto-advance when an answer is selected (skip if came from review)
+  const prevAnswerCount = useMemo(() => Object.keys(wizard.answers).length, [wizard.answers]);
+  useEffect(() => {
+    if (cameFromReview) return;
+    const currentAnswerCount = Object.keys(wizard.answers).length;
+    if (currentAnswerCount > prevAnswerCount && !isOnReviewStep) {
+      const timer = setTimeout(() => {
+        handleNext();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [wizard.answers, cameFromReview, isOnReviewStep, prevAnswerCount, handleNext]);
 
   const handleNavigateToQuestion = useCallback((step: number) => {
     setWizard((prev) => ({ ...prev, currentStep: step }));

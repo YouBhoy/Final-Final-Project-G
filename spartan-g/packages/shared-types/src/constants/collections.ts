@@ -26,6 +26,8 @@ export const COLLECTIONS = {
   ASSESSMENT_ATTEMPTS: 'assessment_attempts',
   // Assessment overrides (facilitator per-student attempt limit override)
   ASSESSMENT_OVERRIDES: 'assessment_overrides',
+  // AI-generated summaries for assessment results (facilitator-only)
+  ASSESSMENT_AI_SUMMARIES: 'assessment_ai_summaries',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

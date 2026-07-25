@@ -278,6 +278,19 @@ export function AssessmentWizardPage() {
     });
   }, [totalSteps, cameFromReview]);
 
+  // Auto-advance when an answer is selected (skip if came from review)
+  const prevAnswerCount = useMemo(() => Object.keys(wizard.answers).length, [wizard.answers]);
+  useEffect(() => {
+    if (cameFromReview || phase !== 'questions') return;
+    const currentAnswerCount = Object.keys(wizard.answers).length;
+    if (currentAnswerCount > prevAnswerCount && !isOnReviewStep) {
+      const timer = setTimeout(() => {
+        handleNext();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [wizard.answers, cameFromReview, phase, isOnReviewStep, prevAnswerCount, handleNext]);
+
   const handleNavigateToQuestion = useCallback((step: number) => {
     setWizard((prev) => ({
       ...prev,

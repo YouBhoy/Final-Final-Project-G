@@ -28,17 +28,17 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white p-1.5 shadow-lg shadow-red-500/15 ring-1 ring-black/5">
                 <img
-                  src="/Batangas_State_Logo.png"
-                  alt="Batangas State University"
+                  src="/spartan-g-logo.png"
+                  alt="SPARTAN-G"
                   className="h-full w-full object-contain"
                 />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--auth-primary)]">
-                  Student Portal
+                  SPARTAN-G
                 </p>
                 <p className="text-sm text-[var(--auth-text-secondary)]">
-                  Batangas State University
+                  Mental Health App
                 </p>
               </div>
             </div>
@@ -84,10 +84,10 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
               Welcome to
             </p>
             <h2 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-              Student Portal
+              SPARTAN-G
             </h2>
             <p className="mt-4 max-w-lg text-base leading-7 text-white/85 sm:text-lg">
-              Access your appointments, assessments, and campus support tools in one clear, modern workspace.
+              Your mental health and wellness companion. Access assessments, appointments, and guidance counseling support — all in one place.
             </p>
 
             <div className="mt-10 grid max-w-lg gap-4 sm:grid-cols-2">
@@ -120,20 +120,20 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
               <div className="flex items-center gap-5">
                 <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-[1.75rem] bg-white/95 p-3 shadow-lg shadow-black/10 ring-1 ring-black/5">
                   <img
-                    src="/Batangas_State_Logo.png"
-                    alt="Batangas State University"
+                    src="/spartan-g-logo.png"
+                    alt="SPARTAN-G"
                     className="h-full w-full object-contain"
                   />
                 </div>
                 <div className="min-w-0 space-y-2">
                   <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/75">
-                    Batangas State University
+                    SPARTAN-G
                   </p>
                   <p className="text-sm text-white/80 sm:text-base">
-                    The National Engineering University
+                    Guidance and Counseling Support
                   </p>
                   <p className="max-w-md text-sm leading-6 text-white/70">
-                    Official branding now appears here using the uploaded seal, keeping the login panel consistent with the university identity.
+                    A confidential space for students to access mental health screenings, book counseling appointments, and connect with facilitators.
                   </p>
                 </div>
               </div>

@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useAuthStore, userRepository, assessmentService } from '@spartan-g/shared-services';
+import { useAuthStore, userRepository, assessmentService, geminiService } from '@spartan-g/shared-services';
 import {
   calculatePHQ9Score,
   calculateGAD7Score,
@@ -15,7 +15,7 @@ import {
 } from '@spartan-g/shared-types';
 import type { AssessmentAttemptDocument } from '@spartan-g/shared-types';
 import type { Timestamp } from 'firebase/firestore';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, palette } from '@spartan-g/shared-ui';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -34,6 +34,23 @@ interface StudentWithRisk extends StudentUser {
 }
 
 type ViewMode = 'list' | 'scores';
+
+// ─── Types ────────────────────────────────────────────────────
+
+interface AiSummaryScores {
+  phqScore: number;
+  phqSeverity: string;
+  gadScore: number;
+  gadSeverity: string;
+  dassDepressionScore: number;
+  dassDepressionSeverity: string;
+  dassAnxietyScore: number;
+  dassAnxietySeverity: string;
+  dassStressScore: number;
+  dassStressSeverity: string;
+  overallRiskLevel: string;
+  overallRiskScore: number;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -158,6 +175,85 @@ function ScoreCard({ title, score, maxScore, severity, isCritical, subRows }: Sc
   );
 }
 
+// ─── AI Summary Card Component ────────────────────────────────
+
+function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores }) {
+  const [summary, setSummary] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  const loadSummary = useCallback(async () => {
+    setIsLoading(true);
+    setHasError(false);
+    try {
+      // Check cache first
+      let text = await geminiService.getCachedSummary(attempt.id);
+      if (!text) {
+        text = await geminiService.generateSummary(scores);
+        if (text) {
+          // Cache for future views
+          geminiService.cacheSummary(attempt.id, text).catch(() => {});
+        }
+      }
+      if (text) {
+        setSummary(text);
+      } else {
+        setHasError(true);
+      }
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [attempt.id, scores]);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.aiSummaryCard}>
+        <View style={styles.aiSummaryHeader}>
+          <Text style={styles.aiSummaryIcon}>🤖</Text>
+          <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
+        </View>
+        <ActivityIndicator size="small" color={lightColors.primary} />
+      </View>
+    );
+  }
+
+  if (hasError && !summary) {
+    return (
+      <View style={styles.aiSummaryCard}>
+        <View style={styles.aiSummaryHeader}>
+          <Text style={styles.aiSummaryIcon}>🤖</Text>
+          <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
+        </View>
+        <TouchableOpacity onPress={loadSummary} style={styles.generateButton}>
+          <Text style={styles.generateButtonText}>Generate Summary</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.aiSummaryCard}>
+      <View style={styles.aiSummaryHeader}>
+        <Text style={styles.aiSummaryIcon}>🤖</Text>
+        <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
+        <TouchableOpacity onPress={loadSummary} style={styles.regenerateButton}>
+          <Text style={styles.regenerateButtonText}>Regenerate</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.aiSummaryText}>{summary}</Text>
+      <Text style={styles.aiSummaryDisclaimer}>
+        This summary is AI-generated and is not a clinical diagnosis. It is a communication aid based on the computed scores above.
+      </Text>
+    </View>
+  );
+}
+
 // ─── Attempt Score Panel ──────────────────────────────────────
 
 interface AttemptScorePanelProps {
@@ -173,6 +269,21 @@ function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
 
   const isAnyCritical = phqResult.isCritical || gadResult.isCritical || dassResult.isCritical;
 
+  const aiScores: AiSummaryScores = {
+    phqScore: phqResult.score,
+    phqSeverity: phqResult.severity,
+    gadScore: gadResult.score,
+    gadSeverity: gadResult.severity,
+    dassDepressionScore: dassResult.depression.score,
+    dassDepressionSeverity: dassResult.depression.severity,
+    dassAnxietyScore: dassResult.anxiety.score,
+    dassAnxietySeverity: dassResult.anxiety.severity,
+    dassStressScore: dassResult.stress.score,
+    dassStressSeverity: dassResult.stress.severity,
+    overallRiskLevel: attempt.overallRiskLevel ?? 'unknown',
+    overallRiskScore: attempt.overallRiskScore ?? 0,
+  };
+
   return (
     <View style={styles.attemptPanel}>
       {isAnyCritical && (
@@ -182,6 +293,8 @@ function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
           </Text>
         </View>
       )}
+
+      <AiSummaryCard attempt={attempt} scores={aiScores} />
 
       <View style={styles.attemptMeta}>
         <Text style={styles.attemptMetaText}>Attempt #{attempt.attemptNumber}</Text>
@@ -877,5 +990,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#DC2626',
     fontWeight: '700',
+  },
+  // AI Summary card
+  aiSummaryCard: {
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+  },
+  aiSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  aiSummaryIcon: {
+    fontSize: 18,
+  },
+  aiSummaryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6D28D9',
+    flex: 1,
+  },
+  aiSummaryText: {
+    fontSize: 14,
+    color: '#4C1D95',
+    lineHeight: 20,
+  },
+  aiSummaryDisclaimer: {
+    fontSize: 11,
+    color: '#8B5CF6',
+    fontStyle: 'italic',
+    lineHeight: 15,
+  },
+  generateButton: {
+    borderWidth: 1.5,
+    borderColor: '#8B5CF6',
+    borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  generateButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6D28D9',
+  },
+  regenerateButton: {
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  regenerateButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6D28D9',
   },
 });

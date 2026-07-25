@@ -53,7 +53,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to your student portal account">
+    <AuthLayout title="Welcome back" subtitle="Sign in to your SPARTAN-G account">
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         {/* Error banner */}
         {error && (

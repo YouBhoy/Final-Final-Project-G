@@ -19,24 +19,24 @@ const STATUS_ORDER = ['requested', 'accepted', 'completed', 'cancelled', 'reject
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'requested': return lightColors.warningText;
-    case 'accepted': return lightColors.infoBadgeText;
-    case 'completed': return lightColors.successText;
-    case 'cancelled':
-    case 'rejected':
-    case 'no_show': return lightColors.errorText;
+    case 'requested': return '#92400E';
+    case 'accepted': return '#4338CA';
+    case 'completed': return '#16A34A';
+    case 'cancelled': return '#B91C1C';
+    case 'rejected': return '#475569';
+    case 'no_show': return '#6D28D9';
     default: return lightColors.textSecondary;
   }
 }
 
 function getStatusBg(status: string): string {
   switch (status) {
-    case 'requested': return lightColors.warningBackground;
-    case 'accepted': return lightColors.infoBackground;
-    case 'completed': return lightColors.successBackground;
-    case 'cancelled':
-    case 'rejected':
-    case 'no_show': return lightColors.errorBackground;
+    case 'requested': return '#FEF3C7';
+    case 'accepted': return '#EEF2FF';
+    case 'completed': return '#DCFCE7';
+    case 'cancelled': return '#FEE2E2';
+    case 'rejected': return '#F1F5F9';
+    case 'no_show': return '#F3E8FF';
     default: return lightColors.neutralBackground;
   }
 }

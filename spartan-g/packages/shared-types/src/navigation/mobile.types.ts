@@ -31,6 +31,7 @@ export type StudentMobileStackParamList = {
   ConversationDetail: { conversationId: string };
   AssessmentWizard: { assessmentId: string };
   BookAppointment: { facilitatorId: string };
+  StudentAppointments: undefined;
 };
 
 // ─── Facilitator Mobile ──────────────────────────────────────

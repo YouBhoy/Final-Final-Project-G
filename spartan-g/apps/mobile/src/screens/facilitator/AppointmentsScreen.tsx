@@ -9,30 +9,50 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { useAuthStore, appointmentService, userService } from '@spartan-g/shared-services';
+import { useAuthStore, appointmentService, userService, pushNotificationService } from '@spartan-g/shared-services';
 import type { AppointmentDocument } from '@spartan-g/shared-types';
 import { lightColors, formatDateTime } from '@spartan-g/shared-ui';
 
+function getAppointmentPushTitle(action: string): string | null {
+  switch (action) {
+    case 'accept': return 'Appointment Accepted';
+    case 'complete': return 'Appointment Completed';
+    case 'no-show': return 'Appointment Update';
+    case 'cancel': return 'Appointment Cancelled';
+    default: return null;
+  }
+}
+
+function getAppointmentPushBody(action: string, studentName: string): string | null {
+  switch (action) {
+    case 'accept': return `Your appointment with ${studentName} has been accepted.`;
+    case 'complete': return `Your appointment with ${studentName} has been completed.`;
+    case 'no-show': return `You were marked as no-show for your appointment with ${studentName}.`;
+    case 'cancel': return `Your appointment with ${studentName} has been cancelled.`;
+    default: return null;
+  }
+}
+
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'requested': return lightColors.warningText;
-    case 'accepted': return lightColors.infoBadgeText;
-    case 'completed': return lightColors.successText;
-    case 'cancelled':
-    case 'rejected':
-    case 'no_show': return lightColors.errorText;
+    case 'requested': return '#92400E';
+    case 'accepted': return '#4338CA';
+    case 'completed': return '#16A34A';
+    case 'cancelled': return '#B91C1C';
+    case 'rejected': return '#475569';
+    case 'no_show': return '#6D28D9';
     default: return lightColors.textSecondary;
   }
 }
 
 function getStatusBg(status: string): string {
   switch (status) {
-    case 'requested': return lightColors.warningBackground;
-    case 'accepted': return lightColors.infoBackground;
-    case 'completed': return lightColors.successBackground;
-    case 'cancelled':
-    case 'rejected':
-    case 'no_show': return lightColors.errorBackground;
+    case 'requested': return '#FEF3C7';
+    case 'accepted': return '#EEF2FF';
+    case 'completed': return '#DCFCE7';
+    case 'cancelled': return '#FEE2E2';
+    case 'rejected': return '#F1F5F9';
+    case 'no_show': return '#F3E8FF';
     default: return lightColors.neutralBackground;
   }
 }
@@ -80,35 +100,62 @@ export function AppointmentsScreen() {
   const handleAction = useCallback(async (action: string, appointmentId: string) => {
     if (!session) return;
     setActionLoading(appointmentId);
+    let aptStudentId: string | null = null;
     try {
       switch (action) {
-        case 'accept':
+        case 'accept': {
+          const apt = appointments.find(a => a.id === appointmentId);
+          aptStudentId = apt?.studentId ?? null;
           await appointmentService.acceptAppointment(appointmentId, session.uid, session.role);
           break;
+        }
         case 'reject':
           await appointmentService.rejectAppointment(appointmentId, session.uid, session.role);
           break;
-        case 'complete':
+        case 'complete': {
+          const apt = selectedAppointment;
+          aptStudentId = apt?.studentId ?? null;
           if (!outcomeNotes.trim()) return;
           await appointmentService.completeAppointment(appointmentId, session.uid, outcomeNotes, session.role);
           setOutcomeNotes('');
           setShowCompleteModal(false);
           setSelectedAppointment(null);
           break;
-        case 'no-show':
+        }
+        case 'no-show': {
+          const apt = appointments.find(a => a.id === appointmentId);
+          aptStudentId = apt?.studentId ?? null;
           await appointmentService.markNoShow(appointmentId, session.uid, session.role);
           break;
-        case 'cancel':
+        }
+        case 'cancel': {
+          const apt = appointments.find(a => a.id === appointmentId);
+          aptStudentId = apt?.studentId ?? null;
           await appointmentService.cancelAppointment(appointmentId, session.role, session.uid);
           break;
+        }
       }
       await loadAppointments();
+
+      // Send push notification to student (non-blocking)
+      if (aptStudentId) {
+        const pushTitle = getAppointmentPushTitle(action);
+        const pushBody = getAppointmentPushBody(action, studentNames[aptStudentId] ?? 'Student');
+        if (pushTitle && pushBody) {
+          pushNotificationService.sendPushToRecipient(
+            aptStudentId,
+            pushTitle,
+            pushBody,
+            { url: 'spartan-g://student/home' },
+          ).catch(() => { /* Intentionally swallowed */ });
+        }
+      }
     } catch (error) {
       console.error(`Failed to ${action} appointment:`, error);
     } finally {
       setActionLoading(null);
     }
-  }, [session, outcomeNotes, loadAppointments]);
+  }, [session, outcomeNotes, loadAppointments, appointments, selectedAppointment, studentNames]);
 
   if (isLoading) {
     return (

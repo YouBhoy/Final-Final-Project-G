@@ -9,6 +9,7 @@ import {
 } from '@spartan-g/shared-types';
 import { onAuthStateChanged, getFirebaseAuth } from '../firebase/auth';
 import { authService } from '../services/auth.service';
+import { notificationService } from '../services/notification.service';
 import { resolveDeploymentTarget } from '../config/env';
 
 interface AuthState {
@@ -57,6 +58,16 @@ export const createAuthStore = () =>
             authService.assertPlatformAccess(session.role, platform);
           }
           set({ status: 'authenticated', session, error: null, isInitialized: true });
+
+          // Register device for push notifications (non-blocking)
+          if (platform) {
+            const deploymentTarget = resolveDeploymentTarget(platform, session.role);
+            if (deploymentTarget) {
+              notificationService.registerDevice(session.uid, deploymentTarget).catch((err) => {
+                console.error('[AuthStore] Failed to register push token:', err);
+              });
+            }
+          }
         } catch (error) {
           set({
             status: 'unauthenticated',

@@ -86,17 +86,17 @@ export function LoginScreen({ navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header with BatStateU seal */}
+        {/* Header with SPARTAN-G logo */}
         <View style={styles.headerSection}>
           <View style={styles.logoContainer}>
             <Image
-              source={require('../../../assets/Batangas_State_Logo.png')}
+              source={require('../../../assets/icon.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.brandLabel}>Student Portal</Text>
-          <Text style={styles.brandSubLabel}>Batangas State University</Text>
+          <Text style={styles.brandLabel}>SPARTAN-G</Text>
+          <Text style={styles.brandSubLabel}>Mental Health App</Text>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to your SPARTAN-G account</Text>
         </View>

@@ -101,9 +101,6 @@ export function DashboardPage({ title, portalName }: DashboardPageProps) {
             {portalName}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-white/90">
-            &ldquo;Leading Innovations, Transforming Lives, Building the Nation.&rdquo;
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-white/70">
             Take a moment for yourself today. Your wellbeing is the foundation of every great achievement.
           </p>
         </div>
