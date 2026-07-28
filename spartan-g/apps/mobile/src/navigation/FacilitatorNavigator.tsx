@@ -12,7 +12,7 @@ import { FacilitatorStudentsScreen } from '../screens/facilitator/FacilitatorStu
 import { WorkHoursScreen } from '../screens/facilitator/WorkHoursScreen';
 import { SlotsScreen } from '../screens/facilitator/SlotsScreen';
 import { AssessmentOverrideListScreen } from '../screens/facilitator/AssessmentOverrideListScreen';
-import { AssessmentOverrideDetailScreen } from '../screens/facilitator/AssessmentOverrideDetailScreen';
+import { StudentDetailScreen } from '../screens/facilitator/StudentDetailScreen';
 import { AppointmentsScreen } from '../screens/facilitator/AppointmentsScreen';
 import { FacilitatorProfileScreen } from '../screens/facilitator/FacilitatorProfileScreen';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
@@ -43,7 +43,7 @@ function FacilitatorTabs() {
       <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Hours', tabBarIcon: ({ color, size }) => <Feather name="clock" size={size} color={color} /> }}>
         {() => <WorkHoursScreen />}
       </Tab.Screen>
-      <Tab.Screen name="AssessmentOverrides" options={{ title: 'Overrides', tabBarIcon: ({ color, size }) => <Feather name="sliders" size={size} color={color} /> }}>
+      <Tab.Screen name="AssessmentOverrides" options={{ title: 'Students', tabBarIcon: ({ color, size }) => <Feather name="users" size={size} color={color} /> }}>
         {() => <AssessmentOverrideListScreen />}
       </Tab.Screen>
       <Tab.Screen name="FacilitatorProfile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} /> }}>
@@ -91,9 +91,9 @@ export function FacilitatorNavigator() {
         {() => <PlaceholderScreen routeName="GradeSubmission" />}
       </Stack.Screen>
       <Stack.Screen
-        name="AssessmentOverrideDetail"
-        component={AssessmentOverrideDetailScreen}
-        options={{ title: 'Override Attempts' }}
+        name="StudentDetail"
+        component={StudentDetailScreen}
+        options={{ title: 'Student Details' }}
       />
     </Stack.Navigator>
   );

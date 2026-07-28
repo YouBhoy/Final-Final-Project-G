@@ -106,7 +106,7 @@ export function AssessmentOverrideListScreen() {
 
   const handleStudentPress = useCallback(
     (studentId: string, assessmentId: string) => {
-      navigation.navigate('AssessmentOverrideDetail', { studentId, assessmentId });
+      navigation.navigate('StudentDetail', { studentId, assessmentId });
     },
     [navigation],
   );

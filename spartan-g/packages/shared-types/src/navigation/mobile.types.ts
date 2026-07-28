@@ -47,13 +47,14 @@ export type FacilitatorMobileTabParamList = {
 export type FacilitatorMobileStackParamList = {
   FacilitatorTabs: NavigatorScreenParams<FacilitatorMobileTabParamList>;
   FacilitatorAssessmentsList: undefined;
-  FacilitatorStudentsList: undefined;
+  FacilitatorStudentsList: { studentId?: string };
   FacilitatorSlotsList: undefined;
   AppointmentDetail: { appointmentId: string };
   ConversationDetail: { conversationId: string };
   ManageCourse: { courseId: string };
   GradeSubmission: { submissionId: string };
   AssessmentOverrideDetail: { assessmentId: string; studentId: string };
+  StudentDetail: { studentId: string; assessmentId: string };
 };
 
 export type MobileRootStackParamList = {

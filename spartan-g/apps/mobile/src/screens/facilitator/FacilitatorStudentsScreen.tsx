@@ -7,6 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import type { FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, userRepository, assessmentService, geminiService } from '@spartan-g/shared-services';
 import {
   calculatePHQ9Score,
@@ -177,17 +180,34 @@ function ScoreCard({ title, score, maxScore, severity, isCritical, subRows }: Sc
 
 // ─── AI Summary Card Component ────────────────────────────────
 
+/** Check at runtime whether the Gemini API key is available in the environment. */
+function isGeminiKeyConfigured(): boolean {
+  try {
+    return !!process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  } catch {
+    return false;
+  }
+}
+
+const geminiKeyPresent = isGeminiKeyConfigured();
+
 function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores }) {
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const loadSummary = useCallback(async () => {
+  const loadSummary = useCallback(async (skipCache: boolean = false) => {
     setIsLoading(true);
     setHasError(false);
+    setErrorMessage(null);
     try {
-      // Check cache first
-      let text = await geminiService.getCachedSummary(attempt.id);
+      let text: string | null = null;
+
+      if (!skipCache) {
+        text = await geminiService.getCachedSummary(attempt.id);
+      }
+
       if (!text) {
         text = await geminiService.generateSummary(scores);
         if (text) {
@@ -199,16 +219,24 @@ function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument
         setSummary(text);
       } else {
         setHasError(true);
+        setErrorMessage(
+          !geminiKeyPresent
+            ? 'AI summary unavailable — API key not configured.'
+            : 'Failed to generate summary. The AI service did not return a response.',
+        );
       }
-    } catch {
+    } catch (err) {
       setHasError(true);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
   }, [attempt.id, scores]);
 
+  // Always regenerate fresh on mount — skip cache to avoid stale truncated summaries
   useEffect(() => {
-    loadSummary();
+    loadSummary(true);
   }, [loadSummary]);
 
   if (isLoading) {
@@ -230,8 +258,11 @@ function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument
           <Text style={styles.aiSummaryIcon}>🤖</Text>
           <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
         </View>
-        <TouchableOpacity onPress={loadSummary} style={styles.generateButton}>
-          <Text style={styles.generateButtonText}>Generate Summary</Text>
+        {errorMessage && (
+          <Text style={styles.aiSummaryErrorText}>{errorMessage}</Text>
+        )}
+        <TouchableOpacity onPress={() => loadSummary(true)} style={styles.generateButton}>
+          <Text style={styles.generateButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -242,7 +273,7 @@ function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument
       <View style={styles.aiSummaryHeader}>
         <Text style={styles.aiSummaryIcon}>🤖</Text>
         <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
-        <TouchableOpacity onPress={loadSummary} style={styles.regenerateButton}>
+        <TouchableOpacity onPress={() => loadSummary(true)} style={styles.regenerateButton}>
           <Text style={styles.regenerateButtonText}>Regenerate</Text>
         </TouchableOpacity>
       </View>
@@ -260,7 +291,7 @@ interface AttemptScorePanelProps {
   attempt: AssessmentAttemptDocument & { id: string };
 }
 
-function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
+export function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
   const answers = answersToRecord(attempt);
 
   const phqResult = calculatePHQ9Score(answers);
@@ -356,7 +387,10 @@ function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
 // ─── Main Screen Component ────────────────────────────────────
 
 export function FacilitatorStudentsScreen() {
+  const route = useRoute<RouteProp<FacilitatorMobileStackParamList, 'FacilitatorStudentsList'>>();
+  const navigation = useNavigation<any>();
   const session = useAuthStore((s) => s.session);
+  const preselectedStudentId = route.params?.studentId;
 
   const [students, setStudents] = useState<StudentUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -367,11 +401,25 @@ export function FacilitatorStudentsScreen() {
   const [riskLoading, setRiskLoading] = useState(true);
 
   // Score view state
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(preselectedStudentId ? 'scores' : 'list');
   const [selectedStudent, setSelectedStudent] = useState<StudentUser | null>(null);
   const [attempts, setAttempts] = useState<(AssessmentAttemptDocument & { id: string })[]>([]);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsError, setAttemptsError] = useState<string | null>(null);
+
+  // Separate function to load scores for a student (defined before the effects that use it)
+  const loadScoresForStudent = useCallback(async (studentId: string) => {
+    setAttemptsLoading(true);
+    setAttemptsError(null);
+    try {
+      const result = await assessmentService.getAttemptsByStudent(studentId);
+      setAttempts(result);
+    } catch (err) {
+      setAttemptsError(err instanceof Error ? err.message : 'Failed to load assessment scores');
+    } finally {
+      setAttemptsLoading(false);
+    }
+  }, []);
 
   // Load students on mount
   useEffect(() => {
@@ -395,6 +443,15 @@ export function FacilitatorStudentsScreen() {
             isActive: u.isActive,
           }));
           setStudents(items);
+
+          // If a studentId was passed in params, auto-select and load scores
+          if (preselectedStudentId) {
+            const matched = items.find((s) => s.id === preselectedStudentId);
+            if (matched) {
+              setSelectedStudent(matched);
+              loadScoresForStudent(matched.id);
+            }
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -409,7 +466,7 @@ export function FacilitatorStudentsScreen() {
 
     loadStudents();
     return () => { cancelled = true; };
-  }, [session]);
+  }, [session, preselectedStudentId, loadScoresForStudent]);
 
   // Evaluate risk status for all students
   useEffect(() => {
@@ -471,18 +528,8 @@ export function FacilitatorStudentsScreen() {
   const handleViewScores = useCallback(async (student: StudentUser) => {
     setSelectedStudent(student);
     setViewMode('scores');
-    setAttemptsLoading(true);
-    setAttemptsError(null);
-
-    try {
-      const result = await assessmentService.getAttemptsByStudent(student.id);
-      setAttempts(result);
-    } catch (err) {
-      setAttemptsError(err instanceof Error ? err.message : 'Failed to load assessment scores');
-    } finally {
-      setAttemptsLoading(false);
-    }
-  }, []);
+    await loadScoresForStudent(student.id);
+  }, [loadScoresForStudent]);
 
   const handleBackToList = useCallback(() => {
     setViewMode('list');
@@ -1024,6 +1071,11 @@ const styles = StyleSheet.create({
     color: '#8B5CF6',
     fontStyle: 'italic',
     lineHeight: 15,
+  },
+  aiSummaryErrorText: {
+    fontSize: 13,
+    color: '#DC2626',
+    lineHeight: 18,
   },
   generateButton: {
     borderWidth: 1.5,
