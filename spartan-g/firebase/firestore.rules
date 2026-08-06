@@ -356,5 +356,20 @@ service cloud.firestore {
           && (request.resource.data.status == 'in_progress' || request.resource.data.status == 'submitted'));
       allow delete: if isFacilitatorOrAdmin();
     }
+
+    // ─── Student Gardens (gamified assessment rewards) ─────────
+    match /student_gardens/{studentId} {
+      allow read: if isOwner(studentId) || isFacilitatorOrAdmin();
+      allow create: if isStudent()
+        && isOwner(studentId)
+        && request.resource.data.studentId == studentId
+        && request.resource.data.level == 1
+        && request.resource.data.xp == 0
+        && request.resource.data.seeds == 0;
+      allow update: if isStudent()
+        && isOwner(studentId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId']);
+      allow delete: if isSuperAdmin();
+    }
   }
 }

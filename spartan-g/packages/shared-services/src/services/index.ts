@@ -20,3 +20,4 @@ export { pushNotificationService } from './push-notification.service';
 export { geminiService } from './gemini.service';
 export { notificationRepository } from '../repositories/notification.repository';
 export { profileRepository } from '../repositories/profile.repository';
+export { gardenService } from './garden.service';

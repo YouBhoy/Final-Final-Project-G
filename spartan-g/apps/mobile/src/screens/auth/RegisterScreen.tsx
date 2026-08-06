@@ -9,14 +9,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
   Pressable,
+  Dimensions,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore } from '@spartan-g/shared-services';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, palette } from '@spartan-g/shared-ui';
 
 type Props = NativeStackScreenProps<MobileAuthStackParamList, 'Register'>;
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const HERO_RATIO = 0.42;
 
 interface FormState {
   firstName: string;
@@ -24,6 +29,31 @@ interface FormState {
   email: string;
   password: string;
   confirmPassword: string;
+}
+
+function HeroGradientOverlay() {
+  const stripCount = 16;
+  const stripHeight = 3;
+  return (
+    <>
+      {Array.from({ length: stripCount }).map((_, i) => {
+        const opacity = 0.45 - (i / stripCount) * 0.45;
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              bottom: i * stripHeight,
+              left: 0,
+              right: 0,
+              height: stripHeight,
+              backgroundColor: `rgba(0,0,0,${Math.max(0, opacity)})`,
+            }}
+          />
+        );
+      })}
+    </>
+  );
 }
 
 export function RegisterScreen({ navigation }: Props) {
@@ -83,16 +113,12 @@ export function RegisterScreen({ navigation }: Props) {
     if (!validate()) return;
 
     try {
-      // Compose displayName from firstName + lastName as the shared auth service expects
       const displayName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
-      // Public registration defaults to student role (matching web behavior).
-      // The shared auth service uses ROLES.STUDENT as default when role is omitted.
       await register({
         email: formData.email.trim(),
         password: formData.password,
         displayName,
       });
-      // Navigation handled automatically by RootNavigator on session change
     } catch {
       // Error is set in the auth store
     }
@@ -112,6 +138,8 @@ export function RegisterScreen({ navigation }: Props) {
     [formErrors],
   );
 
+  const heroHeight = SCREEN_HEIGHT * HERO_RATIO;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -120,173 +148,193 @@ export function RegisterScreen({ navigation }: Props) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        bounces={false}
       >
-        {/* Header */}
-        <View style={styles.headerSection}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>SG</Text>
+        {/* ─── Hero Image Section (full-bleed) ──────────────── */}
+        <View style={[styles.heroContainer, { height: heroHeight }]}>
+          <Image
+            source={require('../../../assets/bsu cover for app new.png')}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+          <HeroGradientOverlay />
+
+          {/* Overlay content — logo + heading */}
+          <View style={styles.heroOverlay}>
+            <View style={styles.heroLogoContainer}>
+              <Image
+                source={require('../../../assets/icon.png')}
+                style={styles.heroLogoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.heroBrandLabel}>SPARTAN-G</Text>
+            <Text style={styles.heroBrandSubLabel}>Mental Health App</Text>
+            <Text style={styles.heroTitle}>Create your account</Text>
+            <Text style={styles.heroSubtitle}>Join SPARTAN-G as a student</Text>
           </View>
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Join SPARTAN-G as a student</Text>
         </View>
 
-        {/* Error banner */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{error}</Text>
-          </View>
-        )}
+        {/* ─── White Rounded Card (form) ───────────────────── */}
+        <View style={styles.formCard}>
+          {/* Error banner */}
+          {error && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{error}</Text>
+            </View>
+          )}
 
-        {/* Form */}
-        <View style={styles.formSection}>
-          {/* Name row */}
-          <View style={styles.nameRow}>
-            <View style={styles.nameFieldContainer}>
-              <Text style={styles.label}>First Name</Text>
+          {/* Form */}
+          <View style={styles.formSection}>
+            {/* Name row */}
+            <View style={styles.nameRow}>
+              <View style={styles.nameFieldContainer}>
+                <Text style={styles.label}>First Name</Text>
+                <TextInput
+                  style={[styles.input, formErrors.firstName ? styles.inputError : null]}
+                  placeholder="John"
+                  placeholderTextColor={lightColors.textMuted}
+                  value={formData.firstName}
+                  onChangeText={(v) => handleFieldChange('firstName', v)}
+                  autoCapitalize="words"
+                  autoComplete="given-name"
+                  editable={!isLoading}
+                />
+                {formErrors.firstName && (
+                  <Text style={styles.fieldError}>{formErrors.firstName}</Text>
+                )}
+              </View>
+              <View style={styles.nameFieldContainer}>
+                <Text style={styles.label}>Last Name</Text>
+                <TextInput
+                  style={[styles.input, formErrors.lastName ? styles.inputError : null]}
+                  placeholder="Doe"
+                  placeholderTextColor={lightColors.textMuted}
+                  value={formData.lastName}
+                  onChangeText={(v) => handleFieldChange('lastName', v)}
+                  autoCapitalize="words"
+                  autoComplete="family-name"
+                  editable={!isLoading}
+                />
+                {formErrors.lastName && (
+                  <Text style={styles.fieldError}>{formErrors.lastName}</Text>
+                )}
+              </View>
+            </View>
+
+            {/* Email */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                style={[styles.input, formErrors.firstName ? styles.inputError : null]}
-                placeholder="John"
+                style={[styles.input, formErrors.email ? styles.inputError : null]}
+                placeholder="you@example.com"
                 placeholderTextColor={lightColors.textMuted}
-                value={formData.firstName}
-                onChangeText={(v) => handleFieldChange('firstName', v)}
-                autoCapitalize="words"
-                autoComplete="given-name"
+                value={formData.email}
+                onChangeText={(v) => handleFieldChange('email', v)}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                autoComplete="email"
                 editable={!isLoading}
               />
-              {formErrors.firstName && (
-                <Text style={styles.fieldError}>{formErrors.firstName}</Text>
+              {formErrors.email && (
+                <Text style={styles.fieldError}>{formErrors.email}</Text>
               )}
             </View>
-            <View style={styles.nameFieldContainer}>
-              <Text style={styles.label}>Last Name</Text>
-              <TextInput
-                style={[styles.input, formErrors.lastName ? styles.inputError : null]}
-                placeholder="Doe"
-                placeholderTextColor={lightColors.textMuted}
-                value={formData.lastName}
-                onChangeText={(v) => handleFieldChange('lastName', v)}
-                autoCapitalize="words"
-                autoComplete="family-name"
-                editable={!isLoading}
-              />
-              {formErrors.lastName && (
-                <Text style={styles.fieldError}>{formErrors.lastName}</Text>
+
+            {/* Password */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    formErrors.password ? styles.inputError : null,
+                  ]}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor={lightColors.textMuted}
+                  value={formData.password}
+                  onChangeText={(v) => handleFieldChange('password', v)}
+                  secureTextEntry={!showPassword}
+                  autoComplete="new-password"
+                  editable={!isLoading}
+                />
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  hitSlop={8}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.eyeIcon}>
+                    {showPassword ? '👁‍🗨' : '👁'}
+                  </Text>
+                </Pressable>
+              </View>
+              {formErrors.password && (
+                <Text style={styles.fieldError}>{formErrors.password}</Text>
               )}
             </View>
-          </View>
 
-          {/* Email */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, formErrors.email ? styles.inputError : null]}
-              placeholder="you@example.com"
-              placeholderTextColor={lightColors.textMuted}
-              value={formData.email}
-              onChangeText={(v) => handleFieldChange('email', v)}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              autoComplete="email"
-              editable={!isLoading}
-            />
-            {formErrors.email && (
-              <Text style={styles.fieldError}>{formErrors.email}</Text>
-            )}
-          </View>
-
-          {/* Password */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  formErrors.password ? styles.inputError : null,
-                ]}
-                placeholder="At least 6 characters"
-                placeholderTextColor={lightColors.textMuted}
-                value={formData.password}
-                onChangeText={(v) => handleFieldChange('password', v)}
-                secureTextEntry={!showPassword}
-                autoComplete="new-password"
-                editable={!isLoading}
-              />
-              <Pressable
-                style={styles.eyeButton}
-                onPress={() => setShowPassword((prev) => !prev)}
-                hitSlop={8}
-                disabled={isLoading}
-              >
-                <Text style={styles.eyeIcon}>
-                  {showPassword ? '👁‍🗨' : '👁'}
-                </Text>
-              </Pressable>
+            {/* Confirm Password */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    formErrors.confirmPassword ? styles.inputError : null,
+                  ]}
+                  placeholder="Repeat your password"
+                  placeholderTextColor={lightColors.textMuted}
+                  value={formData.confirmPassword}
+                  onChangeText={(v) => handleFieldChange('confirmPassword', v)}
+                  secureTextEntry={!showConfirmPassword}
+                  autoComplete="new-password"
+                  editable={!isLoading}
+                />
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() => setShowConfirmPassword((prev) => !prev)}
+                  hitSlop={8}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.eyeIcon}>
+                    {showConfirmPassword ? '👁‍🗨' : '👁'}
+                  </Text>
+                </Pressable>
+              </View>
+              {formErrors.confirmPassword && (
+                <Text style={styles.fieldError}>{formErrors.confirmPassword}</Text>
+              )}
             </View>
-            {formErrors.password && (
-              <Text style={styles.fieldError}>{formErrors.password}</Text>
-            )}
+
+            {/* Submit button */}
+            <TouchableOpacity
+              onPress={handleSubmit}
+              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Create account</Text>
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Confirm Password */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  formErrors.confirmPassword ? styles.inputError : null,
-                ]}
-                placeholder="Repeat your password"
-                placeholderTextColor={lightColors.textMuted}
-                value={formData.confirmPassword}
-                onChangeText={(v) => handleFieldChange('confirmPassword', v)}
-                secureTextEntry={!showConfirmPassword}
-                autoComplete="new-password"
-                editable={!isLoading}
-              />
-              <Pressable
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword((prev) => !prev)}
-                hitSlop={8}
-                disabled={isLoading}
-              >
-                <Text style={styles.eyeIcon}>
-                  {showConfirmPassword ? '👁‍🗨' : '👁'}
-                </Text>
-              </Pressable>
-            </View>
-            {formErrors.confirmPassword && (
-              <Text style={styles.fieldError}>{formErrors.confirmPassword}</Text>
-            )}
+          {/* Footer link */}
+          <View style={styles.footerSection}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Login')}
+              disabled={isLoading}
+            >
+              <Text style={styles.footerLink}>Sign in</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Submit button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitButtonText}>Create account</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer link */}
-        <View style={styles.footerSection}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Login')}
-            disabled={isLoading}
-          >
-            <Text style={styles.footerLink}>Sign in</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -300,36 +348,96 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
   },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 24,
+  // ─── Hero ────────────────────────────────────────────────
+  heroContainer: {
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  logoContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: lightColors.primary,
+  heroImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
   },
-  logoText: {
-    fontSize: 22,
-    fontWeight: '800',
+  heroLogoContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  heroLogoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroBrandLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 3.5,
     color: '#FFFFFF',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  title: {
+  heroBrandSubLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 20,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  heroTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: lightColors.text,
+    color: '#FFFFFF',
     marginBottom: 4,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  subtitle: {
+  heroSubtitle: {
     fontSize: 14,
-    color: lightColors.textSecondary,
+    color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  // ─── Form Card ──────────────────────────────────────────
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+    flex: 1,
   },
   errorBanner: {
     backgroundColor: '#FEE2E2',
@@ -402,7 +510,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: lightColors.primary,
-    borderRadius: 10,
+    borderRadius: 28,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',

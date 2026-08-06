@@ -16,6 +16,7 @@ import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessmentScreen';
 import { MessagesScreen } from '../screens/student/MessagesScreen';
 import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
+import { GardenScreen } from '../screens/student/GardenScreen';
 
 const Tab = createBottomTabNavigator<StudentMobileTabParamList>();
 const Stack = createNativeStackNavigator<StudentMobileStackParamList>();
@@ -37,6 +38,9 @@ function StudentTabs() {
       </Tab.Screen>
       <Tab.Screen name="StudentAssignments" options={{ title: 'Assessments', tabBarIcon: ({ color, size }) => <Feather name="clipboard" size={size} color={color} /> }}>
         {() => <AssessmentsListScreen />}
+      </Tab.Screen>
+      <Tab.Screen name="StudentGarden" options={{ title: 'Garden', tabBarIcon: ({ color, size }) => <Feather name="feather" size={size} color={color} /> }}>
+        {() => <GardenScreen />}
       </Tab.Screen>
       <Tab.Screen name="StudentMessages" options={{ title: 'Messages', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
         {() => <MessagesScreen />}

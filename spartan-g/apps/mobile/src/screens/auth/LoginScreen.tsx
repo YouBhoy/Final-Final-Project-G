@@ -11,13 +11,55 @@ import {
   ScrollView,
   Image,
   Pressable,
+  Dimensions,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore } from '@spartan-g/shared-services';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, palette } from '@spartan-g/shared-ui';
 
 type Props = NativeStackScreenProps<MobileAuthStackParamList, 'Login'>;
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const HERO_RATIO = 0.42; // Hero takes 42% of screen height
+
+function HeroGradientOverlay() {
+  // Creates a smooth fade from semi-transparent dark at the bottom to fully transparent
+  // where the hero image meets the white card
+  const stripCount = 16;
+  const stripHeight = 3;
+  return (
+    <>
+      {Array.from({ length: stripCount }).map((_, i) => {
+        const opacity = 0.45 - (i / stripCount) * 0.45;
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              bottom: i * stripHeight,
+              left: 0,
+              right: 0,
+              height: stripHeight,
+              backgroundColor: `rgba(0,0,0,${Math.max(0, opacity)})`,
+            }}
+          />
+        );
+      })}
+      {/* Extra bottom strip for a clean fade edge */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: stripCount * stripHeight - 1,
+          left: 0,
+          right: 0,
+          height: 2,
+          backgroundColor: 'transparent',
+        }}
+      />
+    </>
+  );
+}
 
 export function LoginScreen({ navigation }: Props) {
   const signIn = useAuthStore((s) => s.signIn);
@@ -55,8 +97,6 @@ export function LoginScreen({ navigation }: Props) {
 
     try {
       await signIn({ email: email.trim(), password });
-      // Navigation is handled automatically by RootNavigator
-      // which checks useAuthStore.session and redirects to the correct navigator
     } catch {
       // Error is set in the auth store
     }
@@ -77,6 +117,8 @@ export function LoginScreen({ navigation }: Props) {
     [formErrors],
   );
 
+  const heroHeight = SCREEN_HEIGHT * HERO_RATIO;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -85,109 +127,125 @@ export function LoginScreen({ navigation }: Props) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        bounces={false}
       >
-        {/* Header with SPARTAN-G logo */}
-        <View style={styles.headerSection}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../../../assets/icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+        {/* ─── Hero Image Section (full-bleed) ──────────────── */}
+        <View style={[styles.heroContainer, { height: heroHeight }]}>
+          <Image
+            source={require('../../../assets/bsu cover for app new.png')}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+          {/* Gradient fade at bottom edge */}
+          <HeroGradientOverlay />
+
+          {/* Overlay content — logo + heading */}
+          <View style={styles.heroOverlay}>
+            {/* Logo with white circular backing */}
+            <View style={styles.heroLogoContainer}>
+              <Image
+                source={require('../../../assets/icon.png')}
+                style={styles.heroLogoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.heroBrandLabel}>SPARTAN-G</Text>
+            <Text style={styles.heroBrandSubLabel}>Mental Health App</Text>
+            <Text style={styles.heroTitle}>Welcome back</Text>
+            <Text style={styles.heroSubtitle}>Sign in to your SPARTAN-G account</Text>
           </View>
-          <Text style={styles.brandLabel}>SPARTAN-G</Text>
-          <Text style={styles.brandSubLabel}>Mental Health App</Text>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to your SPARTAN-G account</Text>
         </View>
 
-        {/* Error banner */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{error}</Text>
-          </View>
-        )}
+        {/* ─── White Rounded Card (form) ───────────────────── */}
+        <View style={styles.formCard}>
+          {/* Error banner */}
+          {error && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{error}</Text>
+            </View>
+          )}
 
-        {/* Form */}
-        <View style={styles.formSection}>
-          {/* Email field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, formErrors.email ? styles.inputError : null]}
-              placeholder="you@example.com"
-              placeholderTextColor={lightColors.textMuted}
-              value={email}
-              onChangeText={(v) => handleFieldChange('email', v)}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              autoComplete="email"
-              editable={!isLoading}
-            />
-            {formErrors.email && (
-              <Text style={styles.fieldError}>{formErrors.email}</Text>
-            )}
-          </View>
-
-          {/* Password field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordInputWrapper}>
+          {/* Form */}
+          <View style={styles.formSection}>
+            {/* Email field */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  formErrors.password ? styles.inputError : null,
-                ]}
-                placeholder="Enter your password"
+                style={[styles.input, formErrors.email ? styles.inputError : null]}
+                placeholder="you@example.com"
                 placeholderTextColor={lightColors.textMuted}
-                value={password}
-                onChangeText={(v) => handleFieldChange('password', v)}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
+                value={email}
+                onChangeText={(v) => handleFieldChange('email', v)}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                autoComplete="email"
                 editable={!isLoading}
               />
-              <Pressable
-                style={styles.eyeButton}
-                onPress={() => setShowPassword((prev) => !prev)}
-                hitSlop={8}
-                disabled={isLoading}
-              >
-                <Text style={styles.eyeIcon}>
-                  {showPassword ? '👁‍🗨' : '👁'}
-                </Text>
-              </Pressable>
+              {formErrors.email && (
+                <Text style={styles.fieldError}>{formErrors.email}</Text>
+              )}
             </View>
-            {formErrors.password && (
-              <Text style={styles.fieldError}>{formErrors.password}</Text>
-            )}
+
+            {/* Password field */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    formErrors.password ? styles.inputError : null,
+                  ]}
+                  placeholder="Enter your password"
+                  placeholderTextColor={lightColors.textMuted}
+                  value={password}
+                  onChangeText={(v) => handleFieldChange('password', v)}
+                  secureTextEntry={!showPassword}
+                  autoComplete="password"
+                  editable={!isLoading}
+                />
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  hitSlop={8}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.eyeIcon}>
+                    {showPassword ? '👁‍🗨' : '👁'}
+                  </Text>
+                </Pressable>
+              </View>
+              {formErrors.password && (
+                <Text style={styles.fieldError}>{formErrors.password}</Text>
+              )}
+            </View>
+
+            {/* Submit button */}
+            <TouchableOpacity
+              onPress={handleSubmit}
+              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Sign in</Text>
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Submit button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitButtonText}>Sign in</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer link */}
-        <View style={styles.footerSection}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Register')}
-            disabled={isLoading}
-          >
-            <Text style={styles.footerLink}>Create one</Text>
-          </TouchableOpacity>
+          {/* Footer link */}
+          <View style={styles.footerSection}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Register')}
+              disabled={isLoading}
+            >
+              <Text style={styles.footerLink}>Create one</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -201,55 +259,96 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
   },
-  headerSection: {
+  // ─── Hero ────────────────────────────────────────────────
+  heroContainer: {
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
-    marginBottom: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
   },
-  logoContainer: {
+  heroLogoContainer: {
     width: 64,
     height: 64,
     borderRadius: 18,
-    backgroundColor: lightColors.surface,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: lightColors.primary,
+    padding: 6,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
-    padding: 6,
   },
-  logoImage: {
+  heroLogoImage: {
     width: '100%',
     height: '100%',
   },
-  brandLabel: {
+  heroBrandLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 3.5,
-    color: lightColors.primary,
+    color: '#FFFFFF',
     textTransform: 'uppercase',
     marginBottom: 2,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  brandSubLabel: {
+  heroBrandSubLabel: {
     fontSize: 12,
-    color: lightColors.textSecondary,
+    color: 'rgba(255,255,255,0.9)',
     marginBottom: 20,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  title: {
+  heroTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: lightColors.text,
+    color: '#FFFFFF',
     marginBottom: 4,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  subtitle: {
+  heroSubtitle: {
     fontSize: 14,
-    color: lightColors.textSecondary,
+    color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  // ─── Form Card ──────────────────────────────────────────
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+    flex: 1,
   },
   errorBanner: {
     backgroundColor: lightColors.errorBackground,
@@ -314,7 +413,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: lightColors.primary,
-    borderRadius: 10,
+    borderRadius: 28,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',

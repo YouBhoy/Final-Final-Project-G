@@ -28,6 +28,8 @@ export const COLLECTIONS = {
   ASSESSMENT_OVERRIDES: 'assessment_overrides',
   // AI-generated summaries for assessment results (facilitator-only)
   ASSESSMENT_AI_SUMMARIES: 'assessment_ai_summaries',
+  // Gamification — student garden profiles
+  STUDENT_GARDENS: 'student_gardens',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

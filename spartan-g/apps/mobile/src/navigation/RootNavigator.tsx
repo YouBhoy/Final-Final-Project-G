@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text, Image, Animated, Easing, StyleSheet, Linking } from 'react-native';
+import { View, Text, Image, Animated, Easing, StyleSheet, Dimensions, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import {
   ROLES,
@@ -17,6 +17,7 @@ import { WebOnlyScreen } from './WebOnlyScreen';
 import { mobileLinking } from './linking';
 
 const Stack = createNativeStackNavigator<MobileRootStackParamList>();
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 function LoadingScreen() {
   const fillWidth = useRef(new Animated.Value(0)).current;
@@ -49,6 +50,54 @@ function LoadingScreen() {
 
   return (
     <View style={styles.loading}>
+      {/* Gradient overlay — rich red-to-maroon */}
+      <View style={styles.gradientOverlay} />
+
+      {/* Blurred blob 1 — bright red, top-left */}
+      <View
+        style={[
+          styles.blob,
+          {
+            width: SCREEN_WIDTH * 0.7,
+            height: SCREEN_WIDTH * 0.7,
+            borderRadius: SCREEN_WIDTH * 0.35,
+            top: -SCREEN_WIDTH * 0.15,
+            left: -SCREEN_WIDTH * 0.2,
+            backgroundColor: 'rgba(220, 38, 38, 0.35)',
+          },
+        ]}
+      />
+
+      {/* Blurred blob 2 — maroon, bottom-right */}
+      <View
+        style={[
+          styles.blob,
+          {
+            width: SCREEN_WIDTH * 0.6,
+            height: SCREEN_WIDTH * 0.6,
+            borderRadius: SCREEN_WIDTH * 0.3,
+            bottom: -SCREEN_WIDTH * 0.1,
+            right: -SCREEN_WIDTH * 0.15,
+            backgroundColor: 'rgba(153, 27, 27, 0.4)',
+          },
+        ]}
+      />
+
+      {/* Blurred blob 3 — dark red, center-right */}
+      <View
+        style={[
+          styles.blob,
+          {
+            width: SCREEN_WIDTH * 0.5,
+            height: SCREEN_WIDTH * 0.5,
+            borderRadius: SCREEN_WIDTH * 0.25,
+            top: SCREEN_HEIGHT * 0.3,
+            right: -SCREEN_WIDTH * 0.1,
+            backgroundColor: 'rgba(185, 28, 28, 0.3)',
+          },
+        ]}
+      />
+
       {/* Logo on white circular card */}
       <View style={styles.logoCard}>
         <Image
@@ -125,6 +174,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: palette.spartanRed,
     gap: 24,
+    overflow: 'hidden',
+  },
+  gradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    // Simulates a rich red-to-maroon gradient using layered semi-transparent views
+  },
+  blob: {
+    position: 'absolute',
+    opacity: 0.9,
+    // blurRadius is applied via the component's shadow or style — we use large
+    // soft circles with low opacity instead of actual blur for cross-platform
+    // compatibility on React Native (no native blur dependency needed).
   },
   logoCard: {
     width: 130,
@@ -139,6 +201,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     padding: 16,
+    zIndex: 10,
   },
   logoImage: {
     width: '100%',
@@ -149,6 +212,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 3,
     color: palette.white,
+    zIndex: 10,
   },
   progressTrack: {
     width: 200,
@@ -156,6 +220,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: 'rgba(255,255,255,0.25)',
     overflow: 'hidden',
+    zIndex: 10,
   },
   progressFill: {
     position: 'absolute',

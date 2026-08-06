@@ -8,16 +8,432 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
-import { useAuthStore, assessmentService, assessmentOverrideService } from '@spartan-g/shared-services';
+import {
+  useAuthStore,
+  assessmentService,
+  assessmentOverrideService,
+  geminiService,
+} from '@spartan-g/shared-services';
 import type { AssessmentAttemptDocument } from '@spartan-g/shared-types';
+import {
+  calculatePHQ9Score,
+  calculateGAD7Score,
+  calculateDASS21Score,
+} from '@spartan-g/shared-types';
+import type { Timestamp } from 'firebase/firestore';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
-import { AttemptScorePanel } from './FacilitatorStudentsScreen';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type Props = NativeStackScreenProps<FacilitatorMobileStackParamList, 'StudentDetail'>;
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+function formatDate(timestamp: Timestamp | undefined): string {
+  if (!timestamp) return '—';
+  const date = (timestamp as any).toDate ? (timestamp as any).toDate() : new Date(timestamp as unknown as string);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function answersToRecord(attempt: AssessmentAttemptDocument & { id: string }): Record<string, string> {
+  return attempt.answers.reduce<Record<string, string>>((acc, a) => {
+    acc[a.questionId] = a.value;
+    return acc;
+  }, {});
+}
+
+function getSeverityColor(severity: string): string {
+  const lower = severity.toLowerCase();
+  if (lower.includes('minimal') || lower.includes('normal')) return '#16A34A';
+  if (lower.includes('mild')) return '#D97706';
+  if (lower.includes('moderate')) return '#EA580C';
+  return '#DC2626';
+}
+
+function getSeverityBg(severity: string): string {
+  const lower = severity.toLowerCase();
+  if (lower.includes('minimal') || lower.includes('normal')) return '#DCFCE7';
+  if (lower.includes('mild')) return '#FEF3C7';
+  if (lower.includes('moderate')) return '#FFEDD5';
+  return '#FEE2E2';
+}
+
+function isAttemptCritical(attempt: AssessmentAttemptDocument & { id: string }): boolean {
+  const answers = answersToRecord(attempt);
+  const phq = calculatePHQ9Score(answers);
+  const gad = calculateGAD7Score(answers);
+  const dass = calculateDASS21Score(answers);
+  return phq.isCritical || gad.isCritical || dass.isCritical;
+}
+
+// ─── Types ────────────────────────────────────────────────────
+
+interface AiSummaryScores {
+  phqScore: number;
+  phqSeverity: string;
+  gadScore: number;
+  gadSeverity: string;
+  dassDepressionScore: number;
+  dassDepressionSeverity: string;
+  dassAnxietyScore: number;
+  dassAnxietySeverity: string;
+  dassStressScore: number;
+  dassStressSeverity: string;
+  overallRiskLevel: string;
+  overallRiskScore: number;
+}
+
+// ─── Score Card Component ─────────────────────────────────────
+
+interface ScoreCardProps {
+  title: string;
+  score: number;
+  maxScore: number;
+  severity: string;
+  isCritical: boolean;
+  subRows?: { label: string; score: number; maxScore: number; severity: string; isCritical: boolean }[];
+}
+
+function ScoreCard({ title, score, maxScore, severity, isCritical, subRows }: ScoreCardProps) {
+  return (
+    <View style={styles.scoreCard}>
+      <View style={styles.scoreCardHeader}>
+        <Text style={styles.scoreCardTitle}>{title}</Text>
+        {isCritical && (
+          <View style={styles.criticalBadge}>
+            <Text style={styles.criticalBadgeText}>⚠ Critical</Text>
+          </View>
+        )}
+      </View>
+
+      {subRows ? (
+        <View style={styles.subRowsList}>
+          {subRows.map((row, i) => (
+            <View key={i} style={styles.subRow}>
+              <Text style={styles.subRowLabel}>{row.label}</Text>
+              <View style={styles.subRowValue}>
+                <Text style={styles.subRowScore}>
+                  {row.score} / {row.maxScore}
+                </Text>
+                <View style={[styles.severityPill, { backgroundColor: getSeverityBg(row.severity) }]}>
+                  <Text style={[styles.severityPillText, { color: getSeverityColor(row.severity) }]}>
+                    {row.severity}
+                  </Text>
+                </View>
+                {row.isCritical && (
+                  <Text style={styles.criticalIcon}>⚠</Text>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.scoreRow}>
+          <Text style={styles.scoreValue}>
+            <Text style={styles.scoreNumber}>{score}</Text>
+            <Text style={styles.scoreMax}> / {maxScore}</Text>
+          </Text>
+          <View style={[styles.severityPill, { backgroundColor: getSeverityBg(severity) }]}>
+            <Text style={[styles.severityPillText, { color: getSeverityColor(severity) }]}>
+              {severity}
+            </Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── AI Summary Card Component ────────────────────────────────
+
+function isGeminiKeyConfigured(): boolean {
+  try {
+    return !!process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  } catch {
+    return false;
+  }
+}
+
+const geminiKeyPresent = isGeminiKeyConfigured();
+
+function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores }) {
+  const [summary, setSummary] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loadSummary = useCallback(async (skipCache: boolean = false) => {
+    setIsLoading(true);
+    setHasError(false);
+    setErrorMessage(null);
+    try {
+      let text: string | null = null;
+
+      if (!skipCache) {
+        text = await geminiService.getCachedSummary(attempt.id);
+      }
+
+      if (!text) {
+        text = await geminiService.generateSummary(scores);
+        if (text) {
+          geminiService.cacheSummary(attempt.id, text).catch(() => {});
+        }
+      }
+      if (text) {
+        setSummary(text);
+      } else {
+        setHasError(true);
+        setErrorMessage(
+          !geminiKeyPresent
+            ? 'AI summary unavailable — API key not configured.'
+            : 'Failed to generate summary. The AI service did not return a response.',
+        );
+      }
+    } catch (err) {
+      setHasError(true);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setErrorMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [attempt.id, scores]);
+
+  useEffect(() => {
+    loadSummary(true);
+  }, [loadSummary]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.aiSummaryCard}>
+        <View style={styles.aiSummaryHeader}>
+          <Text style={styles.aiSummaryIcon}>🤖</Text>
+          <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
+        </View>
+        <ActivityIndicator size="small" color={lightColors.primary} />
+      </View>
+    );
+  }
+
+  if (hasError && !summary) {
+    return (
+      <View style={styles.aiSummaryCard}>
+        <View style={styles.aiSummaryHeader}>
+          <Text style={styles.aiSummaryIcon}>🤖</Text>
+          <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
+        </View>
+        {errorMessage && (
+          <Text style={styles.aiSummaryErrorText}>{errorMessage}</Text>
+        )}
+        <TouchableOpacity onPress={() => loadSummary(true)} style={styles.generateButton}>
+          <Text style={styles.generateButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.aiSummaryCard}>
+      <View style={styles.aiSummaryHeader}>
+        <Text style={styles.aiSummaryIcon}>🤖</Text>
+        <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
+        <TouchableOpacity onPress={() => loadSummary(true)} style={styles.regenerateButton}>
+          <Text style={styles.regenerateButtonText}>Regenerate</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.aiSummaryText}>{summary}</Text>
+      <Text style={styles.aiSummaryDisclaimer}>
+        This summary is AI-generated and is not a clinical diagnosis. It is a communication aid based on the computed scores above.
+      </Text>
+    </View>
+  );
+}
+
+// ─── Attempt Dropdown Row Component ──────────────────────────
+
+interface AttemptDropdownRowProps {
+  attempt: AssessmentAttemptDocument & { id: string };
+  isExpanded: boolean;
+  isResultExpanded: boolean;
+  isSummaryExpanded: boolean;
+  onToggle: () => void;
+  onToggleResult: () => void;
+  onToggleSummary: () => void;
+}
+
+function AttemptDropdownRow({
+  attempt,
+  isExpanded,
+  isResultExpanded,
+  isSummaryExpanded,
+  onToggle,
+  onToggleResult,
+  onToggleSummary,
+}: AttemptDropdownRowProps) {
+  const answers = answersToRecord(attempt);
+  const phqResult = calculatePHQ9Score(answers);
+  const gadResult = calculateGAD7Score(answers);
+  const dassResult = calculateDASS21Score(answers);
+  const isAnyCritical = phqResult.isCritical || gadResult.isCritical || dassResult.isCritical;
+
+  const aiScores: AiSummaryScores = {
+    phqScore: phqResult.score,
+    phqSeverity: phqResult.severity,
+    gadScore: gadResult.score,
+    gadSeverity: gadResult.severity,
+    dassDepressionScore: dassResult.depression.score,
+    dassDepressionSeverity: dassResult.depression.severity,
+    dassAnxietyScore: dassResult.anxiety.score,
+    dassAnxietySeverity: dassResult.anxiety.severity,
+    dassStressScore: dassResult.stress.score,
+    dassStressSeverity: dassResult.stress.severity,
+    overallRiskLevel: attempt.overallRiskLevel ?? 'unknown',
+    overallRiskScore: attempt.overallRiskScore ?? 0,
+  };
+
+  return (
+    <View style={styles.attemptDropdownCard}>
+      {/* Level 1 — Attempt Header */}
+      <TouchableOpacity
+        onPress={onToggle}
+        style={styles.attemptHeader}
+        activeOpacity={0.7}
+      >
+        <View style={styles.attemptHeaderLeft}>
+          <View style={styles.attemptHeaderTextBlock}>
+            <Text style={styles.attemptHeaderTitle}>
+              Attempt #{attempt.attemptNumber}
+            </Text>
+            <Text style={styles.attemptHeaderDate}>
+              Submitted: {formatDate(attempt.submittedAt)}
+            </Text>
+          </View>
+          {isAnyCritical && (
+            <View style={styles.attemptCriticalBadge}>
+              <Text style={styles.attemptCriticalBadgeText}>⚠ Critical</Text>
+            </View>
+          )}
+        </View>
+        <View style={[styles.chevronContainer, isExpanded && styles.chevronRotated]}>
+          <Feather name="chevron-down" size={22} color={lightColors.textSecondary} />
+        </View>
+      </TouchableOpacity>
+
+      {/* Level 2 — Sub-dropdowns (visible when Level 1 is expanded) */}
+      {isExpanded && (
+        <View style={styles.level2Container}>
+          {/* ── Assessment Result Sub-dropdown ── */}
+          <View style={styles.level2Section}>
+            <TouchableOpacity
+              onPress={onToggleResult}
+              style={styles.level2Header}
+              activeOpacity={0.7}
+            >
+              <View style={styles.level2HeaderLeft}>
+                <Feather name="clipboard" size={16} color={lightColors.primary} />
+                <Text style={styles.level2HeaderText}>Assessment Result</Text>
+              </View>
+              <View style={[styles.chevronContainer, isResultExpanded && styles.chevronRotated]}>
+                <Feather name="chevron-down" size={18} color={lightColors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            {isResultExpanded && (
+              <View style={styles.level2Content}>
+                <View style={styles.scoresGrid}>
+                  <ScoreCard
+                    title="PHQ-9 — Patient Health Questionnaire"
+                    score={phqResult.score}
+                    maxScore={27}
+                    severity={phqResult.severity}
+                    isCritical={phqResult.isCritical}
+                  />
+                  <ScoreCard
+                    title="GAD-7 — Generalized Anxiety Disorder"
+                    score={gadResult.score}
+                    maxScore={21}
+                    severity={gadResult.severity}
+                    isCritical={gadResult.isCritical}
+                  />
+                  <ScoreCard
+                    title="DASS-21 — Depression, Anxiety & Stress Scale"
+                    score={0}
+                    maxScore={0}
+                    severity=""
+                    isCritical={false}
+                    subRows={[
+                      {
+                        label: 'Depression',
+                        score: dassResult.depression.score,
+                        maxScore: 42,
+                        severity: dassResult.depression.severity,
+                        isCritical: dassResult.depression.isCritical,
+                      },
+                      {
+                        label: 'Anxiety',
+                        score: dassResult.anxiety.score,
+                        maxScore: 42,
+                        severity: dassResult.anxiety.severity,
+                        isCritical: dassResult.anxiety.isCritical,
+                      },
+                      {
+                        label: 'Stress',
+                        score: dassResult.stress.score,
+                        maxScore: 42,
+                        severity: dassResult.stress.severity,
+                        isCritical: dassResult.stress.isCritical,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* ── AI-Generated Summary Sub-dropdown ── */}
+          <View style={styles.level2Section}>
+            <TouchableOpacity
+              onPress={onToggleSummary}
+              style={styles.level2Header}
+              activeOpacity={0.7}
+            >
+              <View style={styles.level2HeaderLeft}>
+                <Feather name="cpu" size={16} color={lightColors.primary} />
+                <Text style={styles.level2HeaderText}>AI-Generated Summary</Text>
+              </View>
+              <View style={[styles.chevronContainer, isSummaryExpanded && styles.chevronRotated]}>
+                <Feather name="chevron-down" size={18} color={lightColors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            {isSummaryExpanded && (
+              <View style={styles.level2Content}>
+                <AiSummaryCard attempt={attempt} scores={aiScores} />
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Main Screen Component ────────────────────────────────────
 
 export function StudentDetailScreen({ route, navigation }: Props) {
   const { assessmentId, studentId } = route.params;
@@ -36,6 +452,14 @@ export function StudentDetailScreen({ route, navigation }: Props) {
   const [attempts, setAttempts] = useState<(AssessmentAttemptDocument & { id: string })[]>([]);
   const [scoresLoading, setScoresLoading] = useState(true);
   const [scoresError, setScoresError] = useState<string | null>(null);
+
+  // ─── Dropdown expand/collapse state ────────────────────────
+  // Level 1: which attempt rows are expanded (keyed by attempt.id)
+  const [expandedAttempts, setExpandedAttempts] = useState<Set<string>>(new Set());
+  // Level 2: which attempts have their "Assessment Result" sub-dropdown open
+  const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
+  // Level 2: which attempts have their "AI-Generated Summary" sub-dropdown open
+  const [expandedSummaries, setExpandedSummaries] = useState<Set<string>>(new Set());
 
   // ─── General loading ───────────────────────────────────────
   const [isLoading, setIsLoading] = useState(true);
@@ -70,9 +494,17 @@ export function StudentDetailScreen({ route, navigation }: Props) {
         // ── Scores data ──
         const studentAttempts = await assessmentService.getAttemptsByStudent(studentId);
         if (!cancelled) {
-          setAttempts(studentAttempts);
-          if (studentAttempts.length > 0) {
+          // Sort most recent first
+          const sorted = [...studentAttempts].sort((a, b) => {
+            const dateA = (a.submittedAt as any)?.toDate?.() ?? new Date(a.submittedAt as unknown as string);
+            const dateB = (b.submittedAt as any)?.toDate?.() ?? new Date(b.submittedAt as unknown as string);
+            return dateB.getTime() - dateA.getTime();
+          });
+          setAttempts(sorted);
+          if (sorted.length > 0) {
             setStudentName(`Student ${studentId.slice(-4)}`);
+            // Auto-expand the most recent attempt's Level-1 row
+            setExpandedAttempts(new Set([sorted[0].id]));
           }
         }
       } catch (err) {
@@ -90,6 +522,47 @@ export function StudentDetailScreen({ route, navigation }: Props) {
     load();
     return () => { cancelled = true; };
   }, [assessmentId, studentId]);
+
+  // ─── Dropdown toggle handlers with LayoutAnimation ─────────
+
+  const toggleAttempt = useCallback((attemptId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedAttempts((prev) => {
+      const next = new Set(prev);
+      if (next.has(attemptId)) {
+        next.delete(attemptId);
+      } else {
+        next.add(attemptId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleResult = useCallback((attemptId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedResults((prev) => {
+      const next = new Set(prev);
+      if (next.has(attemptId)) {
+        next.delete(attemptId);
+      } else {
+        next.add(attemptId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSummary = useCallback((attemptId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedSummaries((prev) => {
+      const next = new Set(prev);
+      if (next.has(attemptId)) {
+        next.delete(attemptId);
+      } else {
+        next.add(attemptId);
+      }
+      return next;
+    });
+  }, []);
 
   // ─── Stepper handlers ──────────────────────────────────────
   const increment = useCallback(() => {
@@ -314,9 +787,16 @@ export function StudentDetailScreen({ route, navigation }: Props) {
       ) : (
         <View style={styles.attemptsList}>
           {attempts.map((attempt) => (
-            <View key={attempt.id} style={styles.attemptCard}>
-              <AttemptScorePanel attempt={attempt} />
-            </View>
+            <AttemptDropdownRow
+              key={attempt.id}
+              attempt={attempt}
+              isExpanded={expandedAttempts.has(attempt.id)}
+              isResultExpanded={expandedResults.has(attempt.id)}
+              isSummaryExpanded={expandedSummaries.has(attempt.id)}
+              onToggle={() => toggleAttempt(attempt.id)}
+              onToggleResult={() => toggleResult(attempt.id)}
+              onToggleSummary={() => toggleSummary(attempt.id)}
+            />
           ))}
         </View>
       )}
@@ -626,18 +1106,253 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   attemptsList: {
-    gap: 16,
+    gap: 12,
   },
-  attemptCard: {
+  // ─── Attempt Dropdown Styles ───────────────────────────────
+  attemptDropdownCard: {
     backgroundColor: lightColors.surface,
     borderWidth: 1,
     borderColor: lightColors.border,
     borderRadius: 12,
-    padding: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
+  },
+  attemptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 56,
+  },
+  attemptHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  attemptHeaderTextBlock: {
+    flex: 1,
+  },
+  attemptHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: lightColors.text,
+  },
+  attemptHeaderDate: {
+    fontSize: 12,
+    color: lightColors.textSecondary,
+    marginTop: 2,
+  },
+  attemptCriticalBadge: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  attemptCriticalBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  chevronContainer: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  chevronRotated: {
+    transform: [{ rotate: '180deg' }],
+  },
+  // Level 2 container
+  level2Container: {
+    borderTopWidth: 1,
+    borderTopColor: lightColors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    backgroundColor: lightColors.neutralBackground,
+  },
+  level2Section: {
+    backgroundColor: lightColors.surface,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: lightColors.border,
+  },
+  level2Header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    minHeight: 48,
+  },
+  level2HeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  level2HeaderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: lightColors.text,
+  },
+  level2Content: {
+    borderTopWidth: 1,
+    borderTopColor: lightColors.border,
+    padding: 12,
+  },
+  // Score card styles (replicated from FacilitatorStudentsScreen)
+  scoresGrid: {
+    gap: 12,
+  },
+  scoreCard: {
+    backgroundColor: lightColors.surface,
+    borderWidth: 1,
+    borderColor: lightColors.border,
+    borderRadius: 10,
+    padding: 12,
+  },
+  scoreCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  scoreCardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: lightColors.text,
+    flex: 1,
+  },
+  criticalBadge: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  criticalBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  scoreValue: {},
+  scoreNumber: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: lightColors.text,
+  },
+  scoreMax: {
+    fontSize: 14,
+    color: lightColors.textSecondary,
+  },
+  severityPill: {
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  severityPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  subRowsList: {
+    gap: 8,
+  },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  subRowLabel: {
+    fontSize: 13,
+    color: lightColors.textSecondary,
+    flex: 1,
+  },
+  subRowValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subRowScore: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: lightColors.text,
+  },
+  criticalIcon: {
+    fontSize: 14,
+  },
+  // AI Summary card styles (replicated from FacilitatorStudentsScreen)
+  aiSummaryCard: {
+    gap: 10,
+  },
+  aiSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  aiSummaryIcon: {
+    fontSize: 18,
+  },
+  aiSummaryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: lightColors.text,
+    flex: 1,
+  },
+  aiSummaryText: {
+    fontSize: 13,
+    color: lightColors.text,
+    lineHeight: 20,
+  },
+  aiSummaryDisclaimer: {
+    fontSize: 11,
+    color: lightColors.textMuted,
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  aiSummaryErrorText: {
+    fontSize: 12,
+    color: lightColors.error,
+    lineHeight: 16,
+  },
+  generateButton: {
+    backgroundColor: lightColors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generateButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  regenerateButton: {
+    backgroundColor: lightColors.primary,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  regenerateButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

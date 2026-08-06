@@ -19,6 +19,7 @@ import { assessmentResponseRepository } from '../repositories/assessment-respons
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
 import { riskAlertService } from './risk-alert.service';
 import { assessmentOverrideService } from './assessment-override.service';
+import { gardenService } from './garden.service';
 
 class AssessmentService {
   // =================== Phase 3A Methods (Template-based assessments) ===================
@@ -160,6 +161,21 @@ class AssessmentService {
   async getInProgressAttempt(assessmentId: string, studentId: string): Promise<string | null> {
     const attempt = await assessmentAttemptRepository.getInProgressAttempt(assessmentId, studentId);
     return attempt?.id ?? null;
+  }
+
+  /** All in-progress attempts for a student (across all assessments). Read-only. */
+  async getInProgressAttemptsByStudent(studentId: string): Promise<(AssessmentAttemptDocument & { id: string })[]> {
+    const results = await assessmentAttemptRepository.getAll([
+      where('studentId', '==', studentId),
+      where('status', '==', 'in_progress'),
+    ]);
+    // Sort by startedAt descending in-memory to avoid composite index
+    results.sort((a, b) => {
+      const aTime = a.startedAt?.toMillis?.() ?? 0;
+      const bTime = b.startedAt?.toMillis?.() ?? 0;
+      return bTime - aTime;
+    });
+    return results;
   }
 
   async getAttemptCount(assessmentId: string, studentId: string): Promise<number> {
@@ -304,6 +320,13 @@ class AssessmentService {
       } catch {
         // Alert creation failure should not block submission
       }
+    }
+
+    // GARDEN HOOK — added for Phase 1 gamification, must never block/fail submission
+    try {
+      await gardenService.recordCheckIn(attempt.studentId);
+    } catch (err) {
+      console.error('Garden check-in failed (non-fatal):', err);
     }
   }
 
