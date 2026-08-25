@@ -208,6 +208,7 @@ class AppointmentService {
 
         const convId = [facilitatorId, appointment.studentId].sort().join('_');
         const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, convId);
+        const conversationDoc = await transaction.get(conversationRef);
 
         // 1. Update appointment status
         transaction.update(appointmentRef, {
@@ -235,18 +236,20 @@ class AppointmentService {
           });
         }
 
+        // 3. Ensure conversation exists with required messaging fields.
+        if (!conversationDoc.exists()) {
+          transaction.set(conversationRef, {
+            participantIds: [facilitatorId, appointment.studentId],
+            lastMessageAt: serverTimestamp(),
+            lastMessagePreview: '',
+            unreadCount: {},
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+
         return appointment.studentId;
       });
-
-      await setDoc(
-        doc(db, COLLECTIONS.CONVERSATIONS, [facilitatorId, result].sort().join('_')),
-        {
-          participantIds: [facilitatorId, result],
-          updatedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
 
       // Notify the student
       await this.createNotification({

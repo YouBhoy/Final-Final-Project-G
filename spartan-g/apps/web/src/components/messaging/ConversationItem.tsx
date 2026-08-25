@@ -3,6 +3,7 @@ import { ConversationDocument } from '@spartan-g/shared-types';
 interface ConversationItemProps {
   conversation: ConversationDocument & { id: string };
   participantNames: { [key: string]: string };
+  currentUserId?: string;
   isActive?: boolean;
   onClick: () => void;
 }
@@ -10,6 +11,7 @@ interface ConversationItemProps {
 export function ConversationItem({
   conversation,
   participantNames,
+  currentUserId,
   isActive = false,
   onClick,
 }: ConversationItemProps) {
@@ -31,9 +33,11 @@ export function ConversationItem({
     }
   };
 
-  // Get the other participant (not the current user)
-  const otherParticipantId = conversation.participantIds[0];
+  const otherParticipantId =
+    conversation.participantIds.find((participantId) => participantId !== currentUserId) ||
+    conversation.participantIds[0];
   const otherParticipantName = participantNames[otherParticipantId] || 'Unknown User';
+  const unreadCount = currentUserId ? conversation.unreadCount?.[currentUserId] || 0 : 0;
 
   return (
     <div
@@ -48,9 +52,16 @@ export function ConversationItem({
             <h3 className="text-sm font-semibold text-gray-900 truncate">
               {otherParticipantName}
             </h3>
-            <span className="text-xs text-gray-500 flex-shrink-0">
-              {formatTime(conversation.lastMessageAt)}
-            </span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {unreadCount > 0 ? (
+                <span className="inline-flex min-w-5 justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              ) : null}
+              <span className="text-xs text-gray-500">
+                {formatTime(conversation.lastMessageAt)}
+              </span>
+            </div>
           </div>
           <p className="text-sm text-gray-600 truncate">
             {conversation.lastMessagePreview || 'No messages yet'}

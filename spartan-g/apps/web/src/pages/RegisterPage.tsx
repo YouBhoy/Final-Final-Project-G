@@ -2,10 +2,12 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { AuthLayout } from "../components/auth/AuthLayout";
 import { Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { getRoleRedirect } from "../lib/auth";
-import type { RegisterFormData, Role } from "@spartan-g/shared-types";
+import { ALL_CAMPUSES, CAMPUS_LABELS } from "@spartan-g/shared-types";
+import type { RegisterFormData, Role, Campus } from "@spartan-g/shared-types";
 
 export function RegisterPage() {
   const { register, user, error, clearError } = useAuth();
@@ -18,6 +20,7 @@ export function RegisterPage() {
     password: "",
     confirmPassword: "",
     role: "student",
+    campus: "" as Campus,
   });
 
   // Redirect if already logged in
@@ -52,6 +55,10 @@ export function RegisterPage() {
       errors.confirmPassword = "Please confirm your password";
     } else if (formData.password !== formData.confirmPassword) {
       errors.confirmPassword = "Passwords do not match";
+    }
+
+    if (!formData.campus) {
+      errors.campus = "Please select your campus";
     }
 
     setFormErrors(errors);
@@ -164,6 +171,22 @@ export function RegisterPage() {
             ))}
           </div>
         </div>
+
+        {/* Campus selector */}
+        <Select
+          label="Campus"
+          value={formData.campus}
+          onChange={(e) => handleChange("campus", e.target.value)}
+          error={formErrors.campus}
+          disabled={isLoading}
+        >
+          <option value="">Select your campus...</option>
+          {ALL_CAMPUSES.map((campus) => (
+            <option key={campus} value={campus}>
+              {CAMPUS_LABELS[campus]}
+            </option>
+          ))}
+        </Select>
 
         <Input
           label="Password"

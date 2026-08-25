@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
-import { DashboardPage } from "../pages/DashboardPage";
 import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
 import { TemplateAssessmentPage } from "../pages/assessment/TemplateAssessmentPage";
 import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";

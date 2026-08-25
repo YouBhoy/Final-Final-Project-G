@@ -7,7 +7,8 @@ import { StudentMessagesPage } from "../pages/messaging/StudentMessagesPage";
 import { StudentAppointmentsPage } from "../pages/student/StudentAppointmentsPage";
 import { StudentFindFacilitatorPage } from "../pages/student/StudentFindFacilitatorPage";
 import { StudentBookAppointmentPage } from "../pages/student/StudentBookAppointmentPage";
-import { DashboardPage } from "../pages/DashboardPage";
+import { StudentDashboardPage } from "../pages/student/StudentDashboardPage";
+import { StudentProfilePage } from "../pages/student/StudentProfilePage";
 import { studentNavItems } from "./navConfigs";
 
 export function StudentPortalRoutes() {
@@ -21,12 +22,7 @@ export function StudentPortalRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route
           path="dashboard"
-          element={
-            <DashboardPage
-              title="Student Dashboard"
-              portalName="Student Portal"
-            />
-          }
+          element={<StudentDashboardPage />}
         />
         <Route
           path="facilitators"
@@ -67,15 +63,7 @@ export function StudentPortalRoutes() {
           }
         />
         <Route path="messages" element={<StudentMessagesPage />} />
-        <Route
-          path="profile"
-          element={
-            <PlaceholderPage
-              title="Profile"
-              description="Manage your personal information and preferences."
-            />
-          }
-        />
+        <Route path="profile" element={<StudentProfilePage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </PortalLayout>

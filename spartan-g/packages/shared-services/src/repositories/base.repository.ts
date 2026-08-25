@@ -88,6 +88,7 @@ export abstract class BaseRepository<T extends DocumentData> {
   subscribe(
     id: string,
     callback: (data: (T & { id: string }) | null) => void,
+    onError?: (error: Error) => void,
   ): Unsubscribe {
     return onSnapshot(
       this.getDocRef(id),
@@ -99,7 +100,12 @@ export abstract class BaseRepository<T extends DocumentData> {
         callback({ id: snapshot.id, ...(snapshot.data() as T) });
       },
       (error) => {
-        throw new RepositoryError(`Subscription error on ${this.collectionName}/${id}`, 'repo/subscribe', error);
+        const wrappedError = error instanceof Error ? error : new Error(String(error));
+        if (onError) {
+          onError(wrappedError);
+          return;
+        }
+        console.error(`[Repository] Subscription error on ${this.collectionName}/${id}`, wrappedError);
       },
     );
   }
@@ -107,6 +113,7 @@ export abstract class BaseRepository<T extends DocumentData> {
   subscribeQuery(
     constraints: QueryConstraint[],
     callback: (data: (T & { id: string })[]) => void,
+    onError?: (error: Error) => void,
   ): Unsubscribe {
     const q = query(this.getCollectionRef(), ...constraints);
     return onSnapshot(
@@ -115,7 +122,12 @@ export abstract class BaseRepository<T extends DocumentData> {
         callback(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as T) })));
       },
       (error) => {
-        throw new RepositoryError(`Query subscription error on ${this.collectionName}`, 'repo/subscribe-query', error);
+        const wrappedError = error instanceof Error ? error : new Error(String(error));
+        if (onError) {
+          onError(wrappedError);
+          return;
+        }
+        console.error(`[Repository] Query subscription error on ${this.collectionName}`, wrappedError);
       },
     );
   }

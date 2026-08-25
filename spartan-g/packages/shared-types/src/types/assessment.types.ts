@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 import { FirestoreDocument } from './firestore.types';
 import type { RiskLevel, RiskFlag } from '../utils/risk-evaluation';
+import type { Campus } from '../constants/campuses';
 
 // Question types supported by the wizard
 export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer';
@@ -46,6 +47,8 @@ export type AttemptStatus = 'in_progress' | 'submitted' | 'graded';
 export interface AssessmentAttemptDocument extends FirestoreDocument {
   assessmentId: string;
   studentId: string;
+  /** Campus of the student who took this attempt — enables campus-level analytics. */
+  campus?: Campus;
   answers: AssessmentAnswer[];
   status: AttemptStatus;
   startedAt: Timestamp;

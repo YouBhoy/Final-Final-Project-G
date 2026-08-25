@@ -13,6 +13,7 @@
     "build:web": "npm run build --workspace=@spartan-g/web"
   },
   "devDependencies": {
+    "firebase-admin": "^14.3.0",
     "typescript": "~5.3.0"
   }
 }

@@ -1,51 +1,19 @@
-import { useEffect, useState, useCallback } from 'react';
-import { messagingService } from '@spartan-g/shared-services';
-import { userService } from '@spartan-g/shared-services';
+import { useEffect, useState } from 'react';
 import { ConversationList } from '../../components/messaging/ConversationList';
 import { MessageThread } from '../messaging/MessageThread';
+import { useConversationList } from '../../hooks/useConversationList';
 import { useAuth } from '../../hooks/useAuth';
-import { ConversationDocument } from '@spartan-g/shared-types';
 
 export function FacilitatorMessagesPage() {
-  const [conversations, setConversations] = useState<(ConversationDocument & { id: string })[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [participantNames, setParticipantNames] = useState<{ [key: string]: string }>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const { conversations, participantNames, isLoading, error, retry } = useConversationList();
   const { user } = useAuth();
 
-  const loadConversations = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      const userConversations = await messagingService.getConversations(user.uid, user.role);
-      setConversations(userConversations);
-
-      const names: { [key: string]: string } = {};
-      for (const conv of userConversations) {
-        for (const participantId of conv.participantIds) {
-          if (participantId !== user.uid && !names[participantId]) {
-            try {
-              const userDoc = await userService.getUser(participantId);
-              if (userDoc) {
-                names[participantId] = userDoc.displayName || 'Unknown User';
-              }
-            } catch (error) {
-              console.error('Failed to load user profile:', error);
-            }
-          }
-        }
-      }
-      setParticipantNames(names);
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
-
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+    if (activeConversationId && !conversations.some((conversation) => conversation.id === activeConversationId)) {
+      setActiveConversationId(null);
+    }
+  }, [activeConversationId, conversations]);
 
   const handleSelectConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
@@ -63,9 +31,12 @@ export function FacilitatorMessagesPage() {
         <ConversationList
           conversations={conversations}
           participantNames={participantNames}
+          currentUserId={user?.uid}
           activeConversationId={activeConversationId || undefined}
           onSelectConversation={handleSelectConversation}
           isLoading={isLoading}
+          error={error}
+          onRetry={retry}
         />
       </div>
 

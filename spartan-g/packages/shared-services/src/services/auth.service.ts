@@ -45,6 +45,10 @@ class AuthService {
         throw new PlatformAccessError('This role cannot be registered on this platform');
       }
 
+      if (!payload.campus) {
+        throw new Error('Campus is required for registration');
+      }
+
       const { user } = await createUserWithEmailAndPassword(
         getFirebaseAuth(),
         payload.email,
@@ -58,11 +62,12 @@ class AuthService {
         email: payload.email,
         displayName: payload.displayName,
         role,
+        campus: payload.campus,
         isActive: true,
       };
 
       await userRepository.create(user.uid, userDoc as UserDocument);
-      await profileRepository.create(user.uid, { uid: user.uid } as never);
+      await profileRepository.create(user.uid, { uid: user.uid, campus: payload.campus } as never);
 
       return this.buildSession(user);
     } catch (error) {
@@ -104,6 +109,7 @@ class AuthService {
       emailVerified: firebaseUser.emailVerified,
       role: userDoc.role,
       displayName: firebaseUser.displayName ?? userDoc.displayName,
+      campus: (userDoc as UserDocument).campus ?? null,
     };
   }
 
