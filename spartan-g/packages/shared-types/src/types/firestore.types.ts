@@ -107,10 +107,20 @@ export interface FacilitatorStudentLinkDocument extends FirestoreDocument {
   notes?: string;
 }
 
+export type MessageType = 'text' | 'attachment' | 'system';
+
 export interface ConversationDocument extends FirestoreDocument {
   participantIds: string[];
   lastMessageAt: Timestamp;
   lastMessagePreview: string;
+  /** ID of the last message in this conversation (denormalized for easy reference). */
+  lastMessageId?: string;
+  /** UID of the last message sender. */
+  lastMessageSenderId?: string;
+  /** Type of the last message. */
+  lastMessageType?: MessageType;
+  /** Per-participant unread count — incremented on send, reset on read. */
+  unreadCount?: Record<string, number>;
 }
 
 export interface MessageDocument extends FirestoreDocument {
@@ -118,7 +128,19 @@ export interface MessageDocument extends FirestoreDocument {
   senderId: string;
   body: string;
   attachmentUrl?: string;
-  isRead: boolean;
+  /** Array of UIDs who have read this message (replaces single isRead boolean). */
+  readBy?: string[];
+  /** Client-managed status for optimistic updates. */
+  status?: 'sending' | 'sent' | 'failed';
+  /** ID of the message this is replying to. */
+  replyTo?: string;
+  /** Whether this message has been edited. */
+  isEdited?: boolean;
+  /** Whether this message has been soft-deleted. */
+  isDeleted?: boolean;
+  deletedAt?: Timestamp;
+  /** @deprecated Use readBy instead. */
+  isRead?: boolean;
 }
 
 export interface WorkHoursScheduleDocument extends FirestoreDocument {

@@ -7,7 +7,9 @@ import {
   AssessmentAttemptDocument,
   AssessmentAnswer,
   AssessmentDefinitionDocument,
+  UserDocument,
   evaluateAssessmentRisk,
+  type Campus,
   type RiskEvaluationResult,
   type RiskFlag,
 } from '@spartan-g/shared-types';
@@ -17,6 +19,7 @@ import { assessmentTemplateRepository } from '../repositories/assessment-templat
 import { assessmentQuestionRepository } from '../repositories/assessment-question.repository';
 import { assessmentResponseRepository } from '../repositories/assessment-response.repository';
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
+import { userRepository } from '../repositories/user.repository';
 import { riskAlertService } from './risk-alert.service';
 
 class AssessmentService {
@@ -184,9 +187,20 @@ class AssessmentService {
     const now = serverTimestamp() as Timestamp;
     const attemptId = `${assessmentId}_${studentId}_${attemptCount + 1}`;
 
+    // Associate the student's campus with this attempt so results can be
+    // aggregated by campus for analytics (best-effort lookup).
+    let campus: Campus | undefined;
+    try {
+      const studentUser = await userRepository.getById(studentId);
+      campus = (studentUser as (UserDocument & { id: string }) | null)?.campus;
+    } catch {
+      campus = undefined;
+    }
+
     await assessmentAttemptRepository.create(attemptId, {
       assessmentId,
       studentId,
+      campus,
       answers: [],
       status: 'in_progress',
       startedAt: now,

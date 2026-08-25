@@ -56,7 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data.password,
         data.firstName,
         data.lastName,
-        data.role
+        data.role,
+        data.campus
       );
       setUser(authUser);
       setStatus("authenticated");

@@ -1,175 +1,32 @@
-import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { riskAlertService } from "@spartan-g/shared-services";
-import { appointmentService } from "@spartan-g/shared-services";
-import { messagingService } from "@spartan-g/shared-services";
-import { assessmentService } from "@spartan-g/shared-services";
-import { userService } from "@spartan-g/shared-services";
+import { useFacilitatorDashboard } from "../../hooks/useFacilitatorDashboard";
 
 /**
- * Facilitator Dashboard - Daily workflow summary page
- * 
- * Architecture Notes:
- * - Uses existing services only (riskAlertService, appointmentService, messagingService, assessmentService)
- * - Does NOT modify shared-services, repositories, or shared-types
- * - Displays placeholder data with TODO comments where backend integration is pending
- * - Detailed risk information belongs exclusively in the Risk Alerts page
+ * Facilitator Dashboard — daily workflow summary, fully data-driven via
+ * useFacilitatorDashboard:
+ *   - risk summary     → riskAlertService.getOpenAlerts (real counts)
+ *   - appointments     → appointmentService (today + upcoming, real names)
+ *   - recent messages  → messagingService (real-time subscription)
+ * No mock data, no hardcoded IDs.
  */
 
-interface DashboardStats {
-  riskSummary: {
-    high: number;
-    medium: number;
-    low: number;
-  };
-  todayAppointments: {
-    total: number;
-    completed: number;
-    requests: number;
-  };
-  upcomingAppointments: Array<{
-    id: string;
-    studentName: string;
-    scheduledAt: Date;
-    time: string;
-    date: string;
-  }>;
-  recentConversations: Array<{
-    id: string;
-    participantName: string;
-    lastMessage: string;
-    unreadCount: number;
-    updatedAt: Date;
-  }>;
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 18) return "Good Afternoon";
+  return "Good Evening";
 }
 
 export function FacilitatorDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>({
-    riskSummary: { high: 0, medium: 0, low: 0 },
-    todayAppointments: { total: 0, completed: 0, requests: 0 },
-    upcomingAppointments: [],
-    recentConversations: [],
-  });
+  const { data, loading, error, reload } = useFacilitatorDashboard();
 
-  // Extract upcomingAppointments for easier access in JSX
-  const upcomingAppointments = stats.upcomingAppointments;
-  const [loading, setLoading] = useState(true);
-
-  // TODO: Replace with actual facilitator ID from user context
-  const facilitatorId = user?.uid || "facilitator_123";
-
-  useEffect(() => {
-    loadDashboardData();
-  }, [facilitatorId]);
-
-  async function loadDashboardData() {
-    try {
-      setLoading(true);
-
-      // Fetch appointments for this facilitator
-      const appointments = await appointmentService.getAppointments(facilitatorId, "facilitator" as any);
-      
-      // Fetch upcoming appointments
-      const upcoming = await appointmentService.getUpcoming(facilitatorId, "facilitator" as any);
-
-      // Process today's appointments
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const todayAppointmentsList = appointments.filter((apt: any) => {
-        const aptDate = apt.scheduledAt?.toDate?.() || new Date(apt.scheduledAt);
-        return aptDate >= today && aptDate < tomorrow;
-      });
-
-      const todayAppointments = {
-        total: todayAppointmentsList.length,
-        completed: todayAppointmentsList.filter((apt: any) => apt.status === 'completed').length,
-        requests: todayAppointmentsList.filter((apt: any) => apt.status === 'requested').length,
-      };
-
-      // Process upcoming appointments (next 3) and fetch student names
-      const upcomingAppointmentsList = upcoming.slice(0, 3);
-      const upcomingAppointments = await Promise.all(
-        upcomingAppointmentsList.map(async (apt: any) => {
-          let studentName = "Student";
-          try {
-            const userDoc = await userService.getUser(apt.studentId);
-            if (userDoc) studentName = userDoc.displayName || "Student";
-          } catch (error) {
-            console.error("Failed to fetch student name:", error);
-          }
-
-          const aptDate = apt.scheduledAt?.toDate?.() || new Date(apt.scheduledAt);
-          
-          return {
-            id: apt.id,
-            studentName,
-            scheduledAt: aptDate,
-            time: aptDate.toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
-            }).toUpperCase(),
-            date: aptDate.toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            }),
-          };
-        })
-      );
-
-      // Risk Summary - aggregate risk alerts by severity
-      // TODO: Implement getRiskSummary() method in riskAlertService or compute from getOpenAlerts()
-      const riskSummary = {
-        high: 3,   // TODO: Replace with actual count from riskAlertService.getOpenAlerts()
-        medium: 8, // TODO: Replace with actual count
-        low: 21,   // TODO: Replace with actual count
-      };
-
-      // Recent Conversations
-      // TODO: Implement getRecentConversations() in messagingService
-      const recentConversations = [
-        {
-          id: "1",
-          participantName: "Juan Dela Cruz",
-          lastMessage: "Thank you for the appointment",
-          unreadCount: 2,
-          updatedAt: new Date(),
-        },
-        {
-          id: "2",
-          participantName: "Maria Santos",
-          lastMessage: "Can we reschedule?",
-          unreadCount: 1,
-          updatedAt: new Date(),
-        },
-        {
-          id: "3",
-          participantName: "John Cruz",
-          lastMessage: "See you tomorrow",
-          unreadCount: 0,
-          updatedAt: new Date(),
-        },
-      ];
-
-      setStats({
-        riskSummary,
-        todayAppointments,
-        upcomingAppointments,
-        recentConversations,
-      });
-    } catch (error) {
-      console.error("Failed to load dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const riskSummary = data?.riskSummary;
+  const todayAppointments = data?.todayAppointments;
+  const upcomingAppointments = data?.upcomingAppointments ?? [];
+  const recentConversations = data?.recentConversations ?? [];
 
   return (
     <div className="space-y-6">
@@ -182,31 +39,38 @@ export function FacilitatorDashboardPage() {
         <div className="absolute left-0 top-0 h-full w-1 bg-[var(--color-accent)]" />
         <div className="relative max-w-2xl">
           <p className="text-sm font-medium tracking-wider text-[var(--color-accent)] uppercase">
-            Good Morning, {user?.displayName?.split(" ")[0] || "Dr. Smith"}
+            {getGreeting()}, {user?.displayName?.split(" ")[0] || "Facilitator"}
           </p>
           <h1 className="mt-1 font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-white sm:text-3xl">
             Facilitator Dashboard
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-white/90">
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
+            Support your students' wellbeing — here's today's caseload at a glance.
           </p>
         </div>
       </section>
 
-      {loading ? (
+      {error && (
+        <div className="flex items-center justify-between gap-4 rounded-[var(--radius-lg)] border border-[var(--color-error)]/20 bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error)]">
+          <span>Some dashboard data could not be loaded: {error}</span>
+          <button
+            onClick={reload}
+            className="shrink-0 rounded-[var(--radius-sm)] border border-[var(--color-error)]/30 px-3 py-1 text-xs font-medium hover:bg-[var(--color-error)]/10"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {loading && !data ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" />
         </div>
       ) : (
         <>
-          {/* Top Stats Row - Risk Summary & Today's Appointments */}
+          {/* Top Stats Row — Risk Summary & Today's Appointments */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            
+
             {/* Risk Summary Card */}
             <div className="rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">
               <div className="flex items-start justify-between">
@@ -224,19 +88,19 @@ export function FacilitatorDashboardPage() {
               <div className="mt-6 grid grid-cols-3 gap-4">
                 {/* High Risk */}
                 <div className="rounded-[var(--radius-md)] bg-red-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-red-600">{stats.riskSummary.high}</p>
+                  <p className="text-3xl font-bold text-red-600">{riskSummary?.high ?? 0}</p>
                   <p className="mt-1 text-xs font-medium text-red-700">High Risk</p>
                 </div>
 
                 {/* Medium Risk */}
                 <div className="rounded-[var(--radius-md)] bg-yellow-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-yellow-600">{stats.riskSummary.medium}</p>
+                  <p className="text-3xl font-bold text-yellow-600">{riskSummary?.medium ?? 0}</p>
                   <p className="mt-1 text-xs font-medium text-yellow-700">Medium Risk</p>
                 </div>
 
                 {/* Low Risk */}
                 <div className="rounded-[var(--radius-md)] bg-green-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-green-600">{stats.riskSummary.low}</p>
+                  <p className="text-3xl font-bold text-green-600">{riskSummary?.low ?? 0}</p>
                   <p className="mt-1 text-xs font-medium text-green-700">Low Risk</p>
                 </div>
               </div>
@@ -266,19 +130,19 @@ export function FacilitatorDashboardPage() {
               <div className="mt-6 grid grid-cols-3 gap-4">
                 {/* Total Scheduled */}
                 <div className="rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 text-center">
-                  <p className="text-3xl font-bold text-[var(--color-text)]">{stats.todayAppointments.total}</p>
+                  <p className="text-3xl font-bold text-[var(--color-text)]">{todayAppointments?.total ?? 0}</p>
                   <p className="mt-1 text-xs font-medium text-[var(--color-text-secondary)]">Scheduled</p>
                 </div>
 
                 {/* Completed */}
                 <div className="rounded-[var(--radius-md)] bg-green-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-green-600">{stats.todayAppointments.completed}</p>
+                  <p className="text-3xl font-bold text-green-600">{todayAppointments?.completed ?? 0}</p>
                   <p className="mt-1 text-xs font-medium text-green-700">Completed</p>
                 </div>
 
                 {/* Requests */}
                 <div className="rounded-[var(--radius-md)] bg-amber-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-amber-600">{stats.todayAppointments.requests}</p>
+                  <p className="text-3xl font-bold text-amber-600">{todayAppointments?.requests ?? 0}</p>
                   <p className="mt-1 text-xs font-medium text-amber-700">Requests</p>
                 </div>
               </div>
@@ -291,6 +155,7 @@ export function FacilitatorDashboardPage() {
               </button>
             </div>
           </div>
+
 
           {/* Upcoming Appointments Card */}
           <div className="rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">
@@ -315,18 +180,31 @@ export function FacilitatorDashboardPage() {
                     key={appointment.id}
                     className="flex items-center justify-between rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 transition-all duration-150 hover:shadow-sm"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-pastel)]">
-                        <svg className="h-6 w-6 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-pastel)]">
+                        <svg className="h-5 w-5 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                         </svg>
                       </div>
-                      <div>
-                        <p className="font-semibold text-[var(--color-text)]">{appointment.studentName}</p>
-                        <p className="type-caption">{appointment.date} • {appointment.time}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-[var(--color-text)] truncate">
+                          {appointment.studentName}
+                        </p>
+                        <p className="type-caption mt-0.5">
+                          {appointment.scheduledAt.toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}{" "}
+                          &middot;{" "}
+                          {appointment.scheduledAt.toLocaleTimeString(undefined, {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </p>
                       </div>
                     </div>
-                    <svg className="h-5 w-5 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <svg className="h-5 w-5 flex-shrink-0 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                     </svg>
                   </div>
@@ -342,12 +220,16 @@ export function FacilitatorDashboardPage() {
             </button>
           </div>
 
+
           {/* Recent Conversations Card */}
           <div className="rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="type-section">Recent Messages</h3>
-                <p className="type-caption mt-1">Your latest conversations</p>
+                <p className="type-caption mt-1">
+                  Your latest conversations
+                  {data && data.unreadTotal > 0 ? ` — ${data.unreadTotal} unread` : ""}
+                </p>
               </div>
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-pastel)]">
                 <svg className="h-5 w-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -357,13 +239,18 @@ export function FacilitatorDashboardPage() {
             </div>
 
             <div className="mt-6 space-y-3">
-              {stats.recentConversations.length === 0 ? (
+              {recentConversations.length === 0 ? (
                 <p className="type-caption text-center py-4">No recent messages</p>
               ) : (
-                stats.recentConversations.map((conversation) => (
-                  <div
+                recentConversations.map((conversation) => (
+                  <button
                     key={conversation.id}
-                    className="flex items-center justify-between rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 transition-all duration-150 hover:shadow-sm"
+                    onClick={() =>
+                      navigate(
+                        `/facilitator/messages?conversation=${encodeURIComponent(conversation.id)}`,
+                      )
+                    }
+                    className="flex w-full items-center justify-between rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 text-left transition-all duration-150 hover:bg-[var(--color-primary-pastel)] hover:shadow-sm"
                   >
                     <div className="flex items-center gap-4 flex-1">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-pastel)]">
@@ -373,24 +260,24 @@ export function FacilitatorDashboardPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className={`font-semibold text-sm ${conversation.unreadCount > 0 ? 'text-[var(--color-text)]' : 'text-[var(--color-text-secondary)]'}`}>
+                          <p className={`font-semibold text-sm ${conversation.unreadCount > 0 ? "text-[var(--color-text)]" : "text-[var(--color-text-secondary)]"}`}>
                             {conversation.participantName}
                           </p>
                           {conversation.unreadCount > 0 && (
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-bold text-white">
-                              {conversation.unreadCount}
+                              {conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}
                             </span>
                           )}
                         </div>
-                        <p className={`text-sm truncate ${conversation.unreadCount > 0 ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-text-secondary)]'}`}>
-                          {conversation.lastMessage}
+                        <p className="type-caption mt-0.5 truncate">
+                          {conversation.lastMessage || "No messages yet"}
                         </p>
                       </div>
                     </div>
                     <svg className="h-5 w-5 flex-shrink-0 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                     </svg>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -402,6 +289,7 @@ export function FacilitatorDashboardPage() {
               Open Messages
             </button>
           </div>
+
 
           {/* Quick Actions Section */}
           <div className="rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">
@@ -441,3 +329,4 @@ export function FacilitatorDashboardPage() {
     </div>
   );
 }
+

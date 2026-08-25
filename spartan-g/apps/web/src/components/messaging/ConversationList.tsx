@@ -4,22 +4,59 @@ import { ConversationItem } from './ConversationItem';
 interface ConversationListProps {
   conversations: (ConversationDocument & { id: string })[];
   participantNames: { [key: string]: string };
+  currentUserId?: string;
   activeConversationId?: string;
   onSelectConversation: (conversationId: string) => void;
   isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export function ConversationList({
   conversations,
   participantNames,
+  currentUserId,
   activeConversationId,
   onSelectConversation,
   isLoading = false,
+  error = null,
+  onRetry,
 }: ConversationListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-gray-500">Loading conversations...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <svg
+          className="w-16 h-16 text-gray-400 mb-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4m0 4h.01M4.93 19h14.14a2 2 0 001.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16a2 2 0 001.73 3z"
+          />
+        </svg>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to load conversations</h3>
+        <p className="text-sm text-gray-500 mb-4">{error}</p>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 transition-colors"
+          >
+            Retry
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -55,6 +92,7 @@ export function ConversationList({
           key={conversation.id}
           conversation={conversation}
           participantNames={participantNames}
+          currentUserId={currentUserId}
           isActive={conversation.id === activeConversationId}
           onClick={() => onSelectConversation(conversation.id)}
         />

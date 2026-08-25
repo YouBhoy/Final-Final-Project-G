@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { appointmentService, userService } from '@spartan-g/shared-services';
+import { appointmentService, messagingService, userService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
 import { AppointmentDocument } from '@spartan-g/shared-types';
 import { AppointmentStatusBadge } from '../../components/appointments/AppointmentStatusBadge';
@@ -202,9 +202,19 @@ export function StudentAppointmentsPage() {
                   </>
                 )}
                 <button
-                  onClick={() => {
-                    const convId = [apt.facilitatorId, user?.uid].sort().join('_');
-                    navigate(`/${user?.role}/messages`);
+                  onClick={async () => {
+                    if (!user) return;
+
+                    try {
+                      const conversationId = await messagingService.ensureConversation(
+                        [apt.facilitatorId, user.uid],
+                        user.role,
+                      );
+                      navigate(`/${user.role}/messages?conversation=${encodeURIComponent(conversationId)}`);
+                    } catch (error) {
+                      console.error('Failed to open conversation:', error);
+                      alert('Unable to open conversation. Please try again.');
+                    }
                   }}
                 className="px-3 py-1 text-sm text-[var(--color-info)] border border-[var(--color-info)]/30 rounded-[var(--radius-sm)] hover:bg-[var(--color-info-bg)] transition-colors duration-150"
                 >

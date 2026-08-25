@@ -9,7 +9,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
-import type { Role, AuthSession } from "@spartan-g/shared-types";
+import type { Role, AuthSession, Campus } from "@spartan-g/shared-types";
 
 /**
  * Firebase Authentication implementation.
@@ -21,8 +21,13 @@ export async function registerUser(
   password: string,
   firstName: string,
   lastName: string,
-  role: Role = "student"
+  role: Role = "student",
+  campus?: Campus
 ): Promise<AuthSession> {
+  if (!campus) {
+    throw new Error("Campus is required for registration");
+  }
+
   // Create Firebase Auth user
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -35,6 +40,7 @@ export async function registerUser(
     email,
     displayName: `${firstName} ${lastName}`,
     role,
+    campus,
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -48,6 +54,7 @@ export async function registerUser(
     emailVerified: user.emailVerified,
     role,
     displayName: userDoc.displayName,
+    campus,
   };
 }
 
@@ -77,6 +84,7 @@ export async function loginUser(
     emailVerified: user.emailVerified,
     role: userData.role,
     displayName: user.displayName ?? userData.displayName,
+    campus: userData.campus ?? null,
   };
 }
 
@@ -114,6 +122,7 @@ export function onAuthChange(
         emailVerified: firebaseUser.emailVerified,
         role: userData.role,
         displayName: firebaseUser.displayName ?? userData.displayName,
+        campus: userData.campus ?? null,
       });
     } else {
       callback(null);

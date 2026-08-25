@@ -8,6 +8,7 @@ import { FacilitatorAppointmentsPage } from "../pages/facilitator/FacilitatorApp
 import { FacilitatorWorkHoursPage } from "../pages/facilitator/FacilitatorWorkHoursPage";
 import { FacilitatorMessagesPage } from "../pages/messaging/FacilitatorMessagesPage";
 import { FacilitatorProfilePage } from "../pages/facilitator/FacilitatorProfilePage";
+import { FacilitatorDashboardPage } from "../pages/facilitator/FacilitatorDashboardPage";
 import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
@@ -21,12 +22,7 @@ export function FacilitatorPortalRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route
           path="dashboard"
-          element={
-            <PlaceholderPage
-              title="Dashboard"
-              description="Overview of caseload, alerts, and upcoming sessions."
-            />
-          }
+          element={<FacilitatorDashboardPage />}
         />
         <Route
           path="students"

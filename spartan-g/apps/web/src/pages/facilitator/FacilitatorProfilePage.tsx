@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { profileRepository } from '@spartan-g/shared-services';
+import { profileRepository, userService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
-import { Gender } from '@spartan-g/shared-types';
+import { ALL_CAMPUSES, CAMPUS_LABELS, Gender } from '@spartan-g/shared-types';
+import type { Campus } from '@spartan-g/shared-types';
 import { Button } from '../../components/ui/Button';
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
@@ -14,6 +15,7 @@ const GENDER_OPTIONS: { value: Gender; label: string }[] = [
 
 export function FacilitatorProfilePage() {
   const { user, status } = useAuth();
+  const [campus, setCampus] = useState<Campus | ''>('');
   const [profile, setProfile] = useState({
     bio: '',
     phone: '',
@@ -30,6 +32,7 @@ export function FacilitatorProfilePage() {
     if (!user || status !== 'authenticated') return;
     const loadProfile = async () => {
       try {
+        setCampus(user.campus ?? '');
         const p = await profileRepository.getById(user.uid);
         if (p) {
           setProfile({
@@ -39,6 +42,7 @@ export function FacilitatorProfilePage() {
             pronouns: p.pronouns || '',
             gender: p.gender || '',
           });
+          if (p.campus) setCampus(p.campus);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
@@ -47,10 +51,14 @@ export function FacilitatorProfilePage() {
       }
     };
     loadProfile();
-  }, [user?.uid, status]);
+  }, [user?.uid, user?.campus, status]);
 
   const handleSave = async () => {
     if (!user) return;
+    if (!campus) {
+      setError('Please select your assigned campus.');
+      return;
+    }
     setIsSaving(true);
     setError(null);
     setSuccess(false);
@@ -60,7 +68,8 @@ export function FacilitatorProfilePage() {
         ...profile,
         gender: profile.gender || undefined,
       };
-      await profileRepository.update(user.uid, dataToSave);
+      await userService.updateCampus(user.role, user.uid, campus, user.uid);
+      await userService.updateProfile(user.role, user.uid, dataToSave, user.uid);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save profile');
@@ -97,6 +106,29 @@ export function FacilitatorProfilePage() {
       )}
 
       <div className="space-y-6">
+        {/* Assigned campus */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700" htmlFor="campus">
+            Assigned Campus
+          </label>
+          <select
+            id="campus"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            value={campus}
+            onChange={(e) => setCampus(e.target.value as Campus)}
+          >
+            <option value="">Select your campus...</option>
+            {ALL_CAMPUSES.map((c) => (
+              <option key={c} value={c}>
+                {CAMPUS_LABELS[c]}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500">
+            Students filter facilitators by campus, so keep this up to date.
+          </p>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="pronouns">Pronouns</label>
           <input

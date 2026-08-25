@@ -6,6 +6,7 @@ export const FIRESTORE_SCHEMAS = {
     email: 'string',
     displayName: 'string',
     role: 'student | facilitator | super_admin' as Role,
+    campus: 'pablo_borbon | alangilan | arasof_nasugbu | jplpc_malvar | lipa',
     photoURL: 'string?',
     isActive: 'boolean',
     createdAt: 'timestamp',
@@ -13,6 +14,7 @@ export const FIRESTORE_SCHEMAS = {
   },
   profiles: {
     uid: 'string',
+    campus: 'pablo_borbon | alangilan | arasof_nasugbu | jplpc_malvar | lipa?',
     bio: 'string?',
     phone: 'string?',
     institution: 'string?',
