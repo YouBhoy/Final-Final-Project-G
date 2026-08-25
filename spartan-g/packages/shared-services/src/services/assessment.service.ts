@@ -193,6 +193,17 @@ class AssessmentService {
       throw new Error('Assessment not found');
     }
 
+    // Resume: check for an existing in-progress attempt BEFORE creating a new one.
+    // This prevents setDoc in create() from overwriting the existing attempt's
+    // answers (the ID is deterministic and static until submission).
+    const existing = await assessmentAttemptRepository.getInProgressAttempt(
+      assessmentId,
+      studentId,
+    );
+    if (existing) {
+      return existing.id;
+    }
+
     const attemptCount = await this.getAttemptCount(assessmentId, studentId);
     const effectiveMax = await assessmentOverrideService.getEffectiveMaxAttempts(
       assessmentId,

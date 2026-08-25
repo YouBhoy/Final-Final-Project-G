@@ -177,18 +177,6 @@ export function GardenScreen() {
           <Text style={styles.statValue}>{garden.seeds}</Text>
           <Text style={styles.statLabel}>Seeds</Text>
         </View>
-
-        {/* Streak Card */}
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{garden.streakCount}</Text>
-          <Text style={styles.statLabel}>Day Streak</Text>
-        </View>
-
-        {/* Level Card */}
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{garden.level}</Text>
-          <Text style={styles.statLabel}>Level</Text>
-        </View>
       </View>
 
       {/* Card 2 — Current Assessment Progress (question-answered tree) */}
