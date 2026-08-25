@@ -4,7 +4,6 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  updateDoc,
   deleteDoc,
   query,
   onSnapshot,
@@ -68,10 +67,14 @@ export abstract class BaseRepository<T extends DocumentData> {
         Object.entries(data).filter(([, value]) => value !== undefined),
       ) as Partial<T>;
 
-      await updateDoc(this.getDocRef(id), {
-        ...sanitizedData,
-        updatedAt: serverTimestamp(),
-      });
+      await setDoc(
+        this.getDocRef(id),
+        {
+          ...sanitizedData,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
     } catch (error) {
       throw new RepositoryError(`Failed to update ${this.collectionName}/${id}`, 'repo/update', error);
     }

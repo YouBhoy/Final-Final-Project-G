@@ -46,7 +46,16 @@ export async function registerUser(
     updatedAt: serverTimestamp(),
   };
 
-  await setDoc(doc(db, "users", user.uid), userDoc);
+      await setDoc(doc(db, "users", user.uid), userDoc);
+
+  // Create a profile document so profile updates (which use updateDoc) succeed.
+  // Mirrors shared auth.service.register() which creates both docs.
+  await setDoc(doc(db, "profiles", user.uid), {
+    uid: user.uid,
+    campus,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
 
   return {
     uid: user.uid,
