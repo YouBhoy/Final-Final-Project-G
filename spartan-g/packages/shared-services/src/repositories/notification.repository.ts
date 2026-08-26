@@ -13,8 +13,8 @@ class NotificationRepository extends BaseRepository<NotificationDocument> {
     ]);
 
     return notifications.sort((a, b) => {
-      const aTime = a.created_at?.toMillis?.() ?? (a.created_at ? new Date(a.created_at as any).getTime() : 0);
-      const bTime = b.created_at?.toMillis?.() ?? (b.created_at ? new Date(b.created_at as any).getTime() : 0);
+      const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt ? new Date(a.createdAt as any).getTime() : 0);
+      const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt ? new Date(b.createdAt as any).getTime() : 0);
       return bTime - aTime;
     });
   }
@@ -26,8 +26,8 @@ class NotificationRepository extends BaseRepository<NotificationDocument> {
     ]);
 
     return notifications.sort((a, b) => {
-      const aTime = a.created_at?.toMillis?.() ?? (a.created_at ? new Date(a.created_at as any).getTime() : 0);
-      const bTime = b.created_at?.toMillis?.() ?? (b.created_at ? new Date(b.created_at as any).getTime() : 0);
+      const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt ? new Date(a.createdAt as any).getTime() : 0);
+      const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt ? new Date(b.createdAt as any).getTime() : 0);
       return bTime - aTime;
     });
   }

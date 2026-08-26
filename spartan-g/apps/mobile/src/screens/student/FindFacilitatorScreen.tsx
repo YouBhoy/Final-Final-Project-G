@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -12,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, userService, workHoursService, profileRepository } from '@spartan-g/shared-services';
-import { getCampusLabel, type Campus } from '@spartan-g/shared-types';
+import { ALL_CAMPUSES, CAMPUS_SHORT_LABELS, getCampusLabel, type Campus } from '@spartan-g/shared-types';
 import { lightColors, palette, formatWorkHours } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -25,6 +26,7 @@ export function FindFacilitatorScreen() {
   const [profilesMap, setProfilesMap] = useState<Record<string, { bio?: string; campus?: string }>>({});
   const [workHoursMap, setWorkHoursMap] = useState<Record<string, any[]>>({});
   const [selectedFacilitator, setSelectedFacilitator] = useState<string | null>(null);
+  const [campusFilter, setCampusFilter] = useState<Campus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +46,10 @@ export function FindFacilitatorScreen() {
       setProfilesMap({});
       setWorkHoursMap({});
 
-      const users = await userService.listUsersByRole('facilitator', authSession.role);
+      const users = await userService.listFacilitatorsByCampus(
+        authSession.role,
+        campusFilter === 'all' ? undefined : campusFilter,
+      );
       if (!isMounted.current) return;
 
       const mapped = users.map((u: any) => ({
@@ -81,7 +86,7 @@ export function FindFacilitatorScreen() {
     } finally {
       if (isMounted.current) { setIsLoading(false); setIsRefreshing(false); }
     }
-  }, [authSession]);
+  }, [authSession, campusFilter]);
 
   useEffect(() => {
     loadFacilitators();
@@ -111,6 +116,29 @@ export function FindFacilitatorScreen() {
       }
     >
       <Text style={styles.title}>Find a Facilitator</Text>
+
+      {/* Campus filter chips */}
+      <View style={styles.chipRow}>
+        <Pressable
+          style={[styles.chip, campusFilter === 'all' && styles.chipActive]}
+          onPress={() => setCampusFilter('all')}
+        >
+          <Text style={[styles.chipText, campusFilter === 'all' && styles.chipTextActive]}>
+            All campuses
+          </Text>
+        </Pressable>
+        {ALL_CAMPUSES.map((c) => (
+          <Pressable
+            key={c}
+            style={[styles.chip, campusFilter === c && styles.chipActive]}
+            onPress={() => setCampusFilter(c)}
+          >
+            <Text style={[styles.chipText, campusFilter === c && styles.chipTextActive]}>
+              {CAMPUS_SHORT_LABELS[c]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       {error && (
         <View style={[styles.errorBanner, { backgroundColor: lightColors.errorBackground, borderColor: lightColors.errorBorder }]}>
@@ -220,6 +248,31 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: lightColors.text,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: lightColors.border,
+    backgroundColor: lightColors.surface,
+  },
+  chipActive: {
+    backgroundColor: palette.spartanRed,
+    borderColor: palette.spartanRed,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: lightColors.textSecondary,
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
   },
   errorBanner: {
     borderWidth: 1,
