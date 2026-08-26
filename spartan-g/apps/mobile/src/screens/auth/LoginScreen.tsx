@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
+import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '@spartan-g/shared-services';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 
@@ -211,9 +212,11 @@ export function LoginScreen({ navigation }: Props) {
                   hitSlop={8}
                   disabled={isLoading}
                 >
-                  <Text style={styles.eyeIcon}>
-                    {showPassword ? '👁‍🗨' : '👁'}
-                  </Text>
+                  <Feather
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={lightColors.textMuted}
+                  />
                 </Pressable>
               </View>
               {formErrors.password && (
@@ -399,9 +402,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
-  },
-  eyeIcon: {
-    fontSize: 20,
   },
   inputError: {
     borderColor: lightColors.error,

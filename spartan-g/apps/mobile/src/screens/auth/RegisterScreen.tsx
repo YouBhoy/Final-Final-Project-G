@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
+import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '@spartan-g/shared-services';
 import { ALL_CAMPUSES, CAMPUS_LABELS, ROLES, type Campus, type Role } from '@spartan-g/shared-types';
 import { lightColors, palette } from '@spartan-g/shared-ui';
@@ -301,7 +302,11 @@ export function RegisterScreen({ navigation }: Props) {
                       onPress={() => setRole(r)}
                       disabled={isLoading}
                     >
-                      <Text style={styles.roleIcon}>{r === ROLES.STUDENT ? '🎓' : '👨‍🏫'}</Text>
+                      <Feather
+                        name={r === ROLES.STUDENT ? 'user' : 'users'}
+                        size={22}
+                        color={active ? lightColors.primary : lightColors.textMuted}
+                      />
                       <Text style={[styles.roleLabel, active && styles.roleLabelActive]}>
                         {r === ROLES.STUDENT ? 'Student' : 'Facilitator'}
                       </Text>
@@ -327,7 +332,7 @@ export function RegisterScreen({ navigation }: Props) {
                 <Text style={[styles.selectorText, !campus && styles.selectorPlaceholder]} numberOfLines={1}>
                   {campus ? CAMPUS_LABELS[campus] : 'Select your campus'}
                 </Text>
-                <Text style={styles.selectorChevron}>▾</Text>
+                <Feather name="chevron-down" size={16} color={lightColors.textMuted} />
               </Pressable>
               {formErrors.campus && (
                 <Text style={styles.fieldError}>{formErrors.campus}</Text>
@@ -358,9 +363,11 @@ export function RegisterScreen({ navigation }: Props) {
                   hitSlop={8}
                   disabled={isLoading}
                 >
-                  <Text style={styles.eyeIcon}>
-                    {showPassword ? '👁‍🗨' : '👁'}
-                  </Text>
+                  <Feather
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={lightColors.textMuted}
+                  />
                 </Pressable>
               </View>
               {formErrors.password && (
@@ -392,9 +399,11 @@ export function RegisterScreen({ navigation }: Props) {
                   hitSlop={8}
                   disabled={isLoading}
                 >
-                  <Text style={styles.eyeIcon}>
-                    {showConfirmPassword ? '👁‍🗨' : '👁'}
-                  </Text>
+                  <Feather
+                    name={showConfirmPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={lightColors.textMuted}
+                  />
                 </Pressable>
               </View>
               {formErrors.confirmPassword && (
@@ -589,9 +598,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
   },
-  eyeIcon: {
-    fontSize: 20,
-  },
   inputError: {
     borderColor: lightColors.error,
   },
@@ -655,9 +661,6 @@ const styles = StyleSheet.create({
     borderColor: lightColors.primary,
     backgroundColor: lightColors.infoBackground,
   },
-  roleIcon: {
-    fontSize: 22,
-  },
   roleLabel: {
     fontSize: 13,
     fontWeight: '600',
@@ -678,11 +681,6 @@ const styles = StyleSheet.create({
   },
   selectorPlaceholder: {
     color: lightColors.textMuted,
-  },
-  selectorChevron: {
-    fontSize: 14,
-    color: lightColors.textMuted,
-    marginLeft: 8,
   },
   modalBackdrop: {
     flex: 1,
