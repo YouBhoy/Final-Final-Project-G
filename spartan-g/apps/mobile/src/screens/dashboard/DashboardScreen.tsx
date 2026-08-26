@@ -67,11 +67,12 @@ interface StatCardProps {
   label: string;
   value: string;
   caption?: string;
+  wide?: boolean;
 }
 
-function StatCard({ icon, iconBg, iconColor, label, value, caption }: StatCardProps) {
+function StatCard({ icon, iconBg, iconColor, label, value, caption, wide }: StatCardProps) {
   return (
-    <View style={[styles.statCard, { width: '48%' }]}>
+    <View style={[styles.statCard, { width: wide ? '100%' : '48%' }]}>
       <View style={[styles.statIconContainer, { backgroundColor: iconBg }]}>
         <Feather name={icon as any} size={20} color={iconColor} />
       </View>
@@ -291,22 +292,15 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
               </View>
             </View>
 
-            {/* Stat Cards 2x2 Grid */}
+            {/* Stat Cards Grid */}
             <View style={styles.statsGrid}>
-              <StatCard
-                icon="clipboard"
-                iconBg={palette.red100}
-                iconColor={palette.spartanRed}
-                label="Assessments Completed"
-                value={totalAssessments > 0 ? `${assessmentsCompleted}/${totalAssessments}` : '0'}
-                caption={totalAssessments - assessmentsCompleted > 0 ? `${totalAssessments - assessmentsCompleted} remaining` : undefined}
-              />
               <StatCard
                 icon="calendar"
                 iconBg={palette.indigo50}
                 iconColor={palette.indigo700}
                 label="Next Appointment"
                 value={nextAppointment ?? 'None scheduled'}
+                wide
               />
               <StatCard
                 icon="clock"
@@ -604,7 +598,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 
-  /* ─── Stat Cards 2x2 Grid ────────────────────────────────── */
+  /* ─── Stat Cards Grid ────────────────────────────────────── */
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
