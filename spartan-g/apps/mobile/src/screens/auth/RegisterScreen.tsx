@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   Image,
@@ -16,6 +17,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore } from '@spartan-g/shared-services';
+import { ALL_CAMPUSES, CAMPUS_LABELS, type Campus } from '@spartan-g/shared-types';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 
 type Props = NativeStackScreenProps<MobileAuthStackParamList, 'Register'>;
@@ -72,6 +74,8 @@ export function RegisterScreen({ navigation }: Props) {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [campus, setCampus] = useState<Campus | null>(null);
+  const [campusPickerVisible, setCampusPickerVisible] = useState(false);
 
   const isLoading = status === 'loading';
 
@@ -104,9 +108,13 @@ export function RegisterScreen({ navigation }: Props) {
       errors.confirmPassword = 'Passwords do not match';
     }
 
+    if (!campus) {
+      errors.campus = 'Please select your campus';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [formData]);
+  }, [formData, campus]);
 
   const handleSubmit = useCallback(async () => {
     clearError();
@@ -118,11 +126,12 @@ export function RegisterScreen({ navigation }: Props) {
         email: formData.email.trim(),
         password: formData.password,
         displayName,
+        campus: campus!,
       });
     } catch {
       // Error is set in the auth store
     }
-  }, [formData, validate, register, clearError]);
+  }, [formData, campus, validate, register, clearError]);
 
   const handleFieldChange = useCallback(
     (field: keyof FormState, value: string) => {
@@ -174,6 +183,37 @@ export function RegisterScreen({ navigation }: Props) {
             <Text style={styles.heroSubtitle}>Join SPARTAN-G as a student</Text>
           </View>
         </View>
+
+        {/* ─── Campus Picker Modal ──────────────────────────── */}
+        <Modal
+          transparent
+          visible={campusPickerVisible}
+          animationType="fade"
+          onRequestClose={() => setCampusPickerVisible(false)}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setCampusPickerVisible(false)}>
+            <Pressable style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Select your campus</Text>
+              <ScrollView style={styles.modalList}>
+                {ALL_CAMPUSES.map((c) => (
+                  <Pressable
+                    key={c}
+                    style={[styles.modalItem, campus === c && styles.modalItemActive]}
+                    onPress={() => {
+                      setCampus(c);
+                      setCampusPickerVisible(false);
+                      setFormErrors((prev) => ({ ...prev, campus: '' }));
+                    }}
+                  >
+                    <Text style={[styles.modalItemText, campus === c && styles.modalItemTextActive]}>
+                      {CAMPUS_LABELS[c]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* ─── White Rounded Card (form) ───────────────────── */}
         <View style={styles.formCard}>
@@ -239,6 +279,24 @@ export function RegisterScreen({ navigation }: Props) {
               />
               {formErrors.email && (
                 <Text style={styles.fieldError}>{formErrors.email}</Text>
+              )}
+            </View>
+
+            {/* Campus */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Campus</Text>
+              <Pressable
+                style={[styles.input, styles.selectorDisplay, formErrors.campus ? styles.inputError : null]}
+                onPress={() => setCampusPickerVisible(true)}
+                disabled={isLoading}
+              >
+                <Text style={[styles.selectorText, !campus && styles.selectorPlaceholder]} numberOfLines={1}>
+                  {campus ? CAMPUS_LABELS[campus] : 'Select your campus'}
+                </Text>
+                <Text style={styles.selectorChevron}>▾</Text>
+              </Pressable>
+              {formErrors.campus && (
+                <Text style={styles.fieldError}>{formErrors.campus}</Text>
               )}
             </View>
 
@@ -538,6 +596,63 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 13,
     fontWeight: '600',
+    color: lightColors.primary,
+  },
+  selectorDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectorText: {
+    fontSize: 15,
+    color: lightColors.text,
+    flex: 1,
+  },
+  selectorPlaceholder: {
+    color: lightColors.textMuted,
+  },
+  selectorChevron: {
+    fontSize: 14,
+    color: lightColors.textMuted,
+    marginLeft: 8,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: lightColors.text,
+    marginBottom: 10,
+  },
+  modalList: {
+    maxHeight: 340,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  modalItemActive: {
+    backgroundColor: lightColors.infoBackground,
+  },
+  modalItemText: {
+    fontSize: 14,
+    color: lightColors.text,
+  },
+  modalItemTextActive: {
+    fontWeight: '700',
     color: lightColors.primary,
   },
 });

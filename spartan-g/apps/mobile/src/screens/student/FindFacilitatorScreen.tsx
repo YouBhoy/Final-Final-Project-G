@@ -11,7 +11,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
-import { useAuthStore, userService, workHoursService } from '@spartan-g/shared-services';
+import { useAuthStore, userService, workHoursService, profileRepository } from '@spartan-g/shared-services';
+import { getCampusLabel, type Campus } from '@spartan-g/shared-types';
 import { lightColors, palette, formatWorkHours } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -21,6 +22,7 @@ export function FindFacilitatorScreen() {
   const authSession = useAuthStore((st) => st.session);
 
   const [facilitators, setFacilitators] = useState<{ id: string; displayName: string; email: string }[]>([]);
+  const [profilesMap, setProfilesMap] = useState<Record<string, { bio?: string; campus?: string }>>({});
   const [workHoursMap, setWorkHoursMap] = useState<Record<string, any[]>>({});
   const [selectedFacilitator, setSelectedFacilitator] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +41,7 @@ export function FindFacilitatorScreen() {
     try {
       setError(null);
       setFacilitators([]);
+      setProfilesMap({});
       setWorkHoursMap({});
 
       const users = await userService.listUsersByRole('facilitator', authSession.role);
@@ -52,6 +55,7 @@ export function FindFacilitatorScreen() {
       setFacilitators(mapped);
 
       const whMap: Record<string, any[]> = {};
+      const pMap: Record<string, { bio?: string; campus?: string }> = {};
       await Promise.allSettled(
         mapped.map(async (fac) => {
           try {
@@ -60,10 +64,17 @@ export function FindFacilitatorScreen() {
           } catch {
             whMap[fac.id] = [];
           }
+          try {
+            const profile = await profileRepository.getById(fac.id);
+            if (profile) pMap[fac.id] = { bio: profile.bio, campus: profile.campus };
+          } catch {
+            // Profile is optional — facilitator may not have created one yet.
+          }
         }),
       );
       if (!isMounted.current) return;
       setWorkHoursMap(whMap);
+      setProfilesMap(pMap);
     } catch (err) {
       if (!isMounted.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load facilitators.');
@@ -133,11 +144,23 @@ export function FindFacilitatorScreen() {
                   <View style={styles.facilitatorInfo}>
                     <Text style={styles.facilitatorName}>{fac.displayName}</Text>
                     <Text style={styles.facilitatorEmail}>{fac.email}</Text>
+                    {profilesMap[fac.id]?.campus && (
+                      <Text style={styles.facilitatorCampus}>
+                        📍 {getCampusLabel(profilesMap[fac.id].campus as Campus)}
+                      </Text>
+                    )}
                   </View>
                 </View>
 
                 {isExpanded && (
                   <View style={styles.expandedSection}>
+                    <Text style={styles.sectionLabel}>About</Text>
+                    {profilesMap[fac.id]?.bio ? (
+                      <Text style={styles.facilitatorBio}>{profilesMap[fac.id].bio}</Text>
+                    ) : (
+                      <Text style={styles.facilitatorBioMuted}>No bio yet.</Text>
+                    )}
+
                     <Text style={styles.sectionLabel}>Available Hours</Text>
 
                     {activeDays.length === 0 ? (
@@ -257,6 +280,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: lightColors.textSecondary,
     marginTop: 1,
+  },
+  facilitatorCampus: {
+    fontSize: 12,
+    color: lightColors.textSecondary,
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  facilitatorBio: {
+    fontSize: 13,
+    color: lightColors.text,
+    lineHeight: 18,
+  },
+  facilitatorBioMuted: {
+    fontSize: 13,
+    color: lightColors.textMuted,
+    fontStyle: 'italic',
   },
   expandedSection: {
     marginTop: 12,

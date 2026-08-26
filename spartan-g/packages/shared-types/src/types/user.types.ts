@@ -1,5 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 import { Role } from '../constants/roles';
+import { Campus } from '../constants/campuses';
 import { DeploymentTarget } from '../constants/platforms';
 
 export type Gender = 'male' | 'female' | 'non_binary' | 'other' | 'prefer_not_to_say';
@@ -10,6 +11,8 @@ export interface UserDocument {
   displayName: string;
   role: Role;
   photoURL?: string;
+  /** Canonical campus identifier (see constants/campuses). */
+  campus?: Campus;
   isActive: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
