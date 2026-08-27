@@ -1,0 +1,25 @@
+{
+  "name": "spartan-g-functions",
+  "description": "SPARTAN-G Cloud Functions - server-side push notifications (messages + appointments)",
+  "private": true,
+  "engines": {
+    "node": "22"
+  },
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore --project spartan-g-a2d80",
+    "test": "node scripts/emulator-seed-and-test.mjs",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "expo-server-sdk": "^3.7.0",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.3.0"
+  }
+}

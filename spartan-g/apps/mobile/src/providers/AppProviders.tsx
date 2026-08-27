@@ -1,4 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
+import { Linking } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { PLATFORMS } from '@spartan-g/shared-types';
@@ -35,6 +37,34 @@ export function AppProviders({ children }: AppProvidersProps) {
       }
     }
   }, [status, session?.uid]);
+
+  // ─── Push-notification tap routing ──────────────────────────────
+  // Sends carry { url: 'spartan-g://...' } in their data payload; react-navigation's
+  // linking config maps those URLs to the same screens as in-app notification taps.
+  useEffect(() => {
+    let lastHandledUrl: string | null = null;
+
+    const openFromResponse = (data?: Record<string, unknown>) => {
+      const url = typeof data?.url === 'string' ? data.url : null;
+      if (!url || url === lastHandledUrl) return;
+      lastHandledUrl = url;
+      Linking.openURL(url).catch(() => {
+        /* Unknown/unregistered deep link — ignore */
+      });
+    };
+
+    // Cold start: app launched by tapping a push notification
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      openFromResponse(response?.notification.request.content.data as Record<string, unknown>);
+    });
+
+    // Warm start: push tapped while the app is already running
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      openFromResponse(response.notification.request.content.data as Record<string, unknown>);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <SafeAreaProvider>

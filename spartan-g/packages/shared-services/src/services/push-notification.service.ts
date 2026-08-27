@@ -9,6 +9,14 @@ interface ExpoPushMessage {
   body: string;
   data: Record<string, string>;
   priority: 'high';
+  /**
+   * Android notification channel the message is delivered through. The app
+   * registers a MAX-importance `default` channel in expo-messaging.adapter;
+   * tagging pushes with it is what makes FOREGROUND (app-open) delivery post
+   * a heads-up banner instead of falling back to a lower-importance channel.
+   * iOS ignores channelId.
+   */
+  channelId?: string;
 }
 
 class PushNotificationService {
@@ -59,6 +67,7 @@ class PushNotificationService {
             body,
             data,
             priority: 'high',
+            channelId: 'default',
           }),
         ),
       );

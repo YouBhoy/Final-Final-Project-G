@@ -111,6 +111,16 @@ export const createAuthStore = () =>
 
     signOut: async () => {
       set({ status: 'loading', error: null });
+      // Unregister this device's push token for the outgoing account first
+      // (best-effort, never blocks/fails sign-out) so pushes stop after logout
+      // even if nobody else signs in on this device. registerDevice() also
+      // clears any prior owner's claim when a new account logs in.
+      const uid = get().session?.uid;
+      if (uid) {
+        notificationService.unregisterDevice(uid).catch((err) => {
+          console.error('[AuthStore] Failed to unregister device on sign-out:', err);
+        });
+      }
       try {
         await authService.signOut();
         set({ status: 'unauthenticated', session: null, error: null });
