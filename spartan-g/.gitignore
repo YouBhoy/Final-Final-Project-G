@@ -23,6 +23,13 @@ web-build/
 google-services.json
 GoogleService-Info.plist
 
+# Firebase service-account keys (FCM V1 / Admin SDK) — sensitive, NEVER commit
+*firebase-adminsdk*.json
+*service-account*.json
+*service_account*.json
+*-adminsdk-*.json
+key.json
+
 # IDE
 .idea/
 .vscode/
