@@ -156,6 +156,14 @@ async function writeInAppNotification(
   });
 }
 
+// ⚠️ NOT YET DEPLOYED — before running `firebase deploy --only functions`:
+// 1. Requires upgrading the Firebase project from Spark to Blaze (team billing decision, not automatic).
+// 2. These functions are designed to REPLACE client-side push sending, but the client-side
+//    senders were never disabled. Deploying without first removing/disabling them will cause
+//    DOUBLE PUSHES and duplicate in-app notification docs per event. Before deploying, disable:
+//    - messaging.service.ts's sendMessagePushNotification call to pushNotificationService
+//    - appointment.service.ts's requestAppointment push call
+//    - AppointmentsScreen.tsx's sendPushToRecipient call
 // ─────────────────────────────────────────────────────────────────────────────
 // Trigger 1: new message document → notify all other conversation participants
 // Replicates MessagingService.sendMessagePushNotification (client) exactly.
