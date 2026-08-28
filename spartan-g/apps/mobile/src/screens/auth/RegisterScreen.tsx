@@ -16,8 +16,9 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
+import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '@spartan-g/shared-services';
-import { ALL_CAMPUSES, CAMPUS_LABELS, type Campus } from '@spartan-g/shared-types';
+import { ALL_CAMPUSES, CAMPUS_LABELS, ROLES, type Campus, type Role } from '@spartan-g/shared-types';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 
 type Props = NativeStackScreenProps<MobileAuthStackParamList, 'Register'>;
@@ -76,6 +77,7 @@ export function RegisterScreen({ navigation }: Props) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [campus, setCampus] = useState<Campus | null>(null);
   const [campusPickerVisible, setCampusPickerVisible] = useState(false);
+  const [role, setRole] = useState<Role>(ROLES.STUDENT);
 
   const isLoading = status === 'loading';
 
@@ -126,6 +128,7 @@ export function RegisterScreen({ navigation }: Props) {
         email: formData.email.trim(),
         password: formData.password,
         displayName,
+        role,
         campus: campus!,
       });
     } catch {
@@ -180,7 +183,11 @@ export function RegisterScreen({ navigation }: Props) {
             <Text style={styles.heroBrandLabel}>SPARTAN-G</Text>
             <Text style={styles.heroBrandSubLabel}>Mental Health App</Text>
             <Text style={styles.heroTitle}>Create your account</Text>
-            <Text style={styles.heroSubtitle}>Join SPARTAN-G as a student</Text>
+            <Text style={styles.heroSubtitle}>
+              {role === ROLES.STUDENT
+                ? 'Join SPARTAN-G as a student'
+                : 'Join SPARTAN-G as a facilitator'}
+            </Text>
           </View>
         </View>
 
@@ -282,6 +289,38 @@ export function RegisterScreen({ navigation }: Props) {
               )}
             </View>
 
+            {/* Role selector */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>I am registering as</Text>
+              <View style={styles.roleRow}>
+                {([ROLES.STUDENT, ROLES.FACILITATOR] as Role[]).map((r) => {
+                  const active = role === r;
+                  return (
+                    <Pressable
+                      key={r}
+                      style={[styles.roleCard, active && styles.roleCardActive]}
+                      onPress={() => setRole(r)}
+                      disabled={isLoading}
+                    >
+                      <Feather
+                        name={r === ROLES.STUDENT ? 'user' : 'users'}
+                        size={22}
+                        color={active ? lightColors.primary : lightColors.textMuted}
+                      />
+                      <Text style={[styles.roleLabel, active && styles.roleLabelActive]}>
+                        {r === ROLES.STUDENT ? 'Student' : 'Facilitator'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.roleHint}>
+                {role === ROLES.STUDENT
+                  ? 'Take assessments, grow your garden and book facilitators.'
+                  : 'Manage students, appointments, hours and assessments.'}
+              </Text>
+            </View>
+
             {/* Campus */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Campus</Text>
@@ -293,7 +332,7 @@ export function RegisterScreen({ navigation }: Props) {
                 <Text style={[styles.selectorText, !campus && styles.selectorPlaceholder]} numberOfLines={1}>
                   {campus ? CAMPUS_LABELS[campus] : 'Select your campus'}
                 </Text>
-                <Text style={styles.selectorChevron}>▾</Text>
+                <Feather name="chevron-down" size={16} color={lightColors.textMuted} />
               </Pressable>
               {formErrors.campus && (
                 <Text style={styles.fieldError}>{formErrors.campus}</Text>
@@ -324,9 +363,11 @@ export function RegisterScreen({ navigation }: Props) {
                   hitSlop={8}
                   disabled={isLoading}
                 >
-                  <Text style={styles.eyeIcon}>
-                    {showPassword ? '👁‍🗨' : '👁'}
-                  </Text>
+                  <Feather
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={lightColors.textMuted}
+                  />
                 </Pressable>
               </View>
               {formErrors.password && (
@@ -358,9 +399,11 @@ export function RegisterScreen({ navigation }: Props) {
                   hitSlop={8}
                   disabled={isLoading}
                 >
-                  <Text style={styles.eyeIcon}>
-                    {showConfirmPassword ? '👁‍🗨' : '👁'}
-                  </Text>
+                  <Feather
+                    name={showConfirmPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={lightColors.textMuted}
+                  />
                 </Pressable>
               </View>
               {formErrors.confirmPassword && (
@@ -555,9 +598,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
   },
-  eyeIcon: {
-    fontSize: 20,
-  },
   inputError: {
     borderColor: lightColors.error,
   },
@@ -603,6 +643,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  roleRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  roleCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: lightColors.border,
+    backgroundColor: lightColors.surface,
+    gap: 4,
+  },
+  roleCardActive: {
+    borderColor: lightColors.primary,
+    backgroundColor: lightColors.infoBackground,
+  },
+  roleLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: lightColors.textSecondary,
+  },
+  roleLabelActive: {
+    color: lightColors.primary,
+  },
+  roleHint: {
+    fontSize: 11,
+    color: lightColors.textMuted,
+    marginTop: -8,
+  },
   selectorText: {
     fontSize: 15,
     color: lightColors.text,
@@ -610,11 +681,6 @@ const styles = StyleSheet.create({
   },
   selectorPlaceholder: {
     color: lightColors.textMuted,
-  },
-  selectorChevron: {
-    fontSize: 14,
-    color: lightColors.textMuted,
-    marginLeft: 8,
   },
   modalBackdrop: {
     flex: 1,

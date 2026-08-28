@@ -3,7 +3,8 @@ import {
   View,
   Text,
   Switch,
-  TextInput,
+  Modal,
+  FlatList,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -15,6 +16,53 @@ import { lightColors, formatWorkHours } from '@spartan-g/shared-ui';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+/**
+ * All selectable times in 30-minute increments, from 7:00 AM to 7:00 PM
+ * (inclusive). `value` is the canonical 24-hour zero-padded "HH:MM" string that
+ * is stored in Firestore (WorkHoursScheduleDocument.startTime/endTime). `label`
+ * is the user-friendly 12-hour AM/PM display. Only the UI input range changed —
+ * the stored value format is preserved so appointment booking logic keeps working.
+ */
+const TIME_OPTIONS: { value: string; label: string }[] = (() => {
+  const options: { value: string; label: string }[] = [];
+  const startMinutes = 7 * 60; // 7:00 AM
+  const endMinutes = 19 * 60;  // 7:00 PM (inclusive)
+  for (let t = startMinutes; t <= endMinutes; t += 30) {
+    const h = Math.floor(t / 60);
+    const m = t % 60;
+    const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const date = new Date();
+    date.setHours(h, m);
+    const label = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    options.push({ value, label });
+  }
+  return options;
+})();
+
+/**
+ * Resolve the 12-hour AM/PM label for a stored "HH:MM" value.
+ * Falls back to formatting any valid 24-hour "HH:MM" string so that a saved
+ * start/end time outside the 7:00 AM - 7:00 PM picker range still displays
+ * cleanly (e.g. "05:00" -> "5:00 AM") instead of showing raw text.
+ */
+function timeLabel(value: string): string {
+  const existing = TIME_OPTIONS.find((o) => o.value === value);
+  if (existing) return existing.label;
+  const [hours, minutes] = value.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return value;
+  const date = new Date();
+  date.setHours(hours, minutes);
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 export function WorkHoursScreen() {
   const session = useAuthStore((s) => s.session);
 
@@ -25,6 +73,7 @@ export function WorkHoursScreen() {
   const [endTime, setEndTime] = useState('17:00');
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<'start' | 'end' | null>(null);
 
   const loadSchedules = useCallback(async () => {
     if (!session) return;
@@ -66,6 +115,9 @@ export function WorkHoursScreen() {
 
   const handleSaveTime = useCallback(async (dayOfWeek: number) => {
     if (!session) return;
+    // Guard against invalid ranges (end before or equal to start).
+    // Lexicographic comparison is valid because times are zero-padded "HH:MM".
+    if (startTime >= endTime) return;
     setSaving(true);
     try {
       const existing = schedules.find(s => s.dayOfWeek === dayOfWeek);
@@ -121,6 +173,8 @@ export function WorkHoursScreen() {
             const schedule = schedules.find(s => s.dayOfWeek === index);
             const isActive = schedule?.isActive ?? false;
             const isEditing = editingDay === index;
+            // Lexicographic compare works for zero-padded "HH:MM" strings.
+            const isValidRange = startTime < endTime;
 
             return (
               <View key={index} style={[styles.dayRow, isActive && styles.dayRowActive]}>
@@ -138,37 +192,42 @@ export function WorkHoursScreen() {
                 </View>
 
                 {isEditing ? (
-                  <View style={styles.editRow}>
-                    <TextInput
-                      style={styles.timeInput}
-                      value={startTime}
-                      onChangeText={setStartTime}
-                      placeholder="09:00"
-                      placeholderTextColor={lightColors.textMuted}
-                      autoComplete="off"
-                    />
-                    <Text style={styles.timeSeparator}>to</Text>
-                    <TextInput
-                      style={styles.timeInput}
-                      value={endTime}
-                      onChangeText={setEndTime}
-                      placeholder="17:00"
-                      placeholderTextColor={lightColors.textMuted}
-                      autoComplete="off"
-                    />
-                    <TouchableOpacity
-                      onPress={() => handleSaveTime(index)}
-                      disabled={saving}
-                      style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-                    >
-                      <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setEditingDay(null)}
-                      style={styles.cancelButton}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
+                  <View>
+                    <View style={styles.editRow}>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setPickerTarget('start')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.pickerButtonText}>{timeLabel(startTime)}</Text>
+                        <Text style={styles.pickerChevron}>▾</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.timeSeparator}>to</Text>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setPickerTarget('end')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.pickerButtonText}>{timeLabel(endTime)}</Text>
+                        <Text style={styles.pickerChevron}>▾</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleSaveTime(index)}
+                        disabled={saving || !isValidRange}
+                        style={[styles.saveButton, (saving || !isValidRange) && styles.saveButtonDisabled]}
+                      >
+                        <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setEditingDay(null)}
+                        style={styles.cancelButton}
+                      >
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {!isValidRange && (
+                      <Text style={styles.errorText}>End time must be after start time.</Text>
+                    )}
                   </View>
                 ) : (
                   <View style={styles.timeDisplay}>
@@ -187,6 +246,57 @@ export function WorkHoursScreen() {
           })}
         </View>
       </View>
+
+      {/* Time picker dropdown */}
+      <Modal
+        visible={pickerTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerTarget(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setPickerTarget(null)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{pickerTarget === 'start' ? 'Start Time' : 'End Time'}</Text>
+            <FlatList
+              data={TIME_OPTIONS}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => {
+                const selected = pickerTarget === 'start' ? startTime : endTime;
+                return (
+                  <TouchableOpacity
+                    style={[styles.modalOption, item.value === selected && styles.modalOptionSelected]}
+                    onPress={() => {
+                      if (pickerTarget === 'start') {
+                        setStartTime(item.value);
+                      } else {
+                        setEndTime(item.value);
+                      }
+                      setPickerTarget(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        item.value === selected && styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {item.value === selected && (
+                      <Text style={styles.modalOptionCheck}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -288,21 +398,84 @@ const styles = StyleSheet.create({
     marginLeft: 60,
     flexWrap: 'wrap',
   },
-  timeInput: {
+  pickerButton: {
     borderWidth: 1,
     borderColor: lightColors.border,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     fontSize: 14,
-    color: lightColors.text,
     backgroundColor: lightColors.background,
-    width: 70,
-    textAlign: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minWidth: 96,
+  },
+  pickerButtonText: {
+    fontSize: 14,
+    color: lightColors.text,
+    flex: 1,
+  },
+  pickerChevron: {
+    fontSize: 12,
+    color: lightColors.textMuted,
+    marginLeft: 6,
   },
   timeSeparator: {
     fontSize: 14,
     color: lightColors.textMuted,
+  },
+  errorText: {
+    fontSize: 12,
+    color: lightColors.error,
+    marginTop: 8,
+    marginLeft: 60,
+  },
+  // Time picker modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: lightColors.surface,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: lightColors.text,
+    marginBottom: 12,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  modalOptionSelected: {
+    backgroundColor: '#FEE2E2',
+  },
+  modalOptionText: {
+    fontSize: 15,
+    color: lightColors.text,
+    flex: 1,
+  },
+  modalOptionTextSelected: {
+    fontWeight: '600',
+    color: lightColors.primary,
+  },
+  modalOptionCheck: {
+    fontSize: 16,
+    color: lightColors.primary,
+    marginLeft: 8,
   },
   saveButton: {
     backgroundColor: lightColors.primary,

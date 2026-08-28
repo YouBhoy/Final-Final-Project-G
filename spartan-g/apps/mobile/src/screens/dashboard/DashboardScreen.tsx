@@ -13,8 +13,15 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NotificationDocument } from '@spartan-g/shared-types';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
-import { useAuthStore, assessmentService, appointmentRepository, messagingService } from '@spartan-g/shared-services';
+import {
+  useAuthStore,
+  assessmentService,
+  appointmentRepository,
+  messagingService,
+  notificationRepository,
+} from '@spartan-g/shared-services';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 
 /* ─── Circular Progress Component ─────────────────────────── */
@@ -67,11 +74,12 @@ interface StatCardProps {
   label: string;
   value: string;
   caption?: string;
+  wide?: boolean;
 }
 
-function StatCard({ icon, iconBg, iconColor, label, value, caption }: StatCardProps) {
+function StatCard({ icon, iconBg, iconColor, label, value, caption, wide }: StatCardProps) {
   return (
-    <View style={[styles.statCard, { width: '48%' }]}>
+    <View style={[styles.statCard, { width: wide ? '100%' : '48%' }]}>
       <View style={[styles.statIconContainer, { backgroundColor: iconBg }]}>
         <Feather name={icon as any} size={20} color={iconColor} />
       </View>
@@ -121,6 +129,7 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
   const [notStarted, setNotStarted] = useState(0);
   const [nextAppointment, setNextAppointment] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -193,6 +202,18 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
     }
   }, [userId, role]);
 
+  // ─── Live unread count for the bell badge (real-time onSnapshot) ──
+  useEffect(() => {
+    if (!userId) {
+      setUnreadNotifications(0);
+      return;
+    }
+    const unsubscribe = notificationRepository.subscribeByUserId(userId, (docs) => {
+      setUnreadNotifications(docs.filter((n) => !n.isRead).length);
+    });
+    return unsubscribe;
+  }, [userId]);
+
   // Fetch on mount + initial data load
   useEffect(() => {
     loadDashboardData();
@@ -246,8 +267,20 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
       <View style={styles.greetingRow}>
         <Text style={styles.greetingText}>Hello, {firstName}</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.notificationBell} activeOpacity={0.7}>
+          {/* In-app notifications */}
+          <TouchableOpacity
+            style={styles.notificationBell}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Notifications')}
+          >
             <Feather name="bell" size={22} color={palette.spartanGold} />
+            {unreadNotifications > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.logoutButton}
@@ -291,22 +324,15 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
               </View>
             </View>
 
-            {/* Stat Cards 2x2 Grid */}
+            {/* Stat Cards Grid */}
             <View style={styles.statsGrid}>
-              <StatCard
-                icon="clipboard"
-                iconBg={palette.red100}
-                iconColor={palette.spartanRed}
-                label="Assessments Completed"
-                value={totalAssessments > 0 ? `${assessmentsCompleted}/${totalAssessments}` : '0'}
-                caption={totalAssessments - assessmentsCompleted > 0 ? `${totalAssessments - assessmentsCompleted} remaining` : undefined}
-              />
               <StatCard
                 icon="calendar"
                 iconBg={palette.indigo50}
                 iconColor={palette.indigo700}
                 label="Next Appointment"
                 value={nextAppointment ?? 'None scheduled'}
+                wide
               />
               <StatCard
                 icon="clock"
@@ -512,6 +538,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.spartanRed,
+    borderWidth: 2,
+    borderColor: palette.spartanRedDark,
+  },
+  bellBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
+  },
   logoutButton: {
     width: 40,
     height: 40,
@@ -604,7 +650,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 
-  /* ─── Stat Cards 2x2 Grid ────────────────────────────────── */
+  /* ─── Stat Cards Grid ────────────────────────────────────── */
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

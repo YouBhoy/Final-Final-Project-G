@@ -27,6 +27,7 @@ export type StudentMobileTabParamList = {
 
 export type StudentMobileStackParamList = {
   StudentTabs: NavigatorScreenParams<StudentMobileTabParamList>;
+  Notifications: undefined;
   CourseDetail: { courseId: string };
   AssignmentDetail: { assignmentId: string };
   ConversationDetail: { conversationId: string };
@@ -47,6 +48,7 @@ export type FacilitatorMobileTabParamList = {
 
 export type FacilitatorMobileStackParamList = {
   FacilitatorTabs: NavigatorScreenParams<FacilitatorMobileTabParamList>;
+  Notifications: undefined;
   FacilitatorAssessmentsList: undefined;
   FacilitatorStudentsList: { studentId?: string };
   FacilitatorSlotsList: undefined;

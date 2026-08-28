@@ -48,6 +48,10 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
   const [localTextInputs, setLocalTextInputs] = useState<Record<string, string>>({});
   const textInputRef = useRef<TextInput | null>(null);
 
+  // True when the user tapped "Change" on the review screen — the next
+  // navigation action should return to the review screen instead of advancing.
+  const [cameFromReview, setCameFromReview] = useState(false);
+
   // Load the attempt and assessment definition on mount
   useEffect(() => {
     let cancelled = false;
@@ -175,8 +179,15 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
 
   const handleNext = useCallback(async () => {
     await saveCurrentTextInput();
+    if (cameFromReview) {
+      // User entered this question via "Change" on the review screen —
+      // return to the review screen instead of advancing sequentially.
+      setCameFromReview(false);
+      setCurrentStep(questions.length);
+      return;
+    }
     setCurrentStep((prev) => Math.min(questions.length, prev + 1));
-  }, [questions.length, saveCurrentTextInput]);
+  }, [questions.length, saveCurrentTextInput, cameFromReview]);
 
   const handlePrevious = useCallback(async () => {
     await saveCurrentTextInput();
@@ -360,7 +371,10 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
                     </Text>
                   </View>
                   <TouchableOpacity
-                    onPress={() => handleNavigateToQuestion(idx)}
+                    onPress={() => {
+                      setCameFromReview(true);
+                      handleNavigateToQuestion(idx);
+                    }}
                     style={styles.changeButton}
                   >
                     <Text style={styles.changeButtonText}>Change</Text>
@@ -478,7 +492,7 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
           </Text>
           <TouchableOpacity onPress={handleNext} style={styles.navNextButton}>
             <Text style={styles.navNextText}>
-              {isLastStep ? 'Review Answers' : 'Next'}
+              {cameFromReview ? 'Back to Review' : isLastStep ? 'Review Answers' : 'Next'}
             </Text>
           </TouchableOpacity>
         </View>

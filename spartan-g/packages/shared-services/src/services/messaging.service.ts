@@ -21,8 +21,8 @@ import { conversationRepository } from '../repositories/conversation.repository'
 import { messageRepository } from '../repositories/message.repository';
 import { COLLECTIONS } from '@spartan-g/shared-types';
 import { pushNotificationService } from './push-notification.service';
+import { notificationRepository } from '../repositories/notification.repository';
 import { userService } from './user.service';
-
 /**
  * MessagingService - Core business logic for messaging.
  * 
@@ -195,11 +195,30 @@ class MessagingService {
       const pushBody = body.length > 100 ? body.slice(0, 97) + '...' : body;
 
       for (const recipientId of recipientIds) {
+        // Route deep links per-recipient role (facilitator paths differ from student ones)
+        const recipientUser = await userService.getUser(recipientId);
+        const urlPrefix = recipientUser?.role === 'facilitator' ? 'facilitator' : 'student';
+        const deepLink = `spartan-g://${urlPrefix}/conversation/${conversationId}`;
+
+        // In-app notification so the bell badge/list reflects chat activity too
+        try {
+          await notificationRepository.createForUser({
+            userId: recipientId,
+            title: senderName,
+            body: pushBody,
+            type: 'message',
+            relatedId: conversationId,
+            data: { url: deepLink },
+          });
+        } catch (err) {
+          console.error('[MessagingService] Failed to create message notification:', err);
+        }
+
         await pushNotificationService.sendPushToRecipient(
           recipientId,
           senderName,
           pushBody,
-          { url: `spartan-g://student/conversation/${conversationId}` },
+          { url: deepLink },
         );
       }
     } catch (err) {

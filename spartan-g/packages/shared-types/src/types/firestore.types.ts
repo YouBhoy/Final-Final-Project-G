@@ -43,7 +43,7 @@ export interface NotificationDocument extends FirestoreDocument {
   userId: string;
   title: string;
   body: string;
-  type: 'info' | 'alert' | 'assignment' | 'grade' | 'risk' | 'appointment' | 'work_hours' | 'reschedule';
+  type: 'info' | 'alert' | 'assignment' | 'grade' | 'risk' | 'message' | 'appointment' | 'work_hours' | 'reschedule';
   isRead: boolean;
   data?: Record<string, string>;
   relatedId?: string;

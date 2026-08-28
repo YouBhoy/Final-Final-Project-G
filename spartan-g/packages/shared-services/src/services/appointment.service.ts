@@ -23,6 +23,7 @@ import {
 import { appointmentRepository } from '../repositories/appointment.repository';
 import { workHoursRepository } from '../repositories/work-hours.repository';
 import { notificationRepository } from '../repositories/notification.repository';
+import { pushNotificationService } from './push-notification.service';
 import { messagingService } from './messaging.service';
 
 export interface RequestAppointmentPayload {
@@ -157,12 +158,25 @@ class AppointmentService {
       });
 
       // Create notification for facilitator
+      const requestPushBody = `A student has requested an appointment at ${payload.scheduledAt.toLocaleString()}.`;
       await this.createNotification({
         userId: payload.facilitatorId,
         title: 'New Appointment Request',
-        body: `A student has requested an appointment at ${payload.scheduledAt.toLocaleString()}.`,
+        body: requestPushBody,
         type: 'appointment',
         relatedId: id,
+      });
+
+      // Send push for the same event (non-blocking) — covers the facilitator
+      // when they are not actively inside the app. AppointmentDetail is still a
+      // placeholder screen, so the deep link opens the Appointments tab.
+      pushNotificationService.sendPushToRecipient(
+        payload.facilitatorId,
+        'New Appointment Request',
+        requestPushBody,
+        { url: 'spartan-g://facilitator/appointments', appointmentId: id },
+      ).catch(() => {
+        /* Intentionally swallowed — the appointment itself was already created */
       });
 
       return id;

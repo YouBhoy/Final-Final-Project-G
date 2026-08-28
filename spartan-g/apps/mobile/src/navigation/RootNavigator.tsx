@@ -15,6 +15,7 @@ import { StudentNavigator } from './StudentNavigator';
 import { FacilitatorNavigator } from './FacilitatorNavigator';
 import { WebOnlyScreen } from './WebOnlyScreen';
 import { mobileLinking } from './linking';
+import { navigationRef } from './navigationRef';
 
 const Stack = createNativeStackNavigator<MobileRootStackParamList>();
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -122,7 +123,6 @@ export function RootNavigator() {
   const status = useAuthStore((s) => s.status);
   const session = useAuthStore((s) => s.session);
   const isInitialized = useAuthStore((s) => s.isInitialized);
-  const navigationRef = useRef<any>(null);
 
   const isLoading = status === 'loading' || !isInitialized;
   const isAuthenticated = status === 'authenticated' && session !== null;
@@ -133,8 +133,11 @@ export function RootNavigator() {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const url = response.notification.request.content.data?.url as string | undefined;
       if (url && navigationRef.current) {
-        // Use the existing linking config to navigate
-        navigationRef.current.navigate(url);
+        // Use the existing linking config to navigate. Cast preserved from the
+        // original component-scoped `useRef<any>` — react-navigation's typed
+        // navigate() expects screen names, not full spartan-g:// URLs, and the
+        // correct URL handling lives in AppProviders' Linking.openURL path.
+        (navigationRef.current as { navigate: (target: string) => void }).navigate(url);
       } else if (url) {
         // Fallback: open via Linking
         Linking.openURL(url).catch(() => {

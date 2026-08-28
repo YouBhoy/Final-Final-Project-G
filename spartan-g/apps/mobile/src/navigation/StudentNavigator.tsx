@@ -17,6 +17,7 @@ import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessme
 import { MessagesScreen } from '../screens/student/MessagesScreen';
 import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
 import { GardenScreen } from '../screens/student/GardenScreen';
+import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
 const Tab = createBottomTabNavigator<StudentMobileTabParamList>();
 const Stack = createNativeStackNavigator<StudentMobileStackParamList>();
@@ -56,6 +57,11 @@ export function StudentNavigator() {
   return (
     <Stack.Navigator>
       <Stack.Screen name="StudentTabs" component={StudentTabs} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="CourseDetail" options={{ title: 'Course' }}>
         {() => <PlaceholderScreen routeName="CourseDetail" />}
       </Stack.Screen>

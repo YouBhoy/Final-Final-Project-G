@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
+import { Feather } from '@expo/vector-icons';
 import { useAuthStore, userService, workHoursService, profileRepository } from '@spartan-g/shared-services';
 import { ALL_CAMPUSES, CAMPUS_SHORT_LABELS, getCampusLabel, type Campus } from '@spartan-g/shared-types';
 import { lightColors, palette, formatWorkHours } from '@spartan-g/shared-ui';
@@ -173,9 +174,12 @@ export function FindFacilitatorScreen() {
                     <Text style={styles.facilitatorName}>{fac.displayName}</Text>
                     <Text style={styles.facilitatorEmail}>{fac.email}</Text>
                     {profilesMap[fac.id]?.campus && (
-                      <Text style={styles.facilitatorCampus}>
-                        📍 {getCampusLabel(profilesMap[fac.id].campus as Campus)}
-                      </Text>
+                      <View style={styles.facilitatorCampusRow}>
+                        <Feather name="map-pin" size={12} color={lightColors.textSecondary} />
+                        <Text style={styles.facilitatorCampus}>
+                          {getCampusLabel(profilesMap[fac.id].campus as Campus)}
+                        </Text>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -334,10 +338,15 @@ const styles = StyleSheet.create({
     color: lightColors.textSecondary,
     marginTop: 1,
   },
+  facilitatorCampusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
   facilitatorCampus: {
     fontSize: 12,
     color: lightColors.textSecondary,
-    marginTop: 3,
     fontWeight: '600',
   },
   facilitatorBio: {

@@ -18,6 +18,7 @@ import { FacilitatorProfileScreen } from '../screens/facilitator/FacilitatorProf
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { FacilitatorMessagesScreen } from '../screens/facilitator/MessagesScreen';
 import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
+import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
 const Tab = createBottomTabNavigator<FacilitatorMobileTabParamList>();
 const Stack = createNativeStackNavigator<FacilitatorMobileStackParamList>();
@@ -59,6 +60,11 @@ export function FacilitatorNavigator() {
       <Stack.Screen
         name="FacilitatorTabs"
         component={FacilitatorTabs}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
