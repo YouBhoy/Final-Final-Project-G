@@ -21,6 +21,7 @@ import { assessmentResponseRepository } from '../repositories/assessment-respons
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
 import { userRepository } from '../repositories/user.repository';
 import { riskAlertService } from './risk-alert.service';
+import { notificationService } from './notification.service';
 
 class AssessmentService {
   // =================== Phase 3A Methods (Template-based assessments) ===================
@@ -312,6 +313,25 @@ class AssessmentService {
       } catch {
         // Alert creation failure should not block submission
       }
+    }
+
+    // ─── Notify the facilitator (best-effort) about the new submission ──
+    // Gives them a clickable notification that deep-links to their
+    // assessments page. Failures must never block the submission.
+    try {
+      const assessmentDef = await this.getAssessmentDefinition(attempt.assessmentId);
+      const facilitatorId = assessmentDef?.facilitatorId;
+      if (facilitatorId && facilitatorId !== 'unknown' && facilitatorId !== attempt.studentId) {
+        await notificationService.createInAppNotification({
+          userId: facilitatorId,
+          title: 'New Assessment Submission',
+          body: `${assessmentDef?.title || 'An assessment'} was submitted and is ready for review.`,
+          type: 'assessment',
+          relatedId: attemptId,
+        });
+      }
+    } catch {
+      // Notification failure should not block submission
     }
   }
 

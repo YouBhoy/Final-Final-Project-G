@@ -1,6 +1,8 @@
 import { useAuth } from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { appointmentService } from "@spartan-g/shared-services";
 import { useFacilitatorDashboard } from "../../hooks/useFacilitatorDashboard";
+import { notificationRoute, UiNotification } from "../../lib/notificationRouting";
 
 /**
  * Facilitator Dashboard — daily workflow summary, fully data-driven via
@@ -27,6 +29,17 @@ export function FacilitatorDashboardPage() {
   const todayAppointments = data?.todayAppointments;
   const upcomingAppointments = data?.upcomingAppointments ?? [];
   const recentConversations = data?.recentConversations ?? [];
+  const unreadNotifications = data?.notifications.unreadCount ?? 0;
+  const recentNotifications = data?.notifications.recent ?? [];
+
+  /** Click a notification → mark read → redirect to the relevant page. */
+  const handleOpenNotification = (notification: UiNotification) => {
+    if (!notification.isRead) {
+      void appointmentService.markNotificationRead(notification.id).catch(() => undefined);
+    }
+    const route = notificationRoute(user?.role, notification);
+    if (route) navigate(route);
+  };
 
   return (
     <div className="space-y-6">
@@ -290,6 +303,50 @@ export function FacilitatorDashboardPage() {
             </button>
           </div>
 
+
+          {/* Notifications Card */}
+          <div className="rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="type-section">Notifications</h3>
+                <p className="type-caption mt-1">Latest updates and alerts</p>
+              </div>
+              {unreadNotifications > 0 && (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-bold text-white">
+                  {unreadNotifications}
+                </span>
+              )}
+            </div>
+            <div className="mt-6 space-y-3">
+              {recentNotifications.length === 0 ? (
+                <p className="type-caption text-center py-4">You&rsquo;re all caught up.</p>
+              ) : (
+                recentNotifications.slice(0, 4).map((notification) => (
+                  <button
+                    key={notification.id}
+                    onClick={() => handleOpenNotification(notification)}
+                    className={`w-full rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 text-left transition-all duration-150 hover:bg-[var(--color-primary-pastel)] hover:shadow-sm ${
+                      !notification.isRead ? "border-l-2 border-[var(--color-accent)]" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`truncate text-sm ${notification.isRead ? "text-[var(--color-text-secondary)]" : "font-semibold text-[var(--color-text)]"}`}>
+                          {notification.title}
+                        </p>
+                        {notification.body && (
+                          <p className="type-caption mt-0.5 line-clamp-2">{notification.body}</p>
+                        )}
+                      </div>
+                      {!notification.isRead && (
+                        <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-[var(--color-accent)]" />
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
 
           {/* Quick Actions Section */}
           <div className="rounded-[var(--radius-xl)] bg-[var(--color-surface)] p-6 shadow-card">

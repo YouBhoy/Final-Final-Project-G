@@ -1,7 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { appointmentService } from "@spartan-g/shared-services";
 import { useStudentDashboard } from "../../hooks/useStudentDashboard";
 import { Spinner } from "../../components/ui/Spinner";
+import { notificationRoute, UiNotification } from "../../lib/notificationRouting";
 import type { AppointmentDocument } from "@spartan-g/shared-types";
 
 /**
@@ -126,6 +128,15 @@ export function StudentDashboardPage() {
   const next = data?.appointments.next ?? null;
   const unreadMessages = data?.messages.unreadTotal ?? 0;
   const unreadNotifications = data?.notifications.unreadCount ?? 0;
+
+  /** Click a notification → mark read → redirect to the relevant page. */
+  const handleOpenNotification = (notification: UiNotification) => {
+    if (!notification.isRead) {
+      void appointmentService.markNotificationRead(notification.id).catch(() => undefined);
+    }
+    const route = notificationRoute(user?.role, notification);
+    if (route) navigate(route);
+  };
 
   return (
     <div className="space-y-8">
@@ -388,14 +399,20 @@ export function StudentDashboardPage() {
               </p>
             ) : (
               (data?.notifications.recent ?? []).slice(0, 4).map((notification) => (
-                <div key={notification.id} className="rounded-[var(--radius-md)] bg-[var(--color-bg)] p-3">
+                <button
+                  key={notification.id}
+                  onClick={() => handleOpenNotification(notification as UiNotification)}
+                  className={`w-full rounded-[var(--radius-md)] bg-[var(--color-bg)] p-3 text-left transition-all duration-150 hover:bg-[var(--color-primary-pastel)] ${
+                    !notification.isRead ? "border-l-2 border-[var(--color-accent)]" : ""
+                  }`}
+                >
                   <p className={`text-sm ${notification.isRead ? "text-[var(--color-text-secondary)]" : "font-semibold text-[var(--color-text)]"}`}>
                     {notification.title}
                   </p>
                   {notification.body && (
                     <p className="type-caption mt-0.5 line-clamp-2">{notification.body}</p>
                   )}
-                </div>
+                </button>
               ))
             )}
           </div>

@@ -1,13 +1,33 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ConversationList } from '../../components/messaging/ConversationList';
 import { MessageThread } from '../messaging/MessageThread';
 import { useConversationList } from '../../hooks/useConversationList';
 import { useAuth } from '../../hooks/useAuth';
 
 export function FacilitatorMessagesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const { conversations, participantNames, isLoading, error, retry } = useConversationList();
   const { user } = useAuth();
+  const requestedConversationId = searchParams.get('conversation');
+
+  // Deep-link support: when arriving via a notification with ?conversation=<id>,
+  // open that conversation as soon as it appears in the list.
+  useEffect(() => {
+    if (!requestedConversationId || activeConversationId) {
+      return;
+    }
+
+    const exists = conversations.some((conversation) => conversation.id === requestedConversationId);
+    if (exists) {
+      setActiveConversationId(requestedConversationId);
+      setSearchParams((currentParams) => {
+        currentParams.delete('conversation');
+        return currentParams;
+      }, { replace: true });
+    }
+  }, [activeConversationId, conversations, requestedConversationId, setSearchParams]);
 
   useEffect(() => {
     if (activeConversationId && !conversations.some((conversation) => conversation.id === activeConversationId)) {

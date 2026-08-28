@@ -5,7 +5,7 @@ import {
   messagingService,
   userService,
 } from "@spartan-g/shared-services";
-import type { Role } from "@spartan-g/shared-types";
+import type { NotificationDocument, Role } from "@spartan-g/shared-types";
 import { useAuth } from "./useAuth";
 
 /** Open risk alerts aggregated by severity (critical folds into high). */
@@ -45,6 +45,10 @@ export interface FacilitatorDashboardData {
   upcomingAppointments: UpcomingAppointment[];
   recentConversations: RecentConversation[];
   unreadTotal: number;
+  notifications: {
+    unreadCount: number;
+    recent: (NotificationDocument & { id: string })[];
+  };
 }
 
 const EMPTY_DATA: FacilitatorDashboardData = {
@@ -53,6 +57,7 @@ const EMPTY_DATA: FacilitatorDashboardData = {
   upcomingAppointments: [],
   recentConversations: [],
   unreadTotal: 0,
+  notifications: { unreadCount: 0, recent: [] },
 };
 
 /**
@@ -98,9 +103,10 @@ export function useFacilitatorDashboard() {
       setLoading(true);
       setError(null);
 
-      const [riskResult, appointmentsResult] = await Promise.allSettled([
+      const [riskResult, appointmentsResult, notificationsResult] = await Promise.allSettled([
         loadRiskSummary(user.uid, role),
         loadAppointments(user.uid, role, resolveUserName),
+        loadNotifications(user.uid),
       ]);
 
       // Preserve live conversation data owned by the subscription.
@@ -117,6 +123,10 @@ export function useFacilitatorDashboard() {
             : EMPTY_DATA.upcomingAppointments,
         recentConversations: prev?.recentConversations ?? EMPTY_DATA.recentConversations,
         unreadTotal: prev?.unreadTotal ?? EMPTY_DATA.unreadTotal,
+        notifications:
+          notificationsResult.status === "fulfilled"
+            ? notificationsResult.value
+            : prev?.notifications ?? EMPTY_DATA.notifications,
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
@@ -224,6 +234,14 @@ async function loadAppointments(
   );
 
   return { todayAppointments, upcomingAppointments };
+}
+
+async function loadNotifications(
+  userId: string,
+): Promise<{ unreadCount: number; recent: (NotificationDocument & { id: string })[] }> {
+  const notifications = await appointmentService.getAllNotifications(userId);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  return { unreadCount, recent: notifications.slice(0, 5) };
 }
 
 function toDate(value: unknown): Date | null {

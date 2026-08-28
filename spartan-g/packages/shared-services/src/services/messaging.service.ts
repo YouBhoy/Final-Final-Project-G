@@ -19,7 +19,9 @@ import {
 } from '../firebase/firestore';
 import { conversationRepository } from '../repositories/conversation.repository';
 import { messageRepository } from '../repositories/message.repository';
+import { userRepository } from '../repositories/user.repository';
 import { COLLECTIONS } from '@spartan-g/shared-types';
+import { notificationService } from './notification.service';
 
 /**
  * MessagingService - Core business logic for messaging.
@@ -150,6 +152,32 @@ class MessagingService {
 
         transaction.update(conversationRef, updateData);
       });
+
+      // Best-effort: create an in-app notification for the other participants
+      // so they can deep-link straight into this conversation. Failures must
+      // never block the message send itself.
+      try {
+        const conversation = await conversationRepository.getById(conversationId);
+        const recipients = (conversation?.participantIds ?? []).filter((id) => id !== senderId);
+        if (recipients.length > 0) {
+          const sender = await userRepository.getById(senderId);
+          const senderName = sender?.displayName || 'Someone';
+          const preview = normalizedBody.length > 80 ? `${normalizedBody.slice(0, 80)}…` : normalizedBody;
+          await Promise.all(
+            recipients.map((recipientId) =>
+              notificationService.createInAppNotification({
+                userId: recipientId,
+                title: `New message from ${senderName}`,
+                body: preview,
+                type: 'message',
+                relatedId: conversationId,
+              }),
+            ),
+          );
+        }
+      } catch (notificationError) {
+        console.error('[MessagingService] Failed to create message notifications:', notificationError);
+      }
 
       return messageRef.id;
     } catch (error: any) {
