@@ -22,6 +22,11 @@ web-build/
 # Firebase
 google-services.json
 GoogleService-Info.plist
+# Exception: google-services.json is public Firebase client config (NOT a secret —
+# it ships inside every APK). EAS cloud builds need it at android/app/google-services.json
+# for the google-services Gradle plugin to work.
+!apps/mobile/google-services.json
+!apps/mobile/android/app/google-services.json
 
 # Firebase service-account keys (FCM V1 / Admin SDK) — sensitive, NEVER commit
 *firebase-adminsdk*.json
