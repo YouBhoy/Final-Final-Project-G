@@ -8,20 +8,6 @@ class NotificationService {
     const result = await adapter.registerForPushNotifications(deploymentTarget);
     if (!result) return null;
 
-    // ACCOUNT-SWITCH SAFETY: an Expo push token belongs to the physical device,
-    // not to any user. If a previous account registered this same token, remove
-    // its claim(s) first so pushes for the old account stop on this device.
-    try {
-      const previousOwners = await deviceTokenRepository.getByToken(result.token);
-      const stale = previousOwners.filter((d) => d.uid !== uid);
-      for (const doc of stale) {
-        await deviceTokenRepository.delete(doc.id);
-      }
-    } catch (err) {
-      console.error('[NotificationService] Failed to clear stale device tokens:', err);
-      // Continue — registering the new owner is still correct.
-    }
-
     const docId = `${uid}_${deploymentTarget}`;
     await deviceTokenRepository.create(docId, {
       uid,
