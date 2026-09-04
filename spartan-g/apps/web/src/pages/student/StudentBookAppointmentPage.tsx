@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { appointmentService, userService, workHoursService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
+import { isSameWeek } from '@spartan-g/shared-types';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -34,6 +35,12 @@ export function StudentBookAppointmentPage() {
   useEffect(() => {
     if (!user || !facilitatorId) return;
     setError('');
+    // Only the facilitator's current week of hours is bookable — dates in past
+    // or future weeks are never offered even if the same weekday was set once.
+    if (!isSameWeek(selectedDate, new Date())) {
+      setWorkHoursForDay(null);
+      return;
+    }
     // Load work hours for the selected date's day of week
     workHoursService.getActiveSchedule(facilitatorId, user.role)
       .then((schedules: any[]) => {

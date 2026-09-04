@@ -3,8 +3,6 @@ import {
   View,
   Text,
   Switch,
-  Modal,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -12,59 +10,17 @@ import {
 } from 'react-native';
 import { useAuthStore, workHoursService } from '@spartan-g/shared-services';
 import type { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
+import { formatWeekRange, startOfWeek } from '@spartan-g/shared-types';
 import { lightColors, formatWorkHours } from '@spartan-g/shared-ui';
+import { TimePickerDropdown } from '../../components/TimePickerDropdown';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-/**
- * All selectable times in 30-minute increments, from 7:00 AM to 7:00 PM
- * (inclusive). `value` is the canonical 24-hour zero-padded "HH:MM" string that
- * is stored in Firestore (WorkHoursScheduleDocument.startTime/endTime). `label`
- * is the user-friendly 12-hour AM/PM display. Only the UI input range changed —
- * the stored value format is preserved so appointment booking logic keeps working.
- */
-const TIME_OPTIONS: { value: string; label: string }[] = (() => {
-  const options: { value: string; label: string }[] = [];
-  const startMinutes = 7 * 60; // 7:00 AM
-  const endMinutes = 19 * 60;  // 7:00 PM (inclusive)
-  for (let t = startMinutes; t <= endMinutes; t += 30) {
-    const h = Math.floor(t / 60);
-    const m = t % 60;
-    const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    const date = new Date();
-    date.setHours(h, m);
-    const label = date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-    options.push({ value, label });
-  }
-  return options;
-})();
-
-/**
- * Resolve the 12-hour AM/PM label for a stored "HH:MM" value.
- * Falls back to formatting any valid 24-hour "HH:MM" string so that a saved
- * start/end time outside the 7:00 AM - 7:00 PM picker range still displays
- * cleanly (e.g. "05:00" -> "5:00 AM") instead of showing raw text.
- */
-function timeLabel(value: string): string {
-  const existing = TIME_OPTIONS.find((o) => o.value === value);
-  if (existing) return existing.label;
-  const [hours, minutes] = value.split(':').map(Number);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return value;
-  const date = new Date();
-  date.setHours(hours, minutes);
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
 export function WorkHoursScreen() {
   const session = useAuthStore((s) => s.session);
+
+  // Work hours are per-week: this screen always edits the current week only.
+  const currentWeekStart = startOfWeek(new Date());
 
   const [schedules, setSchedules] = useState<(WorkHoursScheduleDocument & { id: string })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,7 +29,6 @@ export function WorkHoursScreen() {
   const [endTime, setEndTime] = useState('17:00');
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
-  const [pickerTarget, setPickerTarget] = useState<'start' | 'end' | null>(null);
 
   const loadSchedules = useCallback(async () => {
     if (!session) return;
@@ -165,8 +120,9 @@ export function WorkHoursScreen() {
       <View style={styles.card}>
         <Text style={styles.title}>Work Hours</Text>
         <Text style={styles.subtitle}>
-          Set your weekly availability. Students can book appointments during active hours.
+          Hours you set only apply to the current week. Students can book during this week's active hours.
         </Text>
+        <Text style={styles.weekLabel}>{formatWeekRange(currentWeekStart)}</Text>
 
         <View style={styles.dayList}>
           {DAYS.map((day, index) => {
@@ -194,23 +150,17 @@ export function WorkHoursScreen() {
                 {isEditing ? (
                   <View>
                     <View style={styles.editRow}>
-                      <TouchableOpacity
-                        style={styles.pickerButton}
-                        onPress={() => setPickerTarget('start')}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.pickerButtonText}>{timeLabel(startTime)}</Text>
-                        <Text style={styles.pickerChevron}>▾</Text>
-                      </TouchableOpacity>
+                      <TimePickerDropdown
+                        value={startTime}
+                        onChange={setStartTime}
+                        title="Start Time"
+                      />
                       <Text style={styles.timeSeparator}>to</Text>
-                      <TouchableOpacity
-                        style={styles.pickerButton}
-                        onPress={() => setPickerTarget('end')}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.pickerButtonText}>{timeLabel(endTime)}</Text>
-                        <Text style={styles.pickerChevron}>▾</Text>
-                      </TouchableOpacity>
+                      <TimePickerDropdown
+                        value={endTime}
+                        onChange={setEndTime}
+                        title="End Time"
+                      />
                       <TouchableOpacity
                         onPress={() => handleSaveTime(index)}
                         disabled={saving || !isValidRange}
@@ -246,57 +196,6 @@ export function WorkHoursScreen() {
           })}
         </View>
       </View>
-
-      {/* Time picker dropdown */}
-      <Modal
-        visible={pickerTarget !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPickerTarget(null)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setPickerTarget(null)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{pickerTarget === 'start' ? 'Start Time' : 'End Time'}</Text>
-            <FlatList
-              data={TIME_OPTIONS}
-              keyExtractor={(item) => item.value}
-              renderItem={({ item }) => {
-                const selected = pickerTarget === 'start' ? startTime : endTime;
-                return (
-                  <TouchableOpacity
-                    style={[styles.modalOption, item.value === selected && styles.modalOptionSelected]}
-                    onPress={() => {
-                      if (pickerTarget === 'start') {
-                        setStartTime(item.value);
-                      } else {
-                        setEndTime(item.value);
-                      }
-                      setPickerTarget(null);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.modalOptionText,
-                        item.value === selected && styles.modalOptionTextSelected,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                    {item.value === selected && (
-                      <Text style={styles.modalOptionCheck}>✓</Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </ScrollView>
   );
 }
@@ -341,6 +240,13 @@ const styles = StyleSheet.create({
     color: lightColors.textSecondary,
     marginBottom: 20,
     lineHeight: 20,
+  },
+  weekLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: lightColors.textSecondary,
+    marginTop: -12,
+    marginBottom: 16,
   },
   dayList: {
     gap: 8,
@@ -398,29 +304,6 @@ const styles = StyleSheet.create({
     marginLeft: 60,
     flexWrap: 'wrap',
   },
-  pickerButton: {
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 14,
-    backgroundColor: lightColors.background,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minWidth: 96,
-  },
-  pickerButtonText: {
-    fontSize: 14,
-    color: lightColors.text,
-    flex: 1,
-  },
-  pickerChevron: {
-    fontSize: 12,
-    color: lightColors.textMuted,
-    marginLeft: 6,
-  },
   timeSeparator: {
     fontSize: 14,
     color: lightColors.textMuted,
@@ -430,52 +313,6 @@ const styles = StyleSheet.create({
     color: lightColors.error,
     marginTop: 8,
     marginLeft: 60,
-  },
-  // Time picker modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: lightColors.surface,
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    maxHeight: '70%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: lightColors.text,
-    marginBottom: 12,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  modalOptionSelected: {
-    backgroundColor: '#FEE2E2',
-  },
-  modalOptionText: {
-    fontSize: 15,
-    color: lightColors.text,
-    flex: 1,
-  },
-  modalOptionTextSelected: {
-    fontWeight: '600',
-    color: lightColors.primary,
-  },
-  modalOptionCheck: {
-    fontSize: 16,
-    color: lightColors.primary,
-    marginLeft: 8,
   },
   saveButton: {
     backgroundColor: lightColors.primary,

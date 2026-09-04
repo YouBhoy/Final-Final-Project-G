@@ -400,6 +400,16 @@ class MessagingService {
           });
         }
       });
+
+      // Opening the conversation also clears its in-app message notifications
+      // (type 'message' docs carry relatedId = conversationId), so they stop
+      // appearing as unread after the user has seen the messages. Fire-and-
+      // forget: failures here are non-fatal and self-heal on next open.
+      notificationRepository
+        .markRelatedAsRead(userId, conversationId)
+        .catch(() => {
+          // Silently ignore — read state syncs the next time this runs
+        });
     } catch (error: any) {
       console.error('[MessagingService] Failed to mark conversation as read:', {
         conversationId,

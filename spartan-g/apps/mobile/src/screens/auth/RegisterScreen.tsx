@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
   Image,
   Pressable,
   Dimensions,
+  findNodeHandle,
+  type NativeSyntheticEvent,
+  type TextInputFocusEventData,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
@@ -152,12 +155,48 @@ export function RegisterScreen({ navigation }: Props) {
 
   const heroHeight = SCREEN_HEIGHT * HERO_RATIO;
 
+  // Scrolls the focused field comfortably above the keyboard (~120px of
+  // breathing room below it) so it never sits at the very edge. On Android we
+  // wait a beat so windowSoftInputMode="adjustResize" finishes resizing the
+  // window before the field's position is measured.
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const scrollToFocusedField = useCallback(
+    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      const node = findNodeHandle(e.target);
+      const responder = scrollViewRef.current?.getScrollResponder() as
+        | {
+            scrollResponderScrollNativeHandleToKeyboard?: (
+              node: number,
+              extraHeight?: number,
+              preventNegativeScrollOffset?: boolean,
+            ) => void;
+          }
+        | undefined;
+      const scrollToKeyboard =
+        responder?.scrollResponderScrollNativeHandleToKeyboard;
+      if (node == null || !scrollToKeyboard) return;
+      const scroll = () => scrollToKeyboard(node, 120, true);
+      if (Platform.OS === 'android') {
+        setTimeout(scroll, 100);
+      } else {
+        scroll();
+      }
+    },
+    [],
+  );
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // iOS: pad the layout up by the keyboard height. Android: the manifest's
+      // windowSoftInputMode="adjustResize" already resizes the window — adding
+      // behavior="height" here shrank it twice and pushed the fields under the
+      // keyboard, so Android passes through (behavior undefined).
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         bounces={false}
@@ -245,6 +284,7 @@ export function RegisterScreen({ navigation }: Props) {
                   onChangeText={(v) => handleFieldChange('firstName', v)}
                   autoCapitalize="words"
                   autoComplete="given-name"
+                  onFocus={scrollToFocusedField}
                   editable={!isLoading}
                 />
                 {formErrors.firstName && (
@@ -261,6 +301,7 @@ export function RegisterScreen({ navigation }: Props) {
                   onChangeText={(v) => handleFieldChange('lastName', v)}
                   autoCapitalize="words"
                   autoComplete="family-name"
+                  onFocus={scrollToFocusedField}
                   editable={!isLoading}
                 />
                 {formErrors.lastName && (
@@ -282,6 +323,7 @@ export function RegisterScreen({ navigation }: Props) {
                 autoCorrect={false}
                 keyboardType="email-address"
                 autoComplete="email"
+                onFocus={scrollToFocusedField}
                 editable={!isLoading}
               />
               {formErrors.email && (
@@ -355,6 +397,8 @@ export function RegisterScreen({ navigation }: Props) {
                   onChangeText={(v) => handleFieldChange('password', v)}
                   secureTextEntry={!showPassword}
                   autoComplete="new-password"
+                  numberOfLines={1}
+                  onFocus={scrollToFocusedField}
                   editable={!isLoading}
                 />
                 <Pressable
@@ -391,6 +435,8 @@ export function RegisterScreen({ navigation }: Props) {
                   onChangeText={(v) => handleFieldChange('confirmPassword', v)}
                   secureTextEntry={!showConfirmPassword}
                   autoComplete="new-password"
+                  numberOfLines={1}
+                  onFocus={scrollToFocusedField}
                   editable={!isLoading}
                 />
                 <Pressable
@@ -580,6 +626,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    // Fixed height: single-line inputs must never grow vertically (e.g. long
+    // passwords). Text scrolls horizontally inside instead of wrapping.
+    height: 48,
     fontSize: 15,
     color: lightColors.text,
   },
@@ -588,6 +637,7 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     paddingRight: 44,
+    textAlignVertical: 'center',
   },
   eyeButton: {
     position: 'absolute',

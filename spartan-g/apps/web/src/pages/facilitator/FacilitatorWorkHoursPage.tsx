@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { workHoursService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
-import { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
+import { WorkHoursScheduleDocument, formatWeekRange } from '@spartan-g/shared-types';
 import { workHoursRepository } from '@spartan-g/shared-services';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -95,8 +95,11 @@ export function FacilitatorWorkHoursPage() {
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h1 className="text-xl font-semibold text-gray-900 mb-2">Work Hours</h1>
-        <p className="text-sm text-gray-500 mb-6">
-          Set your weekly availability. Students can book appointments during active hours.
+        <p className="text-sm text-gray-500 mb-1">
+          Hours you set only apply to the current week. Students can book during this week's active hours.
+        </p>
+        <p className="text-sm font-medium text-gray-700 mb-6">
+          {formatWeekRange(new Date())}
         </p>
 
         <div className="space-y-3">

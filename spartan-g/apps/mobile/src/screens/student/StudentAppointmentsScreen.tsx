@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,15 @@ import type { AppointmentDocument } from '@spartan-g/shared-types';
 import { lightColors, palette, formatDateTime } from '@spartan-g/shared-ui';
 
 const STATUS_ORDER = ['requested', 'accepted', 'completed', 'cancelled', 'rejected', 'no_show'];
+
+/* Status filter — same chip pattern as the campus filter on FindFacilitatorScreen */
+const STATUS_FILTERS: { key: string; label: string; statuses: string[] }[] = [
+  { key: 'all', label: 'All', statuses: STATUS_ORDER },
+  { key: 'pending', label: 'Pending', statuses: ['requested'] },
+  { key: 'approved', label: 'Approved', statuses: ['accepted'] },
+  { key: 'completed', label: 'Completed', statuses: ['completed'] },
+  { key: 'canceled', label: 'Canceled', statuses: ['cancelled', 'rejected'] },
+];
 
 function getStatusColor(status: string): string {
   switch (status) {
@@ -50,6 +59,13 @@ export function StudentAppointmentsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const filteredAppointments = useMemo(() => {
+    const filter = STATUS_FILTERS.find(f => f.key === statusFilter);
+    if (!filter) return appointments;
+    return appointments.filter(apt => filter.statuses.includes(apt.status));
+  }, [appointments, statusFilter]);
 
   const loadAppointments = useCallback(async () => {
     if (!session) return;
@@ -141,8 +157,31 @@ export function StudentAppointmentsScreen() {
       }
     >
       <Text style={styles.title}>My Appointments</Text>
+
+      {/* Status filter chips */}
+      <View style={styles.chipRow}>
+        {STATUS_FILTERS.map(f => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.chip, statusFilter === f.key && styles.chipActive]}
+            onPress={() => setStatusFilter(f.key)}
+          >
+            <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.appointmentList}>
-        {appointments.map(apt => (
+        {filteredAppointments.length === 0 ? (
+          <View style={styles.filterEmptyCard}>
+            <Text style={styles.filterEmptyText}>
+              No {STATUS_FILTERS.find(f => f.key === statusFilter)?.label.toLowerCase()} appointments.
+            </Text>
+          </View>
+        ) : (
+        filteredAppointments.map(apt => (
           <View key={apt.id} style={styles.appointmentCard}>
             <View style={styles.appointmentHeader}>
               <View style={styles.appointmentInfo}>
@@ -186,7 +225,8 @@ export function StudentAppointmentsScreen() {
               </View>
             </View>
           </View>
-        ))}
+        ))
+        )}
       </View>
     </ScrollView>
   );
@@ -218,6 +258,45 @@ const styles = StyleSheet.create({
   actionColumn: { gap: 6 },
   cancelButton: { borderWidth: 1.5, borderColor: lightColors.error, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
   cancelButtonText: { fontSize: 12, fontWeight: '600', color: lightColors.error },
-  messageButton: { borderWidth: 1.5, borderColor: lightColors.infoBadgeText, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
-  messageButtonText: { fontSize: 12, fontWeight: '600', color: lightColors.infoBadgeText },
+  messageButton: { borderWidth: 1.5, borderColor: lightColors.text, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  messageButtonText: { fontSize: 12, fontWeight: '600', color: lightColors.text },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: lightColors.border,
+    backgroundColor: lightColors.surface,
+  },
+  chipActive: {
+    backgroundColor: palette.spartanRed,
+    borderColor: palette.spartanRed,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: lightColors.textSecondary,
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+  filterEmptyCard: {
+    borderWidth: 2,
+    borderColor: lightColors.border,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    backgroundColor: lightColors.surface,
+    padding: 32,
+    alignItems: 'center',
+  },
+  filterEmptyText: {
+    fontSize: 14,
+    color: lightColors.textMuted,
+    textAlign: 'center',
+  },
 });

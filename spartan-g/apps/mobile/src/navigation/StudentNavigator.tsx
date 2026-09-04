@@ -4,8 +4,9 @@ import {
   StudentMobileStackParamList,
   StudentMobileTabParamList,
 } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, palette } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
+import { SafeScreen } from '../components/SafeScreen';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { AssessmentsListScreen } from '../screens/assessment/AssessmentsListScreen';
 import { FindFacilitatorScreen } from '../screens/student/FindFacilitatorScreen';
@@ -32,22 +33,53 @@ function StudentTabs() {
       }}
     >
       <Tab.Screen name="StudentHome" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} /> }}>
-        {() => <DashboardScreen portalName="Student Portal" />}
+        {() => (
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
+            <DashboardScreen portalName="Student Portal" />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="StudentCourses" options={{ title: 'Facilitators', tabBarIcon: ({ color, size }) => <Feather name="users" size={size} color={color} /> }}>
-        {() => <FindFacilitatorScreen />}
+        {() => (
+          <SafeScreen>
+            <FindFacilitatorScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="StudentAssignments" options={{ title: 'Assessments', tabBarIcon: ({ color, size }) => <Feather name="clipboard" size={size} color={color} /> }}>
-        {() => <AssessmentsListScreen />}
+        {() => (
+          <SafeScreen>
+            <AssessmentsListScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="StudentGarden" options={{ title: 'Garden', tabBarIcon: ({ color, size }) => <Feather name="feather" size={size} color={color} /> }}>
-        {() => <GardenScreen />}
+        {() => (
+          <SafeScreen>
+            <GardenScreen />
+          </SafeScreen>
+        )}
+      </Tab.Screen>
+      <Tab.Screen name="StudentAppointments" options={{ title: 'My Appts', tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} /> }}>
+        {() => (
+          <SafeScreen>
+            <StudentAppointmentsScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="StudentMessages" options={{ title: 'Messages', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
-        {() => <MessagesScreen />}
+        {() => (
+          <SafeScreen>
+            <MessagesScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="StudentProfile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} /> }}>
-        {() => <StudentProfileScreen />}
+        {() => (
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
+            <StudentProfileScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
     </Tab.Navigator>
   );
@@ -59,9 +91,14 @@ export function StudentNavigator() {
       <Stack.Screen name="StudentTabs" component={StudentTabs} options={{ headerShown: false }} />
       <Stack.Screen
         name="Notifications"
-        component={NotificationsScreen}
         options={{ headerShown: false }}
-      />
+      >
+        {() => (
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
+            <NotificationsScreen />
+          </SafeScreen>
+        )}
+      </Stack.Screen>
       <Stack.Screen name="CourseDetail" options={{ title: 'Course' }}>
         {() => <PlaceholderScreen routeName="CourseDetail" />}
       </Stack.Screen>
@@ -82,11 +119,6 @@ export function StudentNavigator() {
         name="BookAppointment"
         component={BookAppointmentScreen}
         options={{ title: 'Book Appointment' }}
-      />
-      <Stack.Screen
-        name="StudentAppointments"
-        component={StudentAppointmentsScreen}
-        options={{ title: 'My Appointments' }}
       />
     </Stack.Navigator>
   );

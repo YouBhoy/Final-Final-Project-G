@@ -4,7 +4,9 @@
  * Real-time: subscribes live to the user's `notifications` documents so new
  * message/appointment activity appears without a manual refresh. Tapping a row
  * marks it read and deep-links to the related chat or (until that detail screen
- * exists) the Appointments tab.
+ * exists) the Appointments tab. Opening a conversation in Messages also marks
+ * that conversation's message notifications read (see MessagingService).
+ * Unread rows are tinted with a red dot + bold title; read rows are muted.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
@@ -90,7 +92,7 @@ function NotificationRow({
       </View>
       <View style={styles.rowContent}>
         <View style={styles.rowTopLine}>
-          <Text style={styles.rowTitle} numberOfLines={1}>
+          <Text style={[styles.rowTitle, item.isRead && styles.rowTitleRead]} numberOfLines={1}>
             {item.title}
           </Text>
           <Text style={styles.rowTime}>{formatRelativeTime(item)}</Text>
@@ -253,7 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: palette.spartanRedDark,
-    paddingTop: 56,
+    paddingTop: 16,
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
@@ -339,6 +341,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: lightColors.text,
+  },
+  rowTitleRead: {
+    fontWeight: '600',
+    color: lightColors.textMuted,
   },
   rowTime: {
     fontSize: 11,

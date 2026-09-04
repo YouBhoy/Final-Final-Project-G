@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,20 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, appointmentService, workHoursService, userService } from '@spartan-g/shared-services';
 import type { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
+import { isSameWeek } from '@spartan-g/shared-types';
 import { lightColors, formatWorkHours } from '@spartan-g/shared-ui';
+import { TimePickerDropdown, TIME_OPTIONS } from '../../components/TimePickerDropdown';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_HEADERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const APPOINTMENT_DURATION_MINUTES = 60;
+
+function timeToMinutes(value: string): number {
+  const [h, m] = value.split(':').map(Number);
+  return h * 60 + m;
+}
 
 type Props = NativeStackScreenProps<StudentMobileStackParamList, 'BookAppointment'>;
 
@@ -48,6 +57,12 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (!session || !facilitatorId) return;
     setError('');
+    // Only the facilitator's current week of hours is bookable — dates in past
+    // or future weeks are never offered even if the same weekday was set once.
+    if (!isSameWeek(selectedDate, new Date())) {
+      setWorkHoursForDay(null);
+      return;
+    }
     workHoursService.getActiveSchedule(facilitatorId, session.role)
       .then((schedules: WorkHoursScheduleDocument[]) => {
         const daySchedule = schedules.find((s) => s.dayOfWeek === selectedDate.getDay());
@@ -63,6 +78,31 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
         setWorkHoursForDay(null);
       });
   }, [facilitatorId, selectedDate, session]);
+
+  // Time options restricted to the facilitator's available hours for the day,
+  // leaving room for the full 60-minute appointment duration.
+  const availableTimeOptions = useMemo(() => {
+    if (!workHoursForDay) return [];
+    const startMin = timeToMinutes(workHoursForDay.startTime);
+    const endMin = timeToMinutes(workHoursForDay.endTime);
+    return TIME_OPTIONS.filter((o) => {
+      const optMin = timeToMinutes(o.value);
+      return optMin >= startMin && optMin + APPOINTMENT_DURATION_MINUTES <= endMin;
+    });
+  }, [workHoursForDay]);
+
+  // Keep the selected time within the available options whenever the day's
+  // hours change (e.g. default to the first valid slot of the day).
+  useEffect(() => {
+    if (!workHoursForDay) return;
+    if (availableTimeOptions.length === 0) {
+      setSelectedTime('');
+      return;
+    }
+    if (!availableTimeOptions.some((o) => o.value === selectedTime)) {
+      setSelectedTime(availableTimeOptions[0].value);
+    }
+  }, [workHoursForDay, availableTimeOptions, selectedTime]);
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
@@ -83,7 +123,7 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
   }, [currentYear, currentMonth]);
 
   const handleBook = useCallback(async () => {
-    if (!session || !facilitatorId || !workHoursForDay) return;
+    if (!session || !facilitatorId || !workHoursForDay || !selectedTime) return;
     setIsBooking(true);
     setError('');
     try {
@@ -222,13 +262,12 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
               Available hours: <Text style={{ fontWeight: '700' }}>{formatWorkHours(workHoursForDay.startTime, workHoursForDay.endTime)}</Text>
             </Text>
             <View style={styles.timeRow}>
-              <TextInput
-                style={styles.timeInput}
+              <TimePickerDropdown
                 value={selectedTime}
-                onChangeText={setSelectedTime}
-                placeholder="HH:MM"
-                placeholderTextColor={lightColors.textMuted}
-                autoComplete="off"
+                onChange={setSelectedTime}
+                options={availableTimeOptions}
+                title="Choose Your Time"
+                placeholder="No available times"
               />
               <Text style={styles.timeLabel}>60 min appointment</Text>
             </View>
@@ -257,8 +296,8 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
       {/* Book button */}
       <TouchableOpacity
         onPress={handleBook}
-        disabled={!workHoursForDay || isBooking}
-        style={[styles.bookButton, (!workHoursForDay || isBooking) && styles.bookButtonDisabled]}
+        disabled={!workHoursForDay || isBooking || availableTimeOptions.length === 0}
+        style={[styles.bookButton, (!workHoursForDay || isBooking || availableTimeOptions.length === 0) && styles.bookButtonDisabled]}
       >
         <Text style={styles.bookButtonText}>
           {isBooking ? 'Booking...' : 'Request Appointment'}
@@ -449,18 +488,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  timeInput: {
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: lightColors.text,
-    backgroundColor: lightColors.background,
-    width: 90,
-    textAlign: 'center',
   },
   timeLabel: {
     fontSize: 13,

@@ -4,6 +4,8 @@ import {
   AppointmentSlotDocument,
   hasPermission,
   PermissionError,
+  isSameWeek,
+  startOfWeek,
 } from '@spartan-g/shared-types';
 import { Timestamp, serverTimestamp } from '../firebase/firestore';
 import { appointmentSlotRepository } from '../repositories/appointment-slot.repository';
@@ -47,9 +49,16 @@ class AppointmentSlotService {
       throw new PermissionError();
     }
 
-    // Validate against work hours
+    // Validate against work hours — slots are only valid inside the current
+    // week's schedule (work hours are per-week, not recurring).
+    if (!isSameWeek(payload.startTime, new Date())) {
+      throw new Error(
+        'Slots can only be created for the current week. Work hours must be set again each week.',
+      );
+    }
+    const currentWeekStart = startOfWeek(new Date());
     const dayOfWeek = payload.startTime.getDay();
-    const schedules = await workHoursRepository.getActiveByFacilitator(payload.facilitatorId);
+    const schedules = await workHoursRepository.getActiveByFacilitator(payload.facilitatorId, currentWeekStart);
     const daySchedule = schedules.find(s => s.dayOfWeek === dayOfWeek);
 
     if (!daySchedule) {

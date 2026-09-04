@@ -254,7 +254,7 @@ export function DashboardScreen({ portalName }: DashboardScreenProps) {
   }, [navigation]);
 
   const handleViewAppointments = useCallback(() => {
-    navigation?.navigate('StudentTabs', { screen: 'StudentHome' });
+    navigation?.navigate('StudentTabs', { screen: 'StudentAppointments' });
   }, [navigation]);
 
   const assessmentPercent = totalAssessments > 0
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 56,
+    paddingTop: 16,
     paddingBottom: 16,
     backgroundColor: palette.spartanRedDark,
   },

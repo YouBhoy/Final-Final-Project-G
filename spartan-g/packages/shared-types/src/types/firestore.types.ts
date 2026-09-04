@@ -125,6 +125,11 @@ export interface MessageDocument extends FirestoreDocument {
 
 export interface WorkHoursScheduleDocument extends FirestoreDocument {
   facilitatorId: string;
+  /**
+   * Monday (00:00 local) of the week this schedule belongs to. Work hours are
+   * per-week — only the current week's schedules are active/bookable.
+   */
+  weekStartDate: Timestamp;
   dayOfWeek: number;
   startTime: string;
   endTime: string;

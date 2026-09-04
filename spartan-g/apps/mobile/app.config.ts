@@ -23,6 +23,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#FFFFFF',
     },
     package: 'com.spartang.mobile',
+    // Matches windowSoftInputMode="adjustResize" in the generated
+    // AndroidManifest.xml. The auth screens rely on this window resize for
+    // keyboard avoidance (KeyboardAvoidingView is iOS-only there) — keep 'resize'.
+    softwareKeyboardLayoutMode: 'resize',
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
   },
   icon: './assets/icon.png',

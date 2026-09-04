@@ -83,6 +83,25 @@ class NotificationRepository extends BaseRepository<NotificationDocument> {
   }
 
   /**
+   * Mark every unread notification for a user tied to a specific related
+   * entity (e.g. all `type: 'message'` notifications whose relatedId is a
+   * conversationId) as read. Equality-only query — needs no composite index.
+   * Both notification writers (Cloud Function + AppointmentService) stamp
+   * `relatedId`, so legacy docs are covered too.
+   */
+  async markRelatedAsRead(userId: string, relatedId: string): Promise<number> {
+    const unread = await this.getAll([
+      where('userId', '==', userId),
+      where('relatedId', '==', relatedId),
+      where('isRead', '==', false),
+    ]);
+    await Promise.all(
+      unread.map((n) => this.update(n.id, { isRead: true } as Partial<NotificationDocument>)),
+    );
+    return unread.length;
+  }
+
+  /**
    * Live listener over a user's notifications (real-time badge + list support).
    * Emits newest-first on every change. Requires no composite index — the only
    * equality filter is on `userId`, which is covered by the built-in index.

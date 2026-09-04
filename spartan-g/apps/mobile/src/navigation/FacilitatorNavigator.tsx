@@ -4,8 +4,9 @@ import {
   FacilitatorMobileStackParamList,
   FacilitatorMobileTabParamList,
 } from '@spartan-g/shared-types';
-import { lightColors } from '@spartan-g/shared-ui';
+import { lightColors, palette } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
+import { SafeScreen } from '../components/SafeScreen';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { FacilitatorAssessmentsScreen } from '../screens/assessment/FacilitatorAssessmentsScreen';
 import { FacilitatorStudentsScreen } from '../screens/facilitator/FacilitatorStudentsScreen';
@@ -33,22 +34,46 @@ function FacilitatorTabs() {
       }}
     >
       <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Feather name="grid" size={size} color={color} /> }}>
-        {() => <DashboardScreen portalName="Facilitator Portal" />}
+        {() => (
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
+            <DashboardScreen portalName="Facilitator Portal" />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="Appointments" options={{ title: 'Appts', tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} /> }}>
-        {() => <AppointmentsScreen />}
+        {() => (
+          <SafeScreen>
+            <AppointmentsScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="Messaging" options={{ title: 'Chats', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
-        {() => <FacilitatorMessagesScreen />}
+        {() => (
+          <SafeScreen>
+            <FacilitatorMessagesScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Hours', tabBarIcon: ({ color, size }) => <Feather name="clock" size={size} color={color} /> }}>
-        {() => <WorkHoursScreen />}
+        {() => (
+          <SafeScreen>
+            <WorkHoursScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="AssessmentOverrides" options={{ title: 'Students', tabBarIcon: ({ color, size }) => <Feather name="users" size={size} color={color} /> }}>
-        {() => <AssessmentOverrideListScreen />}
+        {() => (
+          <SafeScreen>
+            <AssessmentOverrideListScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
       <Tab.Screen name="FacilitatorProfile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} /> }}>
-        {() => <FacilitatorProfileScreen />}
+        {() => (
+          <SafeScreen>
+            <FacilitatorProfileScreen />
+          </SafeScreen>
+        )}
       </Tab.Screen>
     </Tab.Navigator>
   );
@@ -64,9 +89,14 @@ export function FacilitatorNavigator() {
       />
       <Stack.Screen
         name="Notifications"
-        component={NotificationsScreen}
         options={{ headerShown: false }}
-      />
+      >
+        {() => (
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
+            <NotificationsScreen />
+          </SafeScreen>
+        )}
+      </Stack.Screen>
       <Stack.Screen
         name="FacilitatorAssessmentsList"
         component={FacilitatorAssessmentsScreen}

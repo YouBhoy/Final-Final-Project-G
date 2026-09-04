@@ -9,6 +9,7 @@ import {
   FlatList,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -18,6 +19,7 @@ import type { StudentMobileStackParamList, FacilitatorMobileStackParamList } fro
 import { useAuthStore, messagingService, userService } from '@spartan-g/shared-services';
 import type { MessageDocument } from '@spartan-g/shared-types';
 import { lightColors, formatTimeOnly } from '@spartan-g/shared-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ConversationDetailRouteProp = RouteProp<
   StudentMobileStackParamList & FacilitatorMobileStackParamList,
@@ -28,6 +30,7 @@ export function ConversationDetailScreen() {
   const route = useRoute<ConversationDetailRouteProp>();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const session = useAuthStore((s) => s.session);
+  const insets = useSafeAreaInsets();
   const { conversationId } = route.params;
 
   const [messages, setMessages] = useState<(MessageDocument & { id: string })[]>([]);
@@ -83,6 +86,24 @@ export function ConversationDetailScreen() {
       if (unsubscribe) unsubscribe();
     };
   }, [conversationId, session]);
+
+  // Keep the latest message visible when the keyboard opens.
+  // onContentSizeChange only fires when CONTENT grows (initial load, new
+  // message) — opening the keyboard shrinks the CONTAINER instead, so it
+  // never fires and older messages stay pinned above the fold. Listen to
+  // the keyboard event and scroll to the bottom once the resize settles.
+  // iOS uses keyboardWillShow (before the padding animation); Android uses
+  // keyboardDidShow (after adjustResize has resized the window) with a short
+  // delay so the scroll lands on the final, post-resize list height.
+  // On keyboard dismiss we intentionally do nothing — the container grows
+  // back, the existing offset stays valid, and the bottom remains visible.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const subscription = Keyboard.addListener(showEvent, () => {
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+    });
+    return () => subscription.remove();
+  }, []);
 
   const handleSend = async () => {
     const trimmed = inputText.trim();
@@ -153,7 +174,7 @@ export function ConversationDetailScreen() {
         }
       />
 
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { paddingBottom: 12 + insets.bottom }]}>
         <TextInput
           style={styles.textInput}
           value={inputText}

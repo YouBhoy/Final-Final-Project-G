@@ -5,6 +5,8 @@ import {
   hasPermission,
   PermissionError,
   COLLECTIONS,
+  isSameWeek,
+  startOfWeek,
 } from '@spartan-g/shared-types';
 import {
   Timestamp,
@@ -95,6 +97,32 @@ class AppointmentService {
     // Validate past booking
     if (payload.scheduledAt < new Date()) {
       throw new Error('Cannot book appointments in the past');
+    }
+
+    // Per-week availability enforcement — work hours are set for the current
+    // week only, so students can only book within that week's active hours
+    // (never against old weeks or future weeks that haven't been set).
+    if (!isSameWeek(payload.scheduledAt, new Date())) {
+      throw new Error(
+        "Appointments can only be booked during the facilitator's current week of availability.",
+      );
+    }
+    const currentWeekStart = startOfWeek(new Date());
+    const daySchedules = await workHoursRepository.getActiveByFacilitator(payload.facilitatorId, currentWeekStart);
+    const daySchedule = daySchedules.find(s => s.dayOfWeek === payload.scheduledAt.getDay());
+    if (!daySchedule) {
+      throw new Error('The facilitator has not set work hours for this day in the current week.');
+    }
+    const [whStartHour, whStartMinute] = daySchedule.startTime.split(':').map(Number);
+    const [whEndHour, whEndMinute] = daySchedule.endTime.split(':').map(Number);
+    const whStartTotal = whStartHour * 60 + whStartMinute;
+    const whEndTotal = whEndHour * 60 + whEndMinute;
+    const apptStartTotal = payload.scheduledAt.getHours() * 60 + payload.scheduledAt.getMinutes();
+    const apptEndTotal = apptStartTotal + payload.durationMinutes;
+    if (apptStartTotal < whStartTotal || apptEndTotal > whEndTotal) {
+      throw new Error(
+        `This appointment time is outside the facilitator's work hours (${daySchedule.startTime} - ${daySchedule.endTime}) for that day.`,
+      );
     }
 
     const db = getFirestoreDb();
@@ -569,8 +597,14 @@ class AppointmentService {
       throw new PermissionError();
     }
 
+    // Only the current week's work hours are bookable — past and future weeks
+    // return no slots even if a facilitator once set hours for that weekday.
+    if (!isSameWeek(date, new Date())) {
+      return [];
+    }
+
     const dayOfWeek = date.getDay();
-    const schedules = await workHoursRepository.getActiveByFacilitator(facilitatorId);
+    const schedules = await workHoursRepository.getActiveByFacilitator(facilitatorId, startOfWeek(new Date()));
     const daySchedule = schedules.find(s => s.dayOfWeek === dayOfWeek);
 
     if (!daySchedule) return [];

@@ -149,6 +149,7 @@ export const FIRESTORE_SCHEMAS = {
   },
   work_hours_schedules: {
     facilitatorId: 'string',
+    weekStartDate: 'timestamp',
     dayOfWeek: 'number',
     startTime: 'string',
     endTime: 'string',
