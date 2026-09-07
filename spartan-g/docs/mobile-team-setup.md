@@ -30,6 +30,7 @@ EXPO_PUBLIC_FIREBASE_APP_ID=<copy from apps/web/.env>
 EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=<optional; can stay empty>
 EXPO_PUBLIC_APP_ENV=development
 EXPO_PUBLIC_EAS_PROJECT_ID=1d7d33b2-e60a-4c12-a276-e4d51353ed37
+EXPO_PUBLIC_GEMINI_API_KEY=<copy from your Google AI Studio API key>
 ```
 
 Notes:
@@ -38,6 +39,7 @@ Notes:
 - `EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID` is optional and may stay blank.
 - Do not add web-only values like `VITE_FIREBASE_VAPID_KEY` to the mobile env file.
 - If you need to share these values with a teammate, use a private direct message, a password manager, or another secure file-sharing method. Do not post them in a public channel.
+- `EXPO_PUBLIC_GEMINI_API_KEY` is optional but powers the facilitator AI summary feature. It must be saved in EAS as a **String** with **Plaintext** visibility (NOT `Secret`) so Metro can inline it into the client bundle at build time.
 
 ## 3) `google-services.json`
 
