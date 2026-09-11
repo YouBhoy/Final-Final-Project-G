@@ -16,3 +16,4 @@ export { assessmentResponseRepository } from './assessment-response.repository';
 export { assessmentAttemptRepository } from './assessment-attempt.repository';
 export { notificationRepository } from './notification.repository';
 export { gardenRepository } from './garden.repository';
+export { assistantUsageRepository } from './assistant-usage.repository';

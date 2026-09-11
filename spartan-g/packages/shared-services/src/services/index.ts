@@ -18,6 +18,8 @@ export { assessmentOverrideService } from './assessment-override.service';
 export { assessmentResponseService, type SaveResponsePayload } from './assessment-response.service';
 export { pushNotificationService } from './push-notification.service';
 export { geminiService } from './gemini.service';
+export { assistantGeminiClient } from './gemini.service';
+export type { AssistantChatMessage } from './gemini.service';
 export { notificationRepository } from '../repositories/notification.repository';
 export { profileRepository } from '../repositories/profile.repository';
 export { gardenService } from './garden.service';

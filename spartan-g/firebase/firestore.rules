@@ -371,5 +371,18 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId']);
       allow delete: if isSuperAdmin();
     }
+
+    // ─── AI Assistant daily usage counter (self-owner, mirrors student_gardens) ─
+    match /assistant_usage/{studentId} {
+      allow read: if isOwner(studentId) || isFacilitatorOrAdmin();
+      allow create: if isStudent()
+        && isOwner(studentId)
+        && request.resource.data.studentId == studentId
+        && request.resource.data.count >= 0;
+      allow update: if isStudent()
+        && isOwner(studentId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId']);
+      allow delete: if isSuperAdmin();
+    }
   }
 }

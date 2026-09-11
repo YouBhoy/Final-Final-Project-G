@@ -30,6 +30,8 @@ export const COLLECTIONS = {
   ASSESSMENT_AI_SUMMARIES: 'assessment_ai_summaries',
   // Gamification — student garden profiles
   STUDENT_GARDENS: 'student_gardens',
+  // AI assistant — per-student daily usage counter (self-owner)
+  ASSISTANT_USAGE: 'assistant_usage',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

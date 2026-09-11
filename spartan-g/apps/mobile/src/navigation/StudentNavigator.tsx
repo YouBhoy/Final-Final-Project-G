@@ -13,6 +13,7 @@ import { FindFacilitatorScreen } from '../screens/student/FindFacilitatorScreen'
 import { BookAppointmentScreen } from '../screens/student/BookAppointmentScreen';
 import { StudentAppointmentsScreen } from '../screens/student/StudentAppointmentsScreen';
 import { StudentProfileScreen } from '../screens/student/StudentProfileScreen';
+import { AssistantBubble } from '../screens/student/components/AssistantBubble';
 import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessmentScreen';
 import { MessagesScreen } from '../screens/student/MessagesScreen';
@@ -88,7 +89,14 @@ function StudentTabs() {
 export function StudentNavigator() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="StudentTabs" component={StudentTabs} options={{ headerShown: false }} />
+      <Stack.Screen name="StudentTabs" options={{ headerShown: false }}>
+        {() => (
+          <>
+            <StudentTabs />
+            <AssistantBubble />
+          </>
+        )}
+      </Stack.Screen>
       <Stack.Screen
         name="Notifications"
         options={{ headerShown: false }}
