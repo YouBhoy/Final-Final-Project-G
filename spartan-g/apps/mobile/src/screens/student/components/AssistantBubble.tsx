@@ -11,6 +11,8 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import type { GestureResponderEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -25,6 +27,8 @@ const BUBBLE_SIZE = 60;
 const MARGIN = 20;
 const CHAT_WIDTH = Math.min(340, SCREEN_WIDTH - 32);
 const CHAT_HEIGHT = Math.min(460, SCREEN_HEIGHT - 48);
+/** Approx. vertical inset of the floating card from the screen top (for iOS keyboard offset). */
+const CHAT_CARD_TOP_OFFSET = 90;
 const INITIAL_LEFT = SCREEN_WIDTH - BUBBLE_SIZE - MARGIN;
 const INITIAL_TOP = SCREEN_HEIGHT - BUBBLE_SIZE - MARGIN - 110;
 
@@ -196,12 +200,17 @@ return (
                   source={require('../../../../assets/floating-assistant-icon.png')}
                   style={styles.chatAvatar}
                 />
-                <Text style={styles.chatTitle}>Your Companion</Text>
+                <Text style={styles.chatTitle}>Sparty</Text>
                 <Text style={styles.chatClose} onPress={() => setOpen(false)}>
                   ✕
                 </Text>
               </View>
 
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? CHAT_CARD_TOP_OFFSET : 0}
+                style={styles.chatAvoidArea}
+              >
               <ScrollView
                 style={styles.chatBody}
                 ref={(r) => {
@@ -270,6 +279,7 @@ return (
                   {remaining} message{remaining === 1 ? '' : 's'} left today
                 </Text>
               )}
+              </KeyboardAvoidingView>
             </View>
           </TouchableOpacity>
         </Modal>
@@ -317,6 +327,9 @@ const styles = StyleSheet.create({
     elevation: 8,
     overflow: 'hidden',
   },
+  chatAvoidArea: {
+    flex: 1,
+  },
   chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,7 +374,7 @@ const styles = StyleSheet.create({
   userText: { color: '#FFFFFF', fontSize: 13 },
   assistantRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     marginBottom: 6,
   },
@@ -369,7 +382,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    marginRight: 6,
+    marginRight: 8,
   },
   assistantBubble: {
     backgroundColor: '#FFFFFF',
