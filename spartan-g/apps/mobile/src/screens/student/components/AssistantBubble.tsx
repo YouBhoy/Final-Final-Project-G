@@ -53,6 +53,8 @@ export function AssistantBubble() {
   const [hidden, setHidden] = useState(false);
 
   const startPosRef = useRef({ x: 0, y: 0 });
+  const startValueRef = useRef({ x: 0, y: 0 });
+  const lastPosRef = useRef({ x: INITIAL_LEFT, y: INITIAL_TOP });
   const dragAccumRef = useRef(0);
   const scrollRef = useRef<ScrollView | null>(null);
   const historyRef = useRef<AssistantChatMessage[]>([]);
@@ -95,18 +97,23 @@ export function AssistantBubble() {
       if (!dragging) {
         setDragging(true);
         startPosRef.current = {
-          x: event.nativeEvent.locationX,
-          y: event.nativeEvent.locationY,
+          x: event.nativeEvent.pageX,
+          y: event.nativeEvent.pageY,
+        };
+        startValueRef.current = {
+          x: lastPosRef.current.x,
+          y: lastPosRef.current.y,
         };
       }
       if (event.nativeEvent) {
-        const dx = event.nativeEvent.locationX - startPosRef.current.x;
-        const dy = event.nativeEvent.locationY - startPosRef.current.y;
+        const dx = event.nativeEvent.pageX - startPosRef.current.x;
+        const dy = event.nativeEvent.pageY - startPosRef.current.y;
         dragAccumRef.current = Math.abs(dx) + Math.abs(dy);
         const clamped = clampPosition(
-          position.x.__getValue() + dx,
-          position.y.__getValue() + dy,
+          startValueRef.current.x + dx,
+          startValueRef.current.y + dy,
         );
+        lastPosRef.current = { x: clamped.left, y: clamped.top };
         position.setValue({ x: clamped.left, y: clamped.top });
       }
     },
