@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import type { GestureResponderEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -40,7 +41,9 @@ interface ChatBubbleMsg {
 export function AssistantBubble() {
   const session = useAuthStore((s) => s.session);
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ left: INITIAL_LEFT, top: INITIAL_TOP });
+  const position = useRef(
+    new Animated.ValueXY({ x: INITIAL_LEFT, y: INITIAL_TOP }),
+  ).current;
   const [dragging, setDragging] = useState(false);
   const [messages, setMessages] = useState<ChatBubbleMsg[]>([]);
   const [input, setInput] = useState('');
@@ -100,7 +103,11 @@ export function AssistantBubble() {
         const dx = event.nativeEvent.locationX - startPosRef.current.x;
         const dy = event.nativeEvent.locationY - startPosRef.current.y;
         dragAccumRef.current = Math.abs(dx) + Math.abs(dy);
-        setPosition(clampPosition(position.left + dx, position.top + dy));
+        const clamped = clampPosition(
+          position.x.__getValue() + dx,
+          position.y.__getValue() + dy,
+        );
+        position.setValue({ x: clamped.left, y: clamped.top });
       }
     },
     [dragging, position],
@@ -167,10 +174,13 @@ return (
     <>
       {!hidden && (
         <>
-          <View
+          <Animated.View
             style={[
               styles.bubble,
-              { left: position.left, top: position.top, opacity: dragging ? 0.85 : 1 },
+              {
+                transform: position.getTranslateTransform(),
+                opacity: dragging ? 0.85 : 1,
+              },
             ]}
             onStartShouldSetResponder={onStartShouldSetResponder}
             onMoveShouldSetResponder={onMoveShouldSetResponder}
@@ -187,7 +197,7 @@ return (
                 style={styles.bubbleIcon}
               />
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </>
       )}
 
@@ -291,6 +301,8 @@ return (
 const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
+    left: 0,
+    top: 0,
     width: 60,
     height: 60,
     zIndex: 999,
