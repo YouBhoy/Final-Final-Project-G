@@ -19,6 +19,7 @@ import { TemplateAssessmentScreen } from '../screens/assessment/TemplateAssessme
 import { MessagesScreen } from '../screens/student/MessagesScreen';
 import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
 import { GardenScreen } from '../screens/student/GardenScreen';
+import { ForestScreen } from '../screens/student/ForestScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
 const Tab = createBottomTabNavigator<StudentMobileTabParamList>();
@@ -127,6 +128,11 @@ export function StudentNavigator() {
         name="BookAppointment"
         component={BookAppointmentScreen}
         options={{ title: 'Book Appointment' }}
+      />
+      <Stack.Screen
+        name="Forest"
+        component={ForestScreen}
+        options={{ title: 'My Forest' }}
       />
     </Stack.Navigator>
   );

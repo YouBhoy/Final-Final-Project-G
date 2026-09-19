@@ -12,3 +12,4 @@ export * from './utils/scoring';
 export * from './utils/risk-evaluation';
 export * from './utils/week';
 export * from './types/garden.types';
+export * from './types/forest-note.types';

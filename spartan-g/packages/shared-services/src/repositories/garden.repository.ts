@@ -23,6 +23,7 @@ class GardenRepository {
       seeds: 0,
       streakCount: 0,
       lastCheckInDate: '',
+      lastWateredDate: '',
       createdAt: now,
       updatedAt: now,
     } as StudentGardenDocument);
@@ -53,6 +54,20 @@ class GardenRepository {
     await updateDoc(docRef, {
       level: newLevel,
       xp: remainingXp,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  /**
+   * Daily watering reward: add +2 XP atomically and stamp lastWateredDate.
+   * Uses the same atomic increment() pattern the check-in reward uses.
+   */
+  async applyWaterReward(studentId: string, lastWateredDate: string): Promise<void> {
+    const db = getFirestoreDb();
+    const docRef = doc(db, COLLECTIONS.STUDENT_GARDENS, studentId);
+    await updateDoc(docRef, {
+      xp: increment(2),
+      lastWateredDate,
       updatedAt: serverTimestamp(),
     });
   }

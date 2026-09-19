@@ -384,5 +384,20 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId']);
       allow delete: if isSuperAdmin();
     }
+
+    // ─── Forest tree notes (self-owner, mirrors assistant_usage) ─
+    // One doc per attempt (id == attemptId). Create requires matching studentId
+    // + attemptId; update cannot change studentId/attemptId (the doc key).
+    match /forest_notes/{attemptId} {
+      allow read: if isStudent() && resource.data.studentId == request.auth.uid
+        || isFacilitatorOrAdmin();
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.attemptId == attemptId;
+      allow update: if isStudent()
+        && resource.data.studentId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId', 'attemptId']);
+      allow delete: if isSuperAdmin();
+    }
   }
 }

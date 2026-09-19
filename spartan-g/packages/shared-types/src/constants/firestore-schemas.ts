@@ -226,4 +226,11 @@ export const FIRESTORE_SCHEMAS = {
     createdAt: 'timestamp',
     updatedAt: 'timestamp',
   },
+  forest_notes: {
+    studentId: 'string',
+    attemptId: 'string',
+    note: 'string',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
 } as const;

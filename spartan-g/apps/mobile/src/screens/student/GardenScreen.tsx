@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,20 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore, gardenService, assessmentService } from '@spartan-g/shared-services';
-import { StudentGardenDocument, AssessmentAttemptDocument, AssessmentDefinitionDocument } from '@spartan-g/shared-types';
+import { StudentGardenDocument, AssessmentAttemptDocument, AssessmentDefinitionDocument, StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
+import { Feather } from '@expo/vector-icons';
 import { GardenTree } from './components/GardenTree';
+import { GardenHeroScene } from './components/GardenHeroScene';
 
 export function GardenScreen() {
   const session = useAuthStore((s) => s.session);
+  const navigation = useNavigation<NativeStackNavigationProp<StudentMobileStackParamList>>();
   const [garden, setGarden] = useState<(StudentGardenDocument & { id: string }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -95,6 +100,28 @@ export function GardenScreen() {
     loadAttempt();
   }, [loadGarden, loadAttempt]);
 
+  // ─── Daily watering (hero card) ─────────────────────────────
+  const [waterToast, setWaterToast] = useState<string | null>(null);
+  const waterToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleWaterPress = useCallback(async () => {
+    if (!session) return;
+    const result = await gardenService.waterGarden(session.uid);
+    let message: string;
+    if (result === 'rewarded') {
+      message = 'Watered! 💧 (+2 XP)';
+    } else if (result === 'already') {
+      message = 'Already watered today 🌱';
+    } else {
+      message = 'Couldn’t water right now';
+    }
+    setWaterToast(message);
+    if (waterToastTimer.current) clearTimeout(waterToastTimer.current);
+    waterToastTimer.current = setTimeout(() => setWaterToast(null), 2000);
+    // Refresh XP/level display (watering feeds the existing level system).
+    loadGarden();
+  }, [session, loadGarden]);
+
   // ─── Loading state ──────────────────────────────────────
   if (isLoading) {
     return (
@@ -147,15 +174,32 @@ export function GardenScreen() {
         <Text style={styles.subtitle}>Your growth journey — keep watering!</Text>
       </View>
 
-      {/* Card 1 — Level N Tree (XP/Level hero card, unchanged from original) */}
-      <View style={styles.treeCard}>
-        <View style={styles.treeCircle}>
-          <Text style={styles.treeEmoji}>🌱</Text>
+      {/* Forest entry — separate nav action; leaves the hero tree + progress cards untouched */}
+      <TouchableOpacity
+        style={styles.forestButton}
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('Forest')}
+        accessibilityRole="button"
+      >
+        <View style={styles.forestIcon}>
+          <Feather name="git-branch" size={18} color={lightColors.primary} />
         </View>
+        <View style={styles.forestTextWrap}>
+          <Text style={styles.forestLabel}>My Forest</Text>
+          <Text style={styles.forestHint}>See every check-in you’ve planted</Text>
+        </View>
+        <Feather name="chevron-right" size={20} color={lightColors.textMuted} />
+      </TouchableOpacity>
+
+      {/* Card 1 — Level N Tree (drawn hero scene + daily watering) */}
+      <View style={styles.treeCard}>
+        <GardenHeroScene level={garden.level} onWaterPress={handleWaterPress} />
         <Text style={styles.treeLabel}>Level {garden.level} Tree</Text>
-        {/* When artwork is ready, replace the emoji above with:
-            <Image source={require('../../assets/garden/tree_lv1.png')} style={styles.treeImage} />
-        */}
+        {waterToast && (
+          <View style={styles.waterToast} pointerEvents="none">
+            <Text style={styles.waterToastText}>{waterToast}</Text>
+          </View>
+        )}
       </View>
 
       {/* Stats Grid */}
@@ -272,6 +316,38 @@ const styles = StyleSheet.create({
     color: lightColors.textSecondary,
     marginTop: 4,
   },
+  forestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: lightColors.surface,
+    borderWidth: 1,
+    borderColor: lightColors.border,
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+    marginVertical: 4,
+  },
+  forestIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: lightColors.infoBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forestTextWrap: {
+    flex: 1,
+  },
+  forestLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: lightColors.text,
+  },
+  forestHint: {
+    fontSize: 12,
+    color: lightColors.textSecondary,
+    marginTop: 2,
+  },
   treeCard: {
     backgroundColor: lightColors.surface,
     borderWidth: 1,
@@ -279,6 +355,22 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
+    position: 'relative',
+  },
+  waterToast: {
+    position: 'absolute',
+    top: 10,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    zIndex: 10,
+  },
+  waterToastText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   treeCircle: {
     width: 100,

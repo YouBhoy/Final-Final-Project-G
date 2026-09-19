@@ -26,6 +26,7 @@ export const mobileLinking: LinkingOptions<MobileRootStackParamList> = {
           CourseDetail: 'student/course/:courseId',
           AssignmentDetail: 'student/assignment/:assignmentId',
           ConversationDetail: 'student/conversation/:conversationId',
+          Forest: 'student/forest',
         },
       },
       Facilitator: {

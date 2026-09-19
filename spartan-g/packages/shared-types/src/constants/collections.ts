@@ -32,6 +32,8 @@ export const COLLECTIONS = {
   STUDENT_GARDENS: 'student_gardens',
   // AI assistant — per-student daily usage counter (self-owner)
   ASSISTANT_USAGE: 'assistant_usage',
+  // Forest — student-owned notes/names attached to forest trees
+  FOREST_NOTES: 'forest_notes',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
