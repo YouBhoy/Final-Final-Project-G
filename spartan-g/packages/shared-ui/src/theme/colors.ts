@@ -35,6 +35,52 @@ export const palette = {
   orange600: '#EA580C',
 } as const;
 
+/**
+ * Forest (isometric island) palette — dark immersive greens, grass greens and
+ * soil browns. Used by the My Forest feature; no hardcoded colors there.
+ */
+export const forestColors = {
+  // Screen / surfaces
+  bg: '#0C2B21',
+  bgDeep: '#072119',
+  surface: '#123A2C',
+  surfaceBorder: '#1E5240',
+  text: '#F2FBF5',
+  textSecondary: '#A9CCB9',
+  textMuted: '#6F9884',
+  // Island tiles (grass)
+  grassLight: '#8FCE4E',
+  grass: '#7CBB3F',
+  grassDark: '#67A633',
+  grassLine: '#548F2A',
+  // Island edge (soil)
+  soil: '#7C4B2A',
+  soilDark: '#5E381F',
+  soilSpeckle: '#8F5C36',
+  // Trees
+  trunk: '#6B4423',
+  trunkDark: '#54351B',
+  pine: '#2F8F46',
+  pineDark: '#1F6B33',
+  bush: '#4CAF50',
+  bushDark: '#35803B',
+  bloomPink: '#F2A7C3',
+  bloomPurple: '#B48BE0',
+  flower: '#F3D25A',
+  bare: '#8A6A45',
+  golden: '#F2B01E',
+  goldenDeep: '#C98A0F',
+  // Chart
+  bar: '#7CBB3F',
+  axis: '#2C5B47',
+  // Elevation / overlays
+  shadow: 'rgba(3, 18, 12, 0.42)',
+  scrim: 'rgba(4, 20, 14, 0.72)',
+  chip: 'rgba(255, 255, 255, 0.10)',
+  chipActive: '#2E7D52',
+  track: 'rgba(255, 255, 255, 0.08)',
+} as const;
+
 export const lightColors = {
   background: palette.slate50,
   surface: palette.white,

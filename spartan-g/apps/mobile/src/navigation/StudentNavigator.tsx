@@ -4,7 +4,7 @@ import {
   StudentMobileStackParamList,
   StudentMobileTabParamList,
 } from '@spartan-g/shared-types';
-import { lightColors, palette } from '@spartan-g/shared-ui';
+import { lightColors, palette, forestColors } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
 import { SafeScreen } from '../components/SafeScreen';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
@@ -131,9 +131,14 @@ export function StudentNavigator() {
       />
       <Stack.Screen
         name="Forest"
-        component={ForestScreen}
-        options={{ title: 'My Forest' }}
-      />
+        options={{ headerShown: false }}
+      >
+        {() => (
+          <SafeScreen backgroundColor={forestColors.bg}>
+            <ForestScreen />
+          </SafeScreen>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

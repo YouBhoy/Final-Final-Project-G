@@ -1,699 +1,739 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
+  AccessibilityInfo,
   Modal,
+  Platform,
   Pressable,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  TextInput,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
-import type { AssessmentDefinitionDocument } from '@spartan-g/shared-types';
-import { useAuthStore, assessmentService, forestNoteService } from '@spartan-g/shared-services';
-import { lightColors } from '@spartan-g/shared-ui';
-import { ForestTree, type ForestPalette, type ForestSpecies } from './components/ForestTree';
+import { Feather } from '@expo/vector-icons';
+import { captureRef } from 'react-native-view-shot';
+import type {
+  AssessmentDefinitionDocument,
+  StudentMobileStackParamList,
+} from '@spartan-g/shared-types';
+import { CAMPUS_SHORT_LABELS } from '@spartan-g/shared-types';
+import { assessmentService, useAuthStore } from '@spartan-g/shared-services';
+import { borderRadius, fontSize, forestColors, spacing } from '@spartan-g/shared-ui';
+import { ActivityChart } from './components/forest/ActivityChart';
+import { ForestCanvas } from './components/forest/ForestCanvas';
+import { ForestIsland } from './components/forest/ForestIsland';
+import { ForestSkeleton } from './components/forest/ForestSkeleton';
+import { ForestStats } from './components/forest/ForestStats';
+import { MilestoneToast } from './components/forest/MilestoneToast';
+import { PeriodTabs } from './components/forest/PeriodTabs';
+import { TreeDetailSheet } from './components/forest/TreeDetailSheet';
+import {
+  FOREST_PREVIEW_OPTIONS,
+  previewFor,
+  type ForestPreviewKey,
+} from './components/forest/forestMocks';
+import {
+  buildForestCheckIns,
+  chartBuckets,
+  gridForCount,
+  MILESTONE_COUNTS,
+  milestoneLabel,
+  periodRange,
+  shiftPeriod,
+  type AttemptWithDef,
+  type ChartBucket,
+  type ForestCheckIn,
+  type PeriodMode,
+} from './components/forest/forestUtils';
 
-// ─── Forest Screen (v1) ───────────────────────────────────────────────────
-// A garden-of-trees history of the student's submitted/graded check-ins.
+// ─── My Forest (isometric redesign) ────────────────────────────────────────
+// The student's check-in history as a floating isometric island: one tree per
+// check-in, placed on a deterministic tile, drawn from plain Views (no image
+// assets, no SVG dependency).
 //
-// Appearance of each tree is driven ONLY by neutral attributes:
-//   • species   — which instrument(s) the attempt contained
-//   • size      — answered ÷ total questions (same ratio as the leaf tree)
-//   • palette   — calendar month the attempt was submitted
+// Everything visual is seeded by the check-in id (forestUtils.rngFor), so a
+// check-in always produces the same species, size, colour and tile — and the
+// assignment is derived ONLY from neutral data: submission date, instrument
+// question ids, answered count and the day-gap between check-ins. No score,
+// severity band or risk value is read anywhere in this feature.
 //
-// NO score / severity / risk value is read or referenced anywhere in this
-// feature. Every tree is visually "healthy" regardless of how it scored.
+//   species   pine / bush / bloom  ← seeded by attempt id (+ streak breaks → bare)
+//   size      growRatio + seeded jitter
+//   tile      spiral from the island centre, so the forest fills naturally
+//   milestone 1st / 10th / 50th check-in → golden tree + toast
 
-type ForestTreeData = {
-  attemptId: string;
-  date: Date;
-  species: ForestSpecies;
-  growRatio: number;
-  palette: ForestPalette;
-  instrumentsLabel: string;
-  message: string;
-};
-
-type ForestRow =
-  | { kind: 'milestone'; key: string; milestoneLabel: string }
-  | { kind: 'tree'; key: string; tree: ForestTreeData; offsetX: number; label: string };
-
-// Deterministic path offset — same index always yields the same sway, mirroring
-// the leaf-position principle in GardenTree: no visual shuffling between visits.
-function pathOffsetX(index: number): number {
-  const amplitude = 36;
-  return Math.round(Math.sin(index * 1.9) * amplitude);
-}
-
-// Milestones at the 1st check-in and then every 5th (1, 5, 10, 15, …).
-function isMilestone(count: number): boolean {
-  return count === 1 || count % 5 === 0;
-}
-
-function milestoneLabel(count: number): string {
-  const name = count === 1 ? '1st' : `${count}th`;
-  return `${name} check-in`;
-}
-
-// Rotating pool of encouraging messages (deterministic by position).
-const ENCOURAGEMENT_POOL = [
-  'You showed up for yourself that day.',
-  'Every check-in shapes your forest.',
-  'Taking time to notice is a strength.',
-  'One step at a time grows a whole grove.',
-  'You cared enough to pause and check in.',
-  'Growth is quiet, but it’s happening.',
-];
-
-function pickMessage(index: number): string {
-  return ENCOURAGEMENT_POOL[index % ENCOURAGEMENT_POOL.length];
-}
-
-// Neutral month palettes (color is tied to the submission month only).
-const MONTH_PALETTES: ForestPalette[] = [
-  { trunk: '#78350F', canopy: '#16A34A', accent: '#86EFAC' }, // Jan
-  { trunk: '#134E4A', canopy: '#0D9488', accent: '#99F6E4' }, // Feb
-  { trunk: '#365314', canopy: '#65A30D', accent: '#D9F99D' }, // Mar
-  { trunk: '#1E3A8A', canopy: '#3B82F6', accent: '#BFDBFE' }, // Apr
-  { trunk: '#14532D', canopy: '#22C55E', accent: '#BBF7D0' }, // May
-  { trunk: '#3F6212', canopy: '#84CC16', accent: '#ECFCCB' }, // Jun
-  { trunk: '#422006', canopy: '#CA8A04', accent: '#FEF08A' }, // Jul
-  { trunk: '#78350F', canopy: '#EA580C', accent: '#FED7AA' }, // Aug
-  { trunk: '#7C2D12', canopy: '#C2410C', accent: '#FDBA74' }, // Sep
-  { trunk: '#92400E', canopy: '#EAB308', accent: '#FEF3C7' }, // Oct
-  { trunk: '#3B0764', canopy: '#7C3AED', accent: '#DDD6FE' }, // Nov
-  { trunk: '#064E3B', canopy: '#059669', accent: '#A7F3D0' }, // Dec
-];
-
-function monthPalette(month: number): ForestPalette {
-  return MONTH_PALETTES[Math.max(0, Math.min(month, 11)) % MONTH_PALETTES.length];
-}
-
-// Determines which instrument(s) an attempt's assessment contained by reading
-// the question-ID prefixes ONLY. Neutral — never touches a score/severity field.
-function detectInstruments(def: AssessmentDefinitionDocument & { id: string }): string[] {
-  const ids = (def.questions ?? [])
-    .map((q) => (q.id || '').toLowerCase());
-  const has = (prefix: string) => ids.some((id) => id.startsWith(prefix));
-  const found: string[] = [];
-  if (has('phq')) found.push('PHQ-9');
-  if (has('gad')) found.push('GAD-7');
-  if (has('dass')) found.push('DASS-21');
-  return found;
-}
-
-function deriveSpecies(instruments: string[]): ForestSpecies {
-  if (instruments.length >= 2) return 'combined';
-  const kind = instruments[0];
-  if (kind === 'PHQ-9') return 'phq';
-  if (kind === 'GAD-7') return 'gad';
-  if (kind === 'DASS-21') return 'dass';
-  return 'combined'; // unknown/mixed → broad canopy
-}
-
-function toDate(ts: unknown): Date {
-  const source = ts as {
-    toDate?: () => Date;
-    toMillis?: () => number;
-  } | null;
-  try {
-    if (source?.toDate && typeof source.toDate === 'function') return source.toDate();
-    if (source?.toMillis && typeof source.toMillis === 'function') return new Date(source.toMillis());
-    if (typeof ts === 'string') return new Date(ts);
-    if (ts instanceof Date) return ts;
-  } catch {
-    /* fall through */
-  }
-  return new Date();
-}
-
-function formatLongDate(d: Date): string {
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-function formatShortDate(d: Date): string {
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-const EMPTY_PALETTE: ForestPalette = { trunk: '#78350F', canopy: '#4ADE80', accent: '#BBF7D0' };
-export function ForestScreen() {
-  const session = useAuthStore((s) => s.session);
+/** Root screens show their own dark top bar, so the navigator header is off. */
+export function ForestScreen() {  const session = useAuthStore((s) => s.session);
   const navigation = useNavigation<NativeStackNavigationProp<StudentMobileStackParamList>>();
+  const { width: windowWidth } = useWindowDimensions();
 
+  // ─── Data ────────────────────────────────────────────────────────────────
+  const [checkIns, setCheckIns] = useState<ForestCheckIn[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<ForestRow[]>([]);
-  const [selected, setSelected] = useState<ForestTreeData | null>(null);
 
-  const load = useCallback(async () => {
-    if (!session) return;
-    setLoading(true);
-    try {
-      const all = await assessmentService.getAttemptsByStudent(session.uid);
+  // ─── Period / selection / motion ─────────────────────────────────────────
+  const [mode, setMode] = useState<PeriodMode>('month');
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [selected, setSelected] = useState<ForestCheckIn | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
-      // Submitted/graded attempts only — oldest → newest.
-      const attempts = [...all].sort(
-        (a, b) => toDate(a.submittedAt).getTime() - toDate(b.submittedAt).getTime(),
-      );
+  // ─── Milestone + grow feedback (real data only) ────────────────────────────
+  // Toast + grow animation fire once per new milestone check-in (per session),
+  // guarding on the specific check-in so period switching never replays them.
+  const [toast, setToast] = useState<{ key: string; title: string; message: string } | null>(null);
+  const [animateInId, setAnimateInId] = useState<string | null>(null);
+  const prevRealCount = useRef(0);
 
-      // Fetch each assessment definition once (cache by id) so we can read the
-      // neutral question set (instrument presence + total question count).
-      const defMap = new Map<string, AssessmentDefinitionDocument & { id: string }>();
-      for (const attempt of attempts) {
-        if (!defMap.has(attempt.assessmentId)) {
-          const def = await assessmentService.getAssessmentDefinition(attempt.assessmentId);
-          if (def) defMap.set(attempt.assessmentId, def);
+  // ─── Share + preview tooling ─────────────────────────────────────────────
+  const islandCaptureRef = useRef<View>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const shareTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [previewKey, setPreviewKey] = useState<ForestPreviewKey>('real');
+  const [showPreviewMenu, setShowPreviewMenu] = useState(false);
+
+  const range = useMemo(() => periodRange(mode, anchor), [mode, anchor]);
+
+  const load = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!session) return;
+      if (!options?.silent) setLoading(true);
+      try {
+        const all = await assessmentService.getAttemptsByStudent(session.uid);
+
+        // Fetch each assessment definition once (cached by id) so we can read
+        // the neutral question set — instrument presence + question count.
+        const defCache = new Map<string, AssessmentDefinitionDocument & { id: string }>();
+        for (const attempt of all) {
+          if (!defCache.has(attempt.assessmentId)) {
+            const def = await assessmentService.getAssessmentDefinition(attempt.assessmentId);
+            if (def) defCache.set(attempt.assessmentId, def);
+          }
         }
+
+        const entries: AttemptWithDef[] = all.map((attempt) => ({
+          attempt,
+          def: defCache.get(attempt.assessmentId) ?? null,
+        }));
+
+        setCheckIns(buildForestCheckIns(entries));
+        setError(null);
+      } catch {
+        setError('Unable to load your forest. Please try again.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
+    },
+    [session],
+  );
 
-      const trees: ForestTreeData[] = attempts.map((attempt, index) => {
-        const def = defMap.get(attempt.assessmentId);
-        const instruments = def ? detectInstruments(def) : [];
-        const totalQuestions = Math.max(def?.questions?.length ?? 0, 1);
-
-        // Same ratio the per-question leaf tree uses: answered ÷ total.
-        const answered = attempt.answers.filter(
-          (a) => a.value !== undefined && a.value !== '',
-        ).length;
-        const growRatio = Math.min(1, answered / totalQuestions);
-
-        const date = toDate(attempt.submittedAt);
-        const instrumentsLabel =
-          instruments.length === 0 ? 'Standard check-in' : instruments.join(' + ');
-
-        return {
-          attemptId: attempt.id,
-          date,
-          species: deriveSpecies(instruments),
-          growRatio,
-          palette: monthPalette(date.getMonth()),
-          instrumentsLabel,
-          message: pickMessage(index),
-        };
-      });
-
-      const next: ForestRow[] = [];
-      trees.forEach((tree, index) => {
-        const count = index + 1;
-        if (isMilestone(count)) {
-          next.push({
-            kind: 'milestone',
-            key: `milestone-${count}`,
-            milestoneLabel: milestoneLabel(count),
-          });
-        }
-        next.push({
-          kind: 'tree',
-          key: tree.attemptId,
-          tree,
-          offsetX: pathOffsetX(index),
-          label: formatShortDate(tree.date),
-        });
-      });
-
-      setRows(next);
-      setError(null);
-    } catch {
-      setError('Unable to load your forest. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [session]);
-
-  // Load on mount and whenever the Forest screen regains focus (mirrors the
-  // Garden's "Current Assessment Progress" pattern).
+  // Reload on mount and whenever the screen regains focus (matches Garden).
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
 
-  const closeDetails = useCallback(() => setSelected(null), []);
-  const viewResults = useCallback(() => {
-    setSelected(null);
-    // Reuse the student's existing assessments screen — no score logic here.
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load({ silent: true });
+  }, [load]);
+
+  // ─── Accessibility: honour the OS "reduce motion" setting ───────────────
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (!cancelled) setReducedMotion(enabled);
+      })
+      .catch(() => undefined);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) =>
+      setReducedMotion(enabled),
+    );
+    return () => {
+      cancelled = true;
+      sub.remove();
+      if (shareTimer.current) clearTimeout(shareTimer.current);
+    };
+  }, []);
+
+  // ─── Preview mode (dev/mock data) ───────────────────────────────────────
+  // 'real' shows live Firestore data; the other keys build synthetic check-ins
+  // through the SAME pipeline so 0 / 1 / 12 / 50+ tree states can be reviewed.
+  const previewCheckIns: ForestCheckIn[] = useMemo(
+    () => (previewKey === 'real' ? checkIns : previewFor(previewKey)),
+    [previewKey, checkIns],
+  );
+  const isPreview = previewKey !== 'real';
+
+  // ─── Derived: period slice, stats, chart, placement ─────────────────────
+  const periodCheckIns = useMemo(() => {
+    const start = range.start.getTime();
+    const end = range.end.getTime();
+    return previewCheckIns.filter((c) => c.date.getTime() >= start && c.date.getTime() < end);
+  }, [previewCheckIns, range]);
+
+  /** Newest first — the forest grows from the newest trees outward. */
+  const placedTrees = useMemo(
+    () => [...periodCheckIns].sort((a, b) => b.index - a.index),
+    [periodCheckIns],
+  );
+
+  const buckets = useMemo(
+    () => chartBuckets(mode, range, previewCheckIns),
+    [mode, range, previewCheckIns],
+  );
+
+  const minutes = useMemo(
+    () => periodCheckIns.reduce((sum, c) => sum + c.minutes, 0),
+    [periodCheckIns],
+  );
+  const healthyTrees = useMemo(
+    () => periodCheckIns.filter((c) => c.healthy).length,
+    [periodCheckIns],
+  );
+  const witheredTrees = periodCheckIns.length - healthyTrees;
+  const currentStreak = useMemo(
+    () => (previewCheckIns.length === 0 ? 0 : previewCheckIns[previewCheckIns.length - 1].streakDay),
+    [previewCheckIns],
+  );
+
+  const latestMilestone = useMemo(() => {
+    const milestones = previewCheckIns.filter((c) => c.milestone !== null);
+    return milestones.length === 0 ? null : milestones[milestones.length - 1];
+  }, [previewCheckIns]);
+
+  // Toast + grow animation fire once per milestone COUNT (per session): on
+  // arrival the reached milestone toasts once; while focused, a newly-added
+  // milestone check-in additionally plays the grow animation.
+  const celebratedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (isPreview || loading) return;
+    if (latestMilestone === null || latestMilestone.milestone === null) return;
+    const count = latestMilestone.milestone;
+    if (celebratedRef.current === count) return;
+    celebratedRef.current = count;
+    // Grow animation only when the milestone check-in itself just arrived.
+    if (latestMilestone.index === checkIns.length - 1 && prevRealCount.current > 0) {
+      setAnimateInId(latestMilestone.attemptId);
+    }
+    setToast({
+      key: `milestone-${count}`,
+      title: `${milestoneLabel(count)}!`,
+      message: 'A golden tree joined your forest — keep growing.',
+    });
+  }, [latestMilestone, checkIns.length, isPreview, loading]);
+
+  // Track the real count so a newly-arriving milestone can be told apart from
+  // history that was already there on arrival.
+  useEffect(() => {
+    if (!isPreview) prevRealCount.current = checkIns.length;
+  }, [checkIns.length, isPreview]);
+
+  const hideToast = useCallback(() => setToast(null), []);
+
+  const placeName =
+    session?.campus && CAMPUS_SHORT_LABELS[session.campus]
+      ? CAMPUS_SHORT_LABELS[session.campus]
+      : 'Not recorded';
+
+  // ─── Milestone reaction (real data only) ─────────────────────────────────
+  // On arrival, show the badge/toast once for the currently-reached milestone
+  // (the toast state is keyed by count, so the message survives until hidden).
+  // While focused, a newly-added check-in that hits a milestone plays the grow
+  // animation and shows the toast.
+
+  // ─── Island / stats / chart ──────────────────────────────────────────────
+  // The island always shows the WHOLE forest (stable spiral); the stats + chart
+  // describe the selected period, and off-period trees fade back (dimmed) so the
+  // current view stays legible.
+  const islandForPeriod = useCallback(
+    (checkIn: ForestCheckIn) =>
+      checkIn.date.getTime() >= range.start.getTime() &&
+      checkIn.date.getTime() < range.end.getTime(),
+    [range],
+  );
+
+  // The island viewport stays capped on large phones so the stats + chart
+  // remain visible without scrolling past a giant forest.
+  const islandAreaHeight = Math.min(480, Math.max(340, windowWidth * 0.85));
+
+  // ForestIsland reports its exact fitted height; the pinch viewport mirrors
+  // it so there is no dead space (or clipping) around the island. Pinch zoom
+  // only kicks in for larger forests and never under reduced motion.
+  const [islandFittedHeight, setIslandFittedHeight] = useState<number | null>(null);
+  const handleIslandLayout = useCallback((fittedHeight: number) => {
+    setIslandFittedHeight((prev) => (prev === fittedHeight ? prev : fittedHeight));
+  }, []);
+  const canvasViewportHeight = islandFittedHeight ?? islandAreaHeight;
+  const zoomEnabled = !reducedMotion && previewCheckIns.length > 12;
+
+  const handleSelect = useCallback((checkIn: ForestCheckIn) => setSelected(checkIn), []);
+  const closeSheet = useCallback(() => setSelected(null), []);
+
+  // Milestones render as a chip under the title too — same copy the toast uses.
+  const reachedMilestones = useMemo(
+    () => checkIns.filter((c) => c.milestone !== null),
+    [checkIns],
+  );
+  const latestReachedMilestone =
+    reachedMilestones.length === 0 ? null : reachedMilestones[reachedMilestones.length - 1];
+
+  const goCheckIn = useCallback(() => {
     navigation.navigate('StudentTabs', { screen: 'StudentAssignments' });
   }, [navigation]);
 
-  // ─── Tree note (forest_notes/{attemptId}, self-owned) ──────
-  const [noteText, setNoteText] = useState('');
-  const [noteSaved, setNoteSaved] = useState('');
-  const [editingNote, setEditingNote] = useState(false);
-  const [savingNote, setSavingNote] = useState(false);
-  const [noteError, setNoteError] = useState<string | null>(null);
+  const goBack = useCallback(() => navigation.goBack(), [navigation]);
+  /** Dev/review entry point to the synthetic 0 / 1 / 12 / 50+ datasets. */
+  const openPreviewMenu = useCallback(() => setShowPreviewMenu(true), []);
+  const viewResults = useCallback(() => {
+    setSelected(null);
+    navigation.navigate('StudentTabs', { screen: 'StudentAssignments' });
+  }, [navigation]);
 
-  // Load any existing note whenever a tree is opened in the detail modal.
-  useEffect(() => {
-    if (!selected) return;
-    let cancelled = false;
-    setNoteText('');
-    setNoteSaved('');
-    setEditingNote(false);
-    setNoteError(null);
-    (async () => {
-      const doc = await forestNoteService.getNote(selected.attemptId);
-      if (cancelled) return;
-      const existing = doc && doc.note.trim() ? doc.note.trim() : '';
-      setNoteSaved(existing);
-      setNoteText(existing);
-      setEditingNote(existing === ''); // no note → show the input to add one
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [selected]);
+  const shift = useCallback(
+    (direction: number) => setAnchor((current) => shiftPeriod(mode, current, direction)),
+    [mode],
+  );
+  const changeMode = useCallback((next: PeriodMode) => {
+    setMode(next);
+    setAnchor(new Date());
+  }, []);
 
-  const handleSaveNote = useCallback(async () => {
-    if (!selected || !session) return;
-    const trimmed = noteText.trim();
-    // Avoid creating an empty note out of thin air.
-    if (trimmed === '' && noteSaved === '') {
-      setEditingNote(true);
-      return;
+  const canGoForward = useMemo(() => range.end.getTime() <= Date.now() + 86400000, [range]);
+
+  // ─── Share: export the island as a PNG ──────────────────────────────────
+  const handleShare = useCallback(async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const uri = await captureRef(islandCaptureRef, {
+        format: 'png',
+        quality: 1,
+        // Android needs an explicit pixelRatio; iOS defaults to 2.
+        result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
+      });
+      await Share.share({
+        title: 'My Forest',
+        message: `My forest on Spartan-G — ${previewCheckIns.length} check-ins and counting. 🌱`,
+        url: uri,
+      });
+      setShareStatus('Forest image ready to share.');
+    } catch {
+      setShareStatus('Couldn’t capture your forest image. Try again.');
+    } finally {
+      setSharing(false);
+      if (shareTimer.current) clearTimeout(shareTimer.current);
+      shareTimer.current = setTimeout(() => setShareStatus(null), 3200);
     }
-    setSavingNote(true);
-    setNoteError(null);
-    const ok = await forestNoteService.saveNote({
-      studentId: session.uid,
-      attemptId: selected.attemptId,
-      note: trimmed,
-    });
-    setSavingNote(false);
-    if (ok) {
-      setNoteSaved(trimmed);
-      setEditingNote(trimmed !== '');
-    } else {
-      setNoteError('Couldn’t save your note. Try again.');
-    }
-  }, [selected, session, noteText, noteSaved]);
+  }, [sharing, previewCheckIns.length]);
 
-  if (loading) {
+  // ─── Loading / error ─────────────────────────────────────────────────────
+  if (loading && !isPreview) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={lightColors.primary} />
-        <Text style={styles.loadingText}>Growing your forest…</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <View style={styles.errorIcon}>
-          <Text style={styles.errorIconText}>!</Text>
+      <View style={styles.screen}>
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>My Forest</Text>
+          <View style={styles.headerSpacer} />
         </View>
-        <Text style={styles.errorTitle}>Unable to Load Forest</Text>
-        <Text style={styles.errorMessage}>{error}</Text>
+        <ForestSkeleton />
       </View>
     );
   }
 
-  if (rows.length === 0) {
+  if (error && !isPreview) {
     return (
-      <View style={styles.center}>
-        <ForestTree species="sapling" growRatio={0.15} palette={EMPTY_PALETTE} />
-        <Text style={styles.emptyTitle}>Your forest is waiting</Text>
-        <Text style={styles.emptyText}>Complete your first check-in to plant your first tree.</Text>
+      <View style={styles.screen}>
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>My Forest</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.center}>
+          <View style={styles.errorBadge}>
+            <Feather name="alert-triangle" size={26} color={forestColors.bgDeep} />
+          </View>
+          <Text style={styles.errorTitle}>Unable to load forest</Text>
+          <Text style={styles.errorBody}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => load()}
+            accessibilityRole="button"
+          >
+            <Text style={styles.retryText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
-return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.title}>My Forest</Text>
-      <Text style={styles.subtitle}>Every check-in grows a tree — no two are alike.</Text>
 
-      {rows.map((row) =>
-        row.kind === 'milestone' ? (
-          <View key={row.key} style={styles.milestoneRow}>
-            <View style={styles.milestoneFlag}>
-              <Text style={styles.milestoneFlagText}>📍</Text>
-            </View>
-            <Text style={styles.milestoneText}>{row.milestoneLabel}</Text>
-          </View>
-        ) : (
-          <View key={row.key} style={styles.treeRow}>
-            <View style={[styles.treeCell, { transform: [{ translateX: row.offsetX }] }]}>
-              <Pressable
-                onPress={() => setSelected(row.tree)}
-                style={({ pressed }) => [styles.treePressable, pressed && styles.treePressed]}
-                accessibilityRole="button"
-                accessibilityLabel={`Check-in tree, ${row.label}`}
-              >
-                <ForestTree
-                  species={row.tree.species}
-                  growRatio={row.tree.growRatio}
-                  palette={row.tree.palette}
-                />
-              </Pressable>
-            </View>
-            <Text style={styles.treeDate}>{row.label}</Text>
-          </View>
-        ),
+  // ─── Main ────────────────────────────────────────────────────────────────
+  return (
+    <View style={styles.screen}>
+      <MilestoneToast
+        visible={toast !== null}
+        title={toast?.title ?? ''}
+        message={toast?.message ?? ''}
+        reducedMotion={reducedMotion}
+        onHide={hideToast}
+      />
+
+      {/* Top bar: back, title, share (+ preview switcher for design review) */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={goBack}
+          style={styles.headerButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+        >
+          <Feather name="chevron-left" size={22} color={forestColors.text} />
+        </Pressable>
+        <View style={styles.headerCenter}>
+          <Pressable
+            onPress={openPreviewMenu}
+            accessibilityRole="button"
+            accessibilityLabel="My Forest — activate for preview options"
+            accessibilityHint="Opens the 0, 1, 12, and 50 check-in previews"
+          >
+            <Text style={styles.headerTitle}>My Forest</Text>
+          </Pressable>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {periodCheckIns.length === 0
+              ? 'Every check-in grows a tree'
+              : `${periodCheckIns.length} tree${periodCheckIns.length === 1 ? '' : 's'} in ${range.label}`}
+          </Text>
+        </View>
+        <Pressable
+          onPress={handleShare}
+          style={styles.headerButton}
+          accessibilityRole="button"
+          accessibilityLabel="Share my forest"
+          accessibilityState={{ disabled: sharing }}
+          disabled={sharing}
+          hitSlop={8}
+        >
+          <Feather name="share-2" size={20} color={forestColors.text} />
+        </Pressable>
+        <Pressable
+          onPress={() => setShowPreviewMenu(true)}
+          style={styles.headerButton}
+          accessibilityRole="button"
+          accessibilityLabel="Preview forest with sample data"
+          hitSlop={8}
+        >
+          <Feather name="sliders" size={18} color={forestColors.textMuted} />
+        </Pressable>
+      </View>
+
+      <PeriodTabs
+        mode={mode}
+        range={range}
+        onModeChange={changeMode}
+        onShift={shift}
+        canGoForward={canGoForward}
+      />
+
+      {/* Milestone chip — restores the v1 "1st check-in" pin row on the new screen. */}
+      {latestReachedMilestone !== null && latestReachedMilestone.milestone !== null && (
+        <View style={styles.milestoneChip} accessible accessibilityLabel={`${milestoneLabel(latestReachedMilestone.milestone)} reached`}>
+          <Feather name="map-pin" size={13} color={forestColors.golden} />
+          <Text style={styles.milestoneChipText}>
+            {milestoneLabel(latestReachedMilestone.milestone)}
+          </Text>
+        </View>
       )}
 
-      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={closeDetails}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Check-in tree</Text>
-            {selected && (
-              <>
-                <Text style={styles.modalDate}>Completed {formatLongDate(selected.date)}</Text>
-                <Text style={styles.modalInstruments}>
-                  Instruments: {selected.instrumentsLabel}
-                </Text>
-                <View style={styles.modalDivider} />
-                <Text style={styles.modalMessage}>“{selected.message}”</Text>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={forestColors.text}
+            colors={[forestColors.grassLight]}
+            progressBackgroundColor={forestColors.bgDeep}
+          />
+        }
+      >
+        {/* Island — this subtree is what the share button captures. The canvas
+            adds pinch-to-zoom for large forests; ForestIsland reports its
+            fitted size so the viewport always matches the island exactly. */}
+        <View ref={islandCaptureRef} collapsable={false} style={styles.islandWrap}>
+          <ForestCanvas
+            viewportWidth={windowWidth - spacing.md * 2}
+            viewportHeight={canvasViewportHeight}
+            enabled={zoomEnabled}
+          >
+            <ForestIsland
+              checkIns={previewCheckIns}
+              animateInAttemptId={animateInId}
+              isInPeriod={islandForPeriod}
+              reducedMotion={reducedMotion}
+              onSelectTree={handleSelect}
+              availableWidth={windowWidth - spacing.md * 2}
+              availableHeight={islandAreaHeight}
+              onLayout={handleIslandLayout}
+            />
+          </ForestCanvas>
+        </View>
 
-                <View style={styles.noteSection}>
-                  <Text style={styles.noteLabel}>
-                    {noteSaved ? 'Tree name / note' : 'Name this tree'}
-                  </Text>
+        {periodCheckIns.length === 0 && previewCheckIns.length > 0 && (
+          <Text style={styles.emptyHint}>
+            No check-ins in {range.label} yet. Complete one to plant a tree here.
+          </Text>
+        )}
 
-                  {editingNote ? (
-                    <>
-                      <TextInput
-                        style={styles.noteInput}
-                        value={noteText}
-                        onChangeText={setNoteText}
-                        placeholder="Give this tree a name or note"
-                        placeholderTextColor={lightColors.textMuted}
-                        maxLength={120}
-                        returnKeyType="done"
-                      />
-                      {noteError && <Text style={styles.noteErrorText}>{noteError}</Text>}
-                      <TouchableOpacity
-                        onPress={handleSaveNote}
-                        style={styles.noteSaveButton}
-                        disabled={savingNote}
-                      >
-                        <Text style={styles.noteSaveText}>
-                          {savingNote ? 'Saving…' : 'Save'}
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : noteSaved ? (
-                    <View style={styles.noteSavedRow}>
-                      <Text style={styles.noteText}>{noteSaved}</Text>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setNoteText(noteSaved);
-                          setEditingNote(true);
-                        }}
-                        style={styles.noteEditLink}
-                      >
-                        <Text style={styles.noteEditText}>Edit</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <Text style={styles.noteEmpty}>No name yet.</Text>
-                  )}
-                </View>
-
-                <TouchableOpacity onPress={viewResults} style={styles.resultsButton}>
-                  <Text style={styles.resultsButtonText}>View my results</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={closeDetails} style={styles.closeButton}>
-                  <Text style={styles.closeButtonText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
+        {/* Friendly empty state: the island stays visible below so the prompt
+            reads as an empty plot waiting for its first tree. */}
+        {previewCheckIns.length === 0 && (
+          <View style={styles.emptyCard} accessible accessibilityLabel="Your island is empty. Complete a check-in to plant your first tree.">
+            <Feather name="plus-circle" size={30} color={forestColors.grassLight} />
+            <Text style={styles.emptyTitle}>Your island is waiting</Text>
+            <Text style={styles.emptyBody}>
+              Complete a check-in to plant your first tree and start your forest.
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={goCheckIn}
+              accessibilityRole="button"
+              accessibilityLabel="Start a check-in"
+            >
+              <Text style={styles.emptyButtonText}>Start a check-in</Text>
+            </TouchableOpacity>
           </View>
+        )}
+
+        <ForestStats
+          checkIns={periodCheckIns.length}
+          minutes={minutes}
+          healthyTrees={healthyTrees}
+          witheredTrees={witheredTrees}
+          streakDay={currentStreak}
+        />
+
+        <ActivityChart
+          buckets={buckets}
+          title={`Activity · ${range.label}`}
+          summary={`${periodCheckIns.length} check-in${periodCheckIns.length === 1 ? '' : 's'}`}
+        />
+
+        <View style={styles.legend}>
+          {LEGEND_ITEMS.map((item) => (
+            <View key={item.key} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+              <Text style={styles.legendText}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {shareStatus !== null && (
+          <Text
+            style={styles.shareStatus}
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={shareStatus}
+          >
+            {shareStatus}
+          </Text>
+        )}
+
+        <Text style={styles.footNote}>
+          Trees are seeded by your check-in history — the same check-in always grows the same tree.
+        </Text>
+      </ScrollView>
+
+      <TreeDetailSheet
+        checkIn={selected}
+        placeName={placeName}
+        studentId={session?.uid}
+        onClose={closeSheet}
+        onViewResults={viewResults}
+      />
+
+      <Modal
+        visible={showPreviewMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPreviewMenu(false)}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={() => setShowPreviewMenu(false)} />
+        <View style={styles.menuCard}>
+          <Text style={styles.menuTitle}>Preview forest</Text>
+          <Text style={styles.menuBody}>
+            Sample histories for design review. Default is your real check-in data.
+          </Text>
+          {(['real', 'zero', 'one', 'twelve', 'fifty'] as ForestPreviewKey[]).map((key) => {
+            const active = previewKey === key;
+            const option = FOREST_PREVIEW_OPTIONS.find((item) => item.key === key);
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.menuItem, active && styles.menuItemActive]}
+                onPress={() => {
+                  setPreviewKey(key);
+                  setShowPreviewMenu(false);
+                  setAnchor(new Date());
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={styles.menuItemText}>{option?.label ?? key}</Text>
+                {active && <Feather name="check" size={16} color={forestColors.grassLight} />}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: lightColors.background,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 48,
+
+
+// Legend swatches reuse the same tokens the trees are painted with.
+const LEGEND_ITEMS = [
+  { key: 'pine', label: 'Pine', color: forestColors.pine },
+  { key: 'bush', label: 'Bush', color: forestColors.bush },
+  { key: 'bloom', label: 'Bloom', color: forestColors.bloomPurple },
+  { key: 'bare', label: 'Withered', color: forestColors.bare },
+  { key: 'golden', label: 'Milestone', color: forestColors.golden },
+] as const;
+
+export const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: forestColors.bg },
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
-  center: {
-    flex: 1,
-    backgroundColor: lightColors.background,
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: forestColors.chip,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    gap: 8,
   },
-  loadingText: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-    marginTop: 8,
+  headerSpacer: { width: 36, height: 36 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { color: forestColors.text, fontSize: fontSize.lg, fontWeight: '700' },
+  headerSubtitle: { color: forestColors.textMuted, fontSize: fontSize.xs, marginTop: 1 },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: spacing.md, paddingBottom: spacing['2xl'], gap: spacing.md },
+  islandWrap: {
+    backgroundColor: forestColors.bgDeep,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    marginTop: spacing.xs,
   },
-  errorIcon: {
+  emptyHint: {
+    color: forestColors.textSecondary,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    marginTop: -spacing.xs,
+  },
+  milestoneChip: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: forestColors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: forestColors.golden,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  milestoneChipText: { color: forestColors.golden, fontSize: fontSize.xs, fontWeight: '700' },
+  emptyCard: {
+    backgroundColor: forestColors.surface,
+    borderRadius: borderRadius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: forestColors.surfaceBorder,
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  emptyTitle: { color: forestColors.text, fontSize: fontSize.md, fontWeight: '700' },
+  emptyBody: { color: forestColors.textSecondary, fontSize: fontSize.sm, textAlign: 'center' },
+  emptyButton: {
+    marginTop: spacing.xs,
+    backgroundColor: forestColors.chipActive,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  emptyButtonText: { color: forestColors.text, fontSize: fontSize.sm, fontWeight: '700' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { color: forestColors.textMuted, fontSize: fontSize.xs, fontWeight: '600' },
+  footNote: {
+    color: forestColors.textMuted,
+    fontSize: 10,
+    textAlign: 'center',
+    lineHeight: 15,
+    opacity: 0.85,
+  },
+  shareStatus: {
+    color: forestColors.textSecondary,
+    fontSize: fontSize.xs,
+    textAlign: 'center',
+  },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.xl },
+  errorBadge: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: forestColors.golden,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorIconText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: lightColors.error,
+  errorTitle: { color: forestColors.text, fontSize: fontSize.lg, fontWeight: '700' },
+  errorBody: { color: forestColors.textSecondary, fontSize: fontSize.sm, textAlign: 'center' },
+  retryButton: {
+    marginTop: spacing.sm,
+    backgroundColor: forestColors.chipActive,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: lightColors.text,
-    marginTop: 8,
+  retryText: { color: forestColors.text, fontSize: fontSize.sm, fontWeight: '700' },
+  menuBackdrop: { flex: 1, backgroundColor: forestColors.scrim },
+  menuCard: {
+    backgroundColor: forestColors.bgDeep,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: forestColors.surfaceBorder,
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
+    gap: spacing.xs,
   },
-  errorMessage: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: lightColors.text,
-    alignSelf: 'flex-start',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-    marginTop: 4,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: lightColors.text,
-    marginTop: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 260,
-  },
-  milestoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    marginVertical: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: lightColors.surface,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    gap: 8,
-  },
-  milestoneFlag: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: lightColors.warningBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  milestoneFlagText: {
-    fontSize: 15,
-  },
-  milestoneText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: lightColors.text,
-  },
-  treeRow: {
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  treeCell: {
-    width: 130,
-    alignItems: 'center',
-  },
-  treePressable: {
-    alignItems: 'center',
-  },
-  treePressed: {
-    opacity: 0.7,
-  },
-  treeDate: {
-    marginTop: 2,
-    fontSize: 13,
-    fontWeight: '600',
-    color: lightColors.textSecondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    backgroundColor: lightColors.surface,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: lightColors.text,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  modalDate: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-    alignSelf: 'flex-start',
-  },
-  modalInstruments: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: lightColors.text,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  modalDivider: {
-    alignSelf: 'stretch',
-    height: 1,
-    backgroundColor: lightColors.border,
-    marginVertical: 16,
-  },
-  modalMessage: {
-    fontSize: 15,
-    color: lightColors.textSecondary,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  noteSection: {
-    alignSelf: 'stretch',
-    backgroundColor: lightColors.neutralBackground,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  noteLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: lightColors.text,
-    marginBottom: 6,
-  },
-  noteInput: {
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: lightColors.text,
-  },
-  noteErrorText: {
-    fontSize: 12,
-    color: lightColors.error,
-    marginTop: 6,
-  },
-  noteSaveButton: {
-    marginTop: 8,
-    alignSelf: 'flex-end',
-    backgroundColor: lightColors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteSaveText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  noteSavedRow: {
+  menuTitle: { color: forestColors.text, fontSize: fontSize.md, fontWeight: '700' },
+  menuBody: { color: forestColors.textMuted, fontSize: fontSize.xs, marginBottom: spacing.xs },
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
-  noteText: {
-    flex: 1,
-    fontSize: 14,
-    color: lightColors.text,
-    lineHeight: 20,
-  },
-  noteEditLink: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  noteEditText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: lightColors.primary,
-  },
-  noteEmpty: {
-    fontSize: 13,
-    color: lightColors.textMuted,
-  },
-  resultsButton: {
-    alignSelf: 'stretch',
-    backgroundColor: lightColors.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resultsButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  closeButton: {
-    alignSelf: 'stretch',
-    marginTop: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: lightColors.textSecondary,
-  },
+  menuItemActive: { backgroundColor: forestColors.surface },
+  menuItemText: { color: forestColors.textSecondary, fontSize: fontSize.sm, fontWeight: '600' },
 });
+
