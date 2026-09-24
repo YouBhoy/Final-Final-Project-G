@@ -83,10 +83,16 @@ export function islandMetrics(
   // horizontal directions — never a per-side offset.
   const canvasW = islandW + TILE_W * 1.1;
   const canvasH = islandH + WALL_DEPTH + TILE_W * 1.75;
-  const fitScale = Math.max(
+  // Built on deterministic whole-pixel design units, this scales the canvas as a
+  // single outer transform. Snap to fixed 0.05 steps (floored so the canvas never
+  // exceeds the available space). A uniform, non-arbitrary scale keeps every tile
+  // diamond at the same size so neighbours render identically instead of each
+  // landing on its own fractional pixel boundary.
+  const rawFit = Math.max(
     0.45,
     Math.min(1.25, availableWidth / canvasW, availableHeight / canvasH),
   );
+  const fitScale = Math.max(0.45, Math.floor(rawFit * 20) / 20);
   return {
     grid,
     islandW,

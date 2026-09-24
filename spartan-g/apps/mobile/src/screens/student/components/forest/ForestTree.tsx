@@ -20,11 +20,6 @@ interface ForestTreeProps {
   wind: Animated.Value;
   /** Play the sapling→full-tree growth animation (new check-ins only). */
   animateIn?: boolean;
-  /**
-   * When true the tree belongs to another period: it stays in place (stable
-   * layout) but fades back so the selected period reads clearly.
-   */
-  dimmed?: boolean;
   /** When true, idle sway + grow animations are skipped (accessibility). */
   reducedMotion: boolean;
   onPress: (checkIn: ForestCheckIn) => void;
@@ -348,7 +343,6 @@ function ForestTreeComponent({
   checkIn,
   wind,
   animateIn = false,
-  dimmed = false,
   reducedMotion,
   onPress,
   x,
@@ -440,7 +434,6 @@ function ForestTreeComponent({
           top: feetY - height,
           width: TILE_W,
           height: height + TILE_H * 0.6,
-          opacity: dimmed ? 0.42 : 1,
         },
       ]}
     >

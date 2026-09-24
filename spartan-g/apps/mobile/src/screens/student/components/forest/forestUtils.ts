@@ -280,8 +280,16 @@ export function shiftPeriod(mode: PeriodMode, anchor: Date, dir: number): Date {
   const d = new Date(anchor.getTime());
   if (mode === 'day') d.setDate(d.getDate() + dir);
   else if (mode === 'week') d.setDate(d.getDate() + dir * 7);
-  else if (mode === 'month') d.setMonth(d.getMonth() + dir);
-  else d.setFullYear(d.getFullYear() + dir);
+  else if (mode === 'month') {
+    // Set to the 1st first so `setMonth` never rolls past a shorter month
+    // (Aug 31 → "next" must land in September, not October), then clamp the
+    // original day-of-month to the target month's length.
+    const day = d.getDate();
+    d.setDate(1);                                 // avoid end-of-month rollover
+    d.setMonth(d.getMonth() + dir);               // safe: always on the 1st
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(day, last));               // preserve day where allowed
+  } else d.setFullYear(d.getFullYear() + dir);
   return d;
 }
 

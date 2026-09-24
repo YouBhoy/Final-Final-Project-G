@@ -252,15 +252,9 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   // animation and shows the toast.
 
   // ─── Island / stats / chart ──────────────────────────────────────────────
-  // The island always shows the WHOLE forest (stable spiral); the stats + chart
-  // describe the selected period, and off-period trees fade back (dimmed) so the
-  // current view stays legible.
-  const islandForPeriod = useCallback(
-    (checkIn: ForestCheckIn) =>
-      checkIn.date.getTime() >= range.start.getTime() &&
-      checkIn.date.getTime() < range.end.getTime(),
-    [range],
-  );
+  // The island renders ONLY the selected period's trees (the same `periodCheckIns`
+  // set the stats/text use), so an empty period shows an empty plot and the
+  // header/hint can never contradict the island.
 
   // The island viewport stays capped on large phones so the stats + chart
   // remain visible without scrolling past a giant forest.
@@ -477,9 +471,8 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
             enabled={zoomEnabled}
           >
             <ForestIsland
-              checkIns={previewCheckIns}
+              checkIns={periodCheckIns}
               animateInAttemptId={animateInId}
-              isInPeriod={islandForPeriod}
               reducedMotion={reducedMotion}
               onSelectTree={handleSelect}
               availableWidth={windowWidth - spacing.md * 2}

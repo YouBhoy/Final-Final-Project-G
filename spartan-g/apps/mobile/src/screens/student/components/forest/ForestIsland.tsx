@@ -33,7 +33,10 @@ function diamond(
   key?: string,
   borderColor?: string,
 ) {
-  const side = size / Math.SQRT2;
+  // Round to the nearest even pixel so `side / 2` is a whole number. Combined
+  // with an integer centre (see `cx`/`cy` below) this puts every diamond's
+  // `left`/`top` on an integer pixel boundary — no subpixel AA seams.
+  const side = Math.round(size / Math.SQRT2 / 2) * 2;
   return (
     <View
       key={key}
@@ -71,7 +74,11 @@ function TileFace({ tile }: { tile: TileSpec }) {
   const edge = tileEdgeShade(tile.shade);
   return (
     <>
-      {diamond(TILE_W - 2, edge, tile.x, tile.y, `${tile.dr}:${tile.dc}:edge`)}
+      {/* Fixed whole-pixel seam: the edge diamond fills the full 68-wide
+          tessellation cell so adjacent tiles share an exact edge (no background
+          gap); the face is inset a fixed 4px (2px per side) so the darker grout
+          line is identical on every tile — never a byproduct of unrounded math. */}
+      {diamond(TILE_W, edge, tile.x, tile.y, `${tile.dr}:${tile.dc}:edge`)}
       {diamond(TILE_W - 4, tile.shade, tile.x, tile.y, `${tile.dr}:${tile.dc}:face`)}
       {SHOW_FOREST_DEBUG && (
         <View
@@ -110,8 +117,6 @@ export interface ForestIslandProps {
   checkIns: ForestCheckIn[];
   /** Attempt id that should play the grow animation (newest check-in). */
   animateInAttemptId?: string | null;
-  /** True for trees inside the selected period (others fade back). */
-  isInPeriod: (checkIn: ForestCheckIn) => boolean;
   reducedMotion: boolean;
   onSelectTree: (checkIn: ForestCheckIn) => void;
   /** Width available for the island, in dp. */
@@ -128,7 +133,6 @@ export interface ForestIslandProps {
 function ForestIslandComponent({
   checkIns,
   animateInAttemptId,
-  isInPeriod,
   reducedMotion,
   onSelectTree,
   availableWidth,
@@ -145,8 +149,8 @@ function ForestIslandComponent({
   const { grid, islandW, islandH, canvasW, canvasH, fitScale } = metrics;
   const half = (grid - 1) / 2;
 
-  const cx = canvasW / 2;
-  const cy = TILE_W * 0.95 + islandH / 2;
+  const cx = Math.round(canvasW / 2);
+  const cy = Math.round(TILE_W * 0.95 + islandH / 2);
   // Each grass face is inset by 1dp, so the visible outer footprint is two dp
   // narrower than the mathematical grid width. The extrusion must use that
   // same visible boundary or it will peek past the left/right corners.
@@ -263,7 +267,7 @@ function ForestIslandComponent({
           {
             width: canvasW,
             height: canvasH,
-            left: availableWidth / 2 - canvasW / 2,
+            left: Math.round(availableWidth / 2 - canvasW / 2),
             transform: [{ scale: fitScale }],
           },
         ]}
@@ -324,7 +328,6 @@ function ForestIslandComponent({
             checkIn={checkIn}
             wind={wind}
             animateIn={animateInAttemptId === checkIn.attemptId}
-            dimmed={!isInPeriod(checkIn)}
             reducedMotion={reducedMotion}
             onPress={onSelectTree}
             x={x}

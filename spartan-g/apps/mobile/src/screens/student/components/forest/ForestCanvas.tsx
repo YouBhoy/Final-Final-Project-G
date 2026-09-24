@@ -50,9 +50,14 @@ export function ForestCanvas({
   }, [enabled, scale]);
 
   const settle = () => {
-    const clamped = enabled ? Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, gesture.current.scale)) : 1;
-    gesture.current.scale = clamped;
-    Animated.spring(scale, { toValue: clamped, useNativeDriver: true, friction: 9 }).start();
+    // Snap the resting zoom to 0.05 steps so the outer transform stays uniform
+    // (MIN_ZOOM 0.55 and MAX_ZOOM 1.9 are already 0.05 multiples). Live pinch
+    // stays continuous; only the eased target is quantised.
+    const snapped = enabled
+      ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.floor(gesture.current.scale * 20) / 20))
+      : 1;
+    gesture.current.scale = snapped;
+    Animated.spring(scale, { toValue: snapped, useNativeDriver: true, friction: 9 }).start();
   };
 
   const panResponder = useMemo(
