@@ -23,6 +23,7 @@ import { rngFor, spiralTile, type ForestCheckIn } from './forestUtils';
 // back-to-front by grid depth so nearer trees overlap the ones behind.
 
 const DIAMOND_TRANSFORM = [{ scaleY: 0.5 }, { rotate: '45deg' }];
+const TILE_EDGE_W = TILE_W - 2;
 
 const SHOW_ALIGNMENT_DEBUG = false;
 
@@ -84,11 +85,8 @@ function TileFace({ tile }: { tile: TileSpec }) {
   const edge = tileEdgeShade(tile.shade);
   return (
     <>
-      {/* Fixed whole-pixel seam: the edge diamond fills the full 68-wide
-          tessellation cell so adjacent tiles share an exact edge (no background
-          gap); the face is inset a fixed 4px (2px per side) so the darker grout
-          line is identical on every tile — never a byproduct of unrounded math. */}
-      {diamond(TILE_W, edge, tile.x, tile.y, `${tile.dr}:${tile.dc}:edge`, undefined, false)}
+      {/* Keep the outer tile perimeter and continuous soil footprint on one boundary. */}
+      {diamond(TILE_EDGE_W, edge, tile.x, tile.y, `${tile.dr}:${tile.dc}:edge`, undefined, false)}
       {diamond(TILE_W - 4, tile.shade, tile.x, tile.y, `${tile.dr}:${tile.dc}:face`, undefined, false)}
       {SHOW_FOREST_DEBUG && (
         <View
@@ -161,10 +159,10 @@ function ForestIslandComponent({
 
   const cx = Math.round(canvasW / 2);
   const cy = Math.round(TILE_W * 0.95 + islandH / 2);
-  // The extreme tile centres sit (grid - 1)·(TILE_W / 2) from the centre,
-  // with one exact TILE_W diamond at each edge. The brown soil platform uses
-  // this same footprint so its corners align with the green tile grid.
-  const grassFootprintW = grid * TILE_W;
+  // The edge tile is inset by 2px from its 68px tessellation cell. The soil
+  // footprint uses that same outer boundary, so the green and brown corners
+  // cannot diverge after the canvas is scaled.
+  const grassFootprintW = (grid - 1) * TILE_W + TILE_EDGE_W;
 
   // Shared 0→1 wind cycle: ONE native animation drives every tree's sway, so
   // the forest costs a single running loop no matter how many trees exist.
