@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
+import Svg, { Polygon } from 'react-native-svg';
 import { forestColors } from '@spartan-g/shared-ui';
 import { ForestTree } from './ForestTree';
 import {
@@ -24,8 +25,6 @@ import { rngFor, spiralTile, type ForestCheckIn } from './forestUtils';
 
 const DIAMOND_TRANSFORM = [{ scaleY: 0.5 }, { rotate: '45deg' }];
 const TILE_EDGE_W = TILE_W - 2;
-const SOIL_EDGE_ANGLE = `${(Math.atan(0.5) * 180) / Math.PI}deg`;
-const SOIL_EDGE_SLOPE = Math.atan(0.5);
 
 const SHOW_ALIGNMENT_DEBUG = false;
 
@@ -66,37 +65,6 @@ function diamond(
 
 function alignmentOutline(size: number, color: string, left: number, top: number, key: string) {
   return diamond(size, 'transparent', left, top, key, color, false);
-}
-
-function soilSideFace(
-  footprintW: number,
-  depth: number,
-  color: string,
-  side: 'left' | 'right',
-  key: string,
-) {
-  const edgeLength = Math.hypot(footprintW / 2, footprintW / 4);
-  const sideSign = side === 'left' ? -1 : 1;
-  const edgeAngle = side === 'left' ? SOIL_EDGE_ANGLE : `-${SOIL_EDGE_ANGLE}`;
-  const topEdgeCenterCorrection = depth * (1 / (2 * Math.cos(SOIL_EDGE_SLOPE)) - 0.5);
-  return (
-    <View
-      key={key}
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        left: sideSign * footprintW / 4 - edgeLength / 2,
-        top: footprintW / 8 + topEdgeCenterCorrection,
-        width: edgeLength,
-        height: depth,
-        backgroundColor: color,
-        transform: [
-          { skewX: edgeAngle },
-          { rotate: edgeAngle },
-        ],
-      }}
-    />
-  );
 }
 
 interface TileSpec {
@@ -196,6 +164,18 @@ function ForestIslandComponent({
   // footprint uses that same outer boundary, so the green and brown corners
   // cannot diverge after the canvas is scaled.
   const grassFootprintW = (grid - 1) * TILE_W + TILE_EDGE_W;
+  const leftWallPoints = [
+    [cx - grassFootprintW / 2, cy],
+    [cx, cy + grassFootprintW / 4],
+    [cx, cy + grassFootprintW / 4 + WALL_DEPTH],
+    [cx - grassFootprintW / 2, cy + WALL_DEPTH],
+  ];
+  const rightWallPoints = [
+    [cx, cy + grassFootprintW / 4],
+    [cx + grassFootprintW / 2, cy],
+    [cx + grassFootprintW / 2, cy + WALL_DEPTH],
+    [cx, cy + grassFootprintW / 4 + WALL_DEPTH],
+  ];
 
   // Shared 0→1 wind cycle: ONE native animation drives every tree's sway, so
   // the forest costs a single running loop no matter how many trees exist.
@@ -313,25 +293,21 @@ function ForestIslandComponent({
           },
         ]}
       >
-        {/* Side faces start on the grass perimeter instead of using translated diamonds. */}
-        <View style={{ position: 'absolute', left: cx, top: cy }}>
-          {soilSideFace(
-            grassFootprintW,
-            WALL_DEPTH + islandH * 0.05,
-            forestColors.shadow,
-            'left',
-            'soil-shadow-left',
-          )}
-          {soilSideFace(
-            grassFootprintW,
-            WALL_DEPTH + islandH * 0.05,
-            forestColors.shadow,
-            'right',
-            'soil-shadow-right',
-          )}
-          {soilSideFace(grassFootprintW, WALL_DEPTH, forestColors.soilDark, 'left', 'soil-dark-left')}
-          {soilSideFace(grassFootprintW, WALL_DEPTH, forestColors.soilDark, 'right', 'soil-dark-right')}
-        </View>
+        <Svg
+          pointerEvents="none"
+          width={canvasW}
+          height={canvasH}
+          style={StyleSheet.absoluteFill}
+        >
+          <Polygon
+            points={leftWallPoints.map(([x, y]) => `${x},${y}`).join(' ')}
+            fill={forestColors.soil}
+          />
+          <Polygon
+            points={rightWallPoints.map(([x, y]) => `${x},${y}`).join(' ')}
+            fill={forestColors.soilDark}
+          />
+        </Svg>
         {diamond(grassFootprintW, forestColors.soil, cx, cy, undefined, undefined, false)}
         {soilRoots.map((tile) => {
           // Symmetric fringe on BOTH front edges: left-front edge (dr === half,
@@ -342,7 +318,7 @@ function ForestIslandComponent({
             tile.dr === half && tile.dc !== -half
               ? { offset: -TILE_W * 0.16, rotate: '-24deg' }
               : tile.dc === half && tile.dr !== -half
-                ? { offset: TILE_W * 0.24, rotate: '24deg' }
+                ? { offset: TILE_W * 0.16, rotate: '24deg' }
                 : null;
           if (!soilRoot) return null;
           return (
