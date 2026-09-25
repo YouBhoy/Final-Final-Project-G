@@ -24,6 +24,8 @@ import { rngFor, spiralTile, type ForestCheckIn } from './forestUtils';
 
 const DIAMOND_TRANSFORM = [{ scaleY: 0.5 }, { rotate: '45deg' }];
 const TILE_EDGE_W = TILE_W - 2;
+const SOIL_EDGE_ANGLE = `${(Math.atan(0.5) * 180) / Math.PI}deg`;
+const SOIL_EDGE_SLOPE = Math.atan(0.5);
 
 const SHOW_ALIGNMENT_DEBUG = false;
 
@@ -64,6 +66,37 @@ function diamond(
 
 function alignmentOutline(size: number, color: string, left: number, top: number, key: string) {
   return diamond(size, 'transparent', left, top, key, color, false);
+}
+
+function soilSideFace(
+  footprintW: number,
+  depth: number,
+  color: string,
+  side: 'left' | 'right',
+  key: string,
+) {
+  const edgeLength = Math.hypot(footprintW / 2, footprintW / 4);
+  const sideSign = side === 'left' ? -1 : 1;
+  const edgeAngle = side === 'left' ? SOIL_EDGE_ANGLE : `-${SOIL_EDGE_ANGLE}`;
+  const topEdgeCenterCorrection = depth * (1 / (2 * Math.cos(SOIL_EDGE_SLOPE)) - 0.5);
+  return (
+    <View
+      key={key}
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: sideSign * footprintW / 4 - edgeLength / 2,
+        top: footprintW / 8 + topEdgeCenterCorrection,
+        width: edgeLength,
+        height: depth,
+        backgroundColor: color,
+        transform: [
+          { skewX: edgeAngle },
+          { rotate: edgeAngle },
+        ],
+      }}
+    />
+  );
 }
 
 interface TileSpec {
@@ -280,9 +313,25 @@ function ForestIslandComponent({
           },
         ]}
       >
-        {/* The soil surface shares the grass origin; lower layers provide the visible extrusion. */}
-        {diamond(grassFootprintW, forestColors.shadow, cx, cy + WALL_DEPTH + islandH * 0.05, undefined, undefined, false)}
-        {diamond(grassFootprintW, forestColors.soilDark, cx, cy + WALL_DEPTH, undefined, undefined, false)}
+        {/* Side faces start on the grass perimeter instead of using translated diamonds. */}
+        <View style={{ position: 'absolute', left: cx, top: cy }}>
+          {soilSideFace(
+            grassFootprintW,
+            WALL_DEPTH + islandH * 0.05,
+            forestColors.shadow,
+            'left',
+            'soil-shadow-left',
+          )}
+          {soilSideFace(
+            grassFootprintW,
+            WALL_DEPTH + islandH * 0.05,
+            forestColors.shadow,
+            'right',
+            'soil-shadow-right',
+          )}
+          {soilSideFace(grassFootprintW, WALL_DEPTH, forestColors.soilDark, 'left', 'soil-dark-left')}
+          {soilSideFace(grassFootprintW, WALL_DEPTH, forestColors.soilDark, 'right', 'soil-dark-right')}
+        </View>
         {diamond(grassFootprintW, forestColors.soil, cx, cy, undefined, undefined, false)}
         {soilRoots.map((tile) => {
           // Symmetric fringe on BOTH front edges: left-front edge (dr === half,
@@ -293,7 +342,7 @@ function ForestIslandComponent({
             tile.dr === half && tile.dc !== -half
               ? { offset: -TILE_W * 0.16, rotate: '-24deg' }
               : tile.dc === half && tile.dr !== -half
-                ? { offset: TILE_W * 0.16, rotate: '24deg' }
+                ? { offset: TILE_W * 0.24, rotate: '24deg' }
                 : null;
           if (!soilRoot) return null;
           return (
