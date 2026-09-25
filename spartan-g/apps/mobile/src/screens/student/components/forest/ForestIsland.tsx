@@ -24,6 +24,12 @@ import { rngFor, spiralTile, type ForestCheckIn } from './forestUtils';
 
 const DIAMOND_TRANSFORM = [{ scaleY: 0.5 }, { rotate: '45deg' }];
 
+// Throwaway alignment probe: set false after comparing both rendered edges.
+const SHOW_ALIGNMENT_DEBUG = true;
+
+/** Round a square side to a whole even pixel so `side / 2` is an integer. */
+const roundedDiamondSide = (size: number): number => Math.round(size / Math.SQRT2 / 2) * 2;
+
 /** A 2:1 isometric diamond of the given width, centred on (left, top). */
 function diamond(
   size: number,
@@ -32,11 +38,12 @@ function diamond(
   top: number,
   key?: string,
   borderColor?: string,
+  /** Round the square side to a whole even pixel (default). Pass false for single
+   * large shapes such as the soil extrusion so the rendered width stays exactly
+   * `size` and shares the grass footprint's edge instead of re-rounding. */
+  roundSide = true,
 ) {
-  // Round to the nearest even pixel so `side / 2` is a whole number. Combined
-  // with an integer centre (see `cx`/`cy` below) this puts every diamond's
-  // `left`/`top` on an integer pixel boundary — no subpixel AA seams.
-  const side = Math.round(size / Math.SQRT2 / 2) * 2;
+  const side = roundSide ? roundedDiamondSide(size) : size / Math.SQRT2;
   return (
     <View
       key={key}
@@ -53,6 +60,10 @@ function diamond(
       }}
     />
   );
+}
+
+function alignmentOutline(size: number, color: string, left: number, top: number, key: string) {
+  return diamond(size, 'transparent', left, top, key, color, false);
 }
 
 interface TileSpec {
@@ -151,10 +162,13 @@ function ForestIslandComponent({
 
   const cx = Math.round(canvasW / 2);
   const cy = Math.round(TILE_W * 0.95 + islandH / 2);
-  // Each grass face is inset by 1dp, so the visible outer footprint is two dp
-  // narrower than the mathematical grid width. The extrusion must use that
-  // same visible boundary or it will peek past the left/right corners.
-  const grassFootprintW = islandW - 2;
+  // The grass grid's true rendered outer width: the extreme tile centres sit
+  // (grid−1)·(TILE_W/2) out on each side, plus one edge diamond (whose side is
+  // rounded exactly as diamond() does, so width = roundedDiamondSide(TILE_W)·√2).
+  // The soil extrusion below must match this same width so the brown lip stays
+  // uniform under the grass — deriving it from TILE_W keeps it in sync if the
+  // tessellation ever changes again.
+  const grassFootprintW = (grid - 1) * TILE_W + roundedDiamondSide(TILE_W) * Math.SQRT2;
 
   // Shared 0→1 wind cycle: ONE native animation drives every tree's sway, so
   // the forest costs a single running loop no matter how many trees exist.
@@ -273,9 +287,9 @@ function ForestIslandComponent({
         ]}
       >
         {/* Floating ground shadow and continuous soil extrusion share the grid footprint. */}
-        {diamond(grassFootprintW, forestColors.shadow, cx, cy + WALL_DEPTH + islandH * 0.05)}
-        {diamond(grassFootprintW, forestColors.soilDark, cx, cy + WALL_DEPTH)}
-        {diamond(grassFootprintW, forestColors.soil, cx, cy + WALL_DEPTH * 0.45)}
+        {diamond(grassFootprintW, forestColors.shadow, cx, cy + WALL_DEPTH + islandH * 0.05, undefined, undefined, false)}
+        {diamond(grassFootprintW, forestColors.soilDark, cx, cy + WALL_DEPTH, undefined, undefined, false)}
+        {diamond(grassFootprintW, forestColors.soil, cx, cy + WALL_DEPTH * 0.45, undefined, undefined, false)}
         {soilRoots.map((tile) => {
           // Symmetric fringe on BOTH front edges: left-front edge (dr === half,
           // not the corner) leans left, right-front edge (dc === half, not the
@@ -321,6 +335,20 @@ function ForestIslandComponent({
           />
         ))}
         {tiles.map((tile) => <TileFace key={`${tile.dr}:${tile.dc}`} tile={tile} />)}
+        {SHOW_ALIGNMENT_DEBUG && (
+          <>
+            {/* Magenta: the grass grid's outer edge, using the same diamond transform. */}
+            {alignmentOutline(grassFootprintW, '#ff00ff', cx, cy, 'debug-grass-footprint')}
+            {/* Cyan: the top soil layer's actual current centre and footprint. */}
+            {alignmentOutline(
+              grassFootprintW,
+              '#00ffff',
+              cx,
+              cy + WALL_DEPTH * 0.45,
+              'debug-soil-footprint',
+            )}
+          </>
+        )}
         {/* Trees, painted back to front */}
         {positioned.map(({ checkIn, x, y, row, col }) => (
           <ForestTree
