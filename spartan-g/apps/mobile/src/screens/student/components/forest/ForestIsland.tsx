@@ -330,6 +330,8 @@ function ForestIslandComponent({
             }}
           />
         ))}
+        {/* Continuous grass underlay seals tile seams so soil is visible only on the lower faces. */}
+        {diamond(grassFootprintW, forestColors.grass, cx, cy, 'grass-underlay', undefined, false)}
         {tiles.map((tile) => <TileFace key={`${tile.dr}:${tile.dc}`} tile={tile} />)}
         {SHOW_ALIGNMENT_DEBUG && (
           <>
