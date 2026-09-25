@@ -282,10 +282,10 @@ function ForestIslandComponent({
           },
         ]}
       >
-        {/* Floating ground shadow and continuous soil extrusion share the grid footprint. */}
+        {/* The soil surface shares the grass origin; lower layers provide the visible extrusion. */}
         {diamond(grassFootprintW, forestColors.shadow, cx, cy + WALL_DEPTH + islandH * 0.05, undefined, undefined, false)}
         {diamond(grassFootprintW, forestColors.soilDark, cx, cy + WALL_DEPTH, undefined, undefined, false)}
-        {diamond(grassFootprintW, forestColors.soil, cx, cy + WALL_DEPTH * 0.45, undefined, undefined, false)}
+        {diamond(grassFootprintW, forestColors.soil, cx, cy, undefined, undefined, false)}
         {soilRoots.map((tile) => {
           // Symmetric fringe on BOTH front edges: left-front edge (dr === half,
           // not the corner) leans left, right-front edge (dc === half, not the
@@ -340,7 +340,7 @@ function ForestIslandComponent({
               grassFootprintW,
               '#00ffff',
               cx,
-              cy + WALL_DEPTH * 0.45,
+              cy,
               'debug-soil-footprint',
             )}
           </>
