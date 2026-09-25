@@ -65,6 +65,39 @@ function alignmentOutline(size: number, color: string, left: number, top: number
   return diamond(size, 'transparent', left, top, key, color, false);
 }
 
+/** Render a vertical isometric wall whose top edge is start → end. */
+function soilWall(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  color: string,
+  key: string,
+) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const edgeLength = Math.hypot(dx, dy);
+  const angle = Math.atan2(dy, dx);
+  const angleDeg = `${(angle * 180) / Math.PI}deg`;
+  const localHeight = WALL_DEPTH * Math.cos(angle);
+  const centerX = (start.x + end.x) / 2;
+  const centerY = (start.y + end.y) / 2 + WALL_DEPTH / 2;
+
+  return (
+    <View
+      key={key}
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: centerX - edgeLength / 2,
+        top: centerY - localHeight / 2,
+        width: edgeLength,
+        height: localHeight,
+        backgroundColor: color,
+        transform: [{ skewX: angleDeg }, { rotate: angleDeg }],
+      }}
+    />
+  );
+}
+
 interface TileSpec {
   dr: number;
   dc: number;
@@ -282,10 +315,18 @@ function ForestIslandComponent({
           },
         ]}
       >
-        {/* The soil surface shares the grass origin; lower layers provide the visible extrusion. */}
-        {diamond(grassFootprintW, forestColors.shadow, cx, cy + WALL_DEPTH + islandH * 0.05, undefined, undefined, false)}
-        {diamond(grassFootprintW, forestColors.soilDark, cx, cy + WALL_DEPTH, undefined, undefined, false)}
-        {diamond(grassFootprintW, forestColors.soil, cx, cy, undefined, undefined, false)}
+        {soilWall(
+          { x: cx - grassFootprintW / 2, y: cy },
+          { x: cx, y: cy + grassFootprintW / 4 },
+          forestColors.soil,
+          'soil-wall-left',
+        )}
+        {soilWall(
+          { x: cx, y: cy + grassFootprintW / 4 },
+          { x: cx + grassFootprintW / 2, y: cy },
+          forestColors.soilDark,
+          'soil-wall-right',
+        )}
         {soilRoots.map((tile) => {
           // Symmetric fringe on BOTH front edges: left-front edge (dr === half,
           // not the corner) leans left, right-front edge (dc === half, not the
