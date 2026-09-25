@@ -24,8 +24,7 @@ import { rngFor, spiralTile, type ForestCheckIn } from './forestUtils';
 
 const DIAMOND_TRANSFORM = [{ scaleY: 0.5 }, { rotate: '45deg' }];
 
-// Throwaway alignment probe: set false after comparing both rendered edges.
-const SHOW_ALIGNMENT_DEBUG = true;
+const SHOW_ALIGNMENT_DEBUG = false;
 
 /** Round a square side to a whole even pixel so `side / 2` is an integer. */
 const roundedDiamondSide = (size: number): number => Math.round(size / Math.SQRT2 / 2) * 2;
@@ -89,8 +88,8 @@ function TileFace({ tile }: { tile: TileSpec }) {
           tessellation cell so adjacent tiles share an exact edge (no background
           gap); the face is inset a fixed 4px (2px per side) so the darker grout
           line is identical on every tile — never a byproduct of unrounded math. */}
-      {diamond(TILE_W, edge, tile.x, tile.y, `${tile.dr}:${tile.dc}:edge`)}
-      {diamond(TILE_W - 4, tile.shade, tile.x, tile.y, `${tile.dr}:${tile.dc}:face`)}
+      {diamond(TILE_W, edge, tile.x, tile.y, `${tile.dr}:${tile.dc}:edge`, undefined, false)}
+      {diamond(TILE_W - 4, tile.shade, tile.x, tile.y, `${tile.dr}:${tile.dc}:face`, undefined, false)}
       {SHOW_FOREST_DEBUG && (
         <View
           style={{
@@ -162,13 +161,10 @@ function ForestIslandComponent({
 
   const cx = Math.round(canvasW / 2);
   const cy = Math.round(TILE_W * 0.95 + islandH / 2);
-  // The grass grid's true rendered outer width: the extreme tile centres sit
-  // (grid−1)·(TILE_W/2) out on each side, plus one edge diamond (whose side is
-  // rounded exactly as diamond() does, so width = roundedDiamondSide(TILE_W)·√2).
-  // The soil extrusion below must match this same width so the brown lip stays
-  // uniform under the grass — deriving it from TILE_W keeps it in sync if the
-  // tessellation ever changes again.
-  const grassFootprintW = (grid - 1) * TILE_W + roundedDiamondSide(TILE_W) * Math.SQRT2;
+  // The extreme tile centres sit (grid - 1)·(TILE_W / 2) from the centre,
+  // with one exact TILE_W diamond at each edge. The brown soil platform uses
+  // this same footprint so its corners align with the green tile grid.
+  const grassFootprintW = grid * TILE_W;
 
   // Shared 0→1 wind cycle: ONE native animation drives every tree's sway, so
   // the forest costs a single running loop no matter how many trees exist.
