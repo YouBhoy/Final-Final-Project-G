@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Polygon } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Polygon } from 'react-native-svg';
 import { forestColors } from '@spartan-g/shared-ui';
 import { ForestTree } from './ForestTree';
 import {
@@ -10,7 +10,6 @@ import {
   islandMetrics,
   tileToScreen,
   tileShade,
-  SHOW_FOREST_DEBUG,
 } from './forestLayout';
 import { rngFor, spiralTile, type ForestCheckIn } from './forestUtils';
 
@@ -23,49 +22,8 @@ import { rngFor, spiralTile, type ForestCheckIn } from './forestUtils';
 // Paint order: shadow → soil faces → grass base → tiles → trees sorted
 // back-to-front by grid depth so nearer trees overlap the ones behind.
 
-const DIAMOND_TRANSFORM = [{ scaleY: 0.5 }, { rotate: '45deg' }];
 const TILE_EDGE_W = TILE_W - 2;
-
-const SHOW_ALIGNMENT_DEBUG = false;
-
-/** Round a square side to a whole even pixel so `side / 2` is an integer. */
-const roundedDiamondSide = (size: number): number => Math.round(size / Math.SQRT2 / 2) * 2;
-
-/** A 2:1 isometric diamond of the given width, centred on (left, top). */
-function diamond(
-  size: number,
-  color: string,
-  left: number,
-  top: number,
-  key?: string,
-  borderColor?: string,
-  /** Round the square side to a whole even pixel (default). Pass false for single
-   * large shapes such as the soil extrusion so the rendered width stays exactly
-   * `size` and shares the grass footprint's edge instead of re-rounding. */
-  roundSide = true,
-) {
-  const side = roundSide ? roundedDiamondSide(size) : size / Math.SQRT2;
-  return (
-    <View
-      key={key}
-      style={{
-        position: 'absolute',
-        left: left - side / 2,
-        top: top - side / 2,
-        width: side,
-        height: side,
-        backgroundColor: color,
-        borderWidth: borderColor ? 1 : 0,
-        borderColor,
-        transform: DIAMOND_TRANSFORM,
-      }}
-    />
-  );
-}
-
-function alignmentOutline(size: number, color: string, left: number, top: number, key: string) {
-  return diamond(size, 'transparent', left, top, key, color, false);
-}
+const GRASS_TOP_CLIP_ID = 'forest-grass-top-clip';
 
 interface TileSpec {
   dr: number;
@@ -76,49 +34,21 @@ interface TileSpec {
   shade: string;
 }
 
-function tileEdgeShade(shade: string): string {
-  if (shade === forestColors.grassLight) return forestColors.grass;
-  if (shade === forestColors.grassDark) return forestColors.grassLine;
-  return forestColors.grassDark;
+function tileOverlayPoints(tile: TileSpec): string {
+  const halfWidth = (TILE_W - 4) / 2;
+  const halfHeight = (TILE_W - 4) / 4;
+  return [
+    [tile.x, tile.y - halfHeight],
+    [tile.x + halfWidth, tile.y],
+    [tile.x, tile.y + halfHeight],
+    [tile.x - halfWidth, tile.y],
+  ]
+    .map(([x, y]) => `${x},${y}`)
+    .join(' ');
 }
 
 function TileFace({ tile }: { tile: TileSpec }) {
-  const edge = tileEdgeShade(tile.shade);
-  return (
-    <>
-      {/* Keep the outer tile perimeter and continuous soil footprint on one boundary. */}
-      {diamond(TILE_EDGE_W, edge, tile.x, tile.y, `${tile.dr}:${tile.dc}:edge`, undefined, false)}
-      {diamond(TILE_W - 4, tile.shade, tile.x, tile.y, `${tile.dr}:${tile.dc}:face`, undefined, false)}
-      {SHOW_FOREST_DEBUG && (
-        <View
-          style={{
-            position: 'absolute',
-            left: tile.x - TILE_W * 0.22,
-            top: tile.y - TILE_H * 0.28,
-            width: TILE_W * 0.42,
-            height: 1.5,
-            backgroundColor: forestColors.grassLight,
-            opacity: 0.34,
-            transform: [{ rotate: '-26.565deg' }],
-          }}
-        />
-      )}
-      {SHOW_FOREST_DEBUG && (
-        <View
-          style={{
-            position: 'absolute',
-            left: tile.x + TILE_W * 0.01,
-            top: tile.y + TILE_H * 0.27,
-            width: TILE_W * 0.42,
-            height: 1.5,
-            backgroundColor: edge,
-            opacity: 0.46,
-            transform: [{ rotate: '-26.565deg' }],
-          }}
-        />
-      )}
-    </>
-  );
+  return <Polygon points={tileOverlayPoints(tile)} fill={tile.shade} />;
 }
 
 export interface ForestIslandProps {
@@ -175,6 +105,12 @@ function ForestIslandComponent({
     [cx + grassFootprintW / 2, cy],
     [cx + grassFootprintW / 2, cy + WALL_DEPTH],
     [cx, cy + grassFootprintW / 4 + WALL_DEPTH],
+  ];
+  const grassTopPoints = [
+    [cx, cy - grassFootprintW / 4],
+    [cx + grassFootprintW / 2, cy],
+    [cx, cy + grassFootprintW / 4],
+    [cx - grassFootprintW / 2, cy],
   ];
 
   // Shared 0→1 wind cycle: ONE native animation drives every tree's sway, so
@@ -266,14 +202,6 @@ function ForestIslandComponent({
   );
 
   const fittedHeight = canvasH * fitScale;
-  useEffect(() => {
-    if (__DEV__ && SHOW_FOREST_DEBUG) {
-      console.log(
-        '[ForestIsland] tree assignments',
-        positioned.map(({ checkIn, row, col, x, y }) => ({ attemptId: checkIn.attemptId, row, col, x, y })),
-      );
-    }
-  }, [positioned]);
   // Keep the pinch viewport in sync with the exact fitted height. Deferred to
   // an effect so the parent setState never fires during this render pass.
   useEffect(() => {
@@ -299,6 +227,15 @@ function ForestIslandComponent({
           height={canvasH}
           style={StyleSheet.absoluteFill}
         >
+          <Defs>
+            <ClipPath id={GRASS_TOP_CLIP_ID}>
+              <Polygon points={grassTopPoints.map(([x, y]) => `${x},${y}`).join(' ')} />
+            </ClipPath>
+          </Defs>
+          <Polygon
+            points={grassTopPoints.map(([x, y]) => `${x},${y}`).join(' ')}
+            fill={forestColors.grass}
+          />
           <Polygon
             points={leftWallPoints.map(([x, y]) => `${x},${y}`).join(' ')}
             fill={forestColors.soil}
@@ -307,8 +244,12 @@ function ForestIslandComponent({
             points={rightWallPoints.map(([x, y]) => `${x},${y}`).join(' ')}
             fill={forestColors.soilDark}
           />
+          <G clipPath={`url(#${GRASS_TOP_CLIP_ID})`}>
+            {tiles.map((tile) => (
+              <TileFace key={`${tile.dr}:${tile.dc}`} tile={tile} />
+            ))}
+          </G>
         </Svg>
-        {diamond(grassFootprintW, forestColors.soil, cx, cy, undefined, undefined, false)}
         {soilRoots.map((tile) => {
           // Symmetric fringe on BOTH front edges: left-front edge (dr === half,
           // not the corner) leans left, right-front edge (dc === half, not the
@@ -324,7 +265,6 @@ function ForestIslandComponent({
           return (
             <View
               key={`soil-root-${tile.dr}:${tile.dc}`}
-              pointerEvents="none"
               style={{
                 position: 'absolute',
                 left: tile.x + soilRoot.offset,
@@ -353,23 +293,6 @@ function ForestIslandComponent({
             }}
           />
         ))}
-        {/* Continuous grass underlay seals tile seams so soil is visible only on the lower faces. */}
-        {diamond(grassFootprintW, forestColors.grass, cx, cy, 'grass-underlay', undefined, false)}
-        {tiles.map((tile) => <TileFace key={`${tile.dr}:${tile.dc}`} tile={tile} />)}
-        {SHOW_ALIGNMENT_DEBUG && (
-          <>
-            {/* Magenta: the grass grid's outer edge, using the same diamond transform. */}
-            {alignmentOutline(grassFootprintW, '#ff00ff', cx, cy, 'debug-grass-footprint')}
-            {/* Cyan: the top soil layer's actual current centre and footprint. */}
-            {alignmentOutline(
-              grassFootprintW,
-              '#00ffff',
-              cx,
-              cy,
-              'debug-soil-footprint',
-            )}
-          </>
-        )}
         {/* Trees, painted back to front */}
         {positioned.map(({ checkIn, x, y, row, col }) => (
           <ForestTree
