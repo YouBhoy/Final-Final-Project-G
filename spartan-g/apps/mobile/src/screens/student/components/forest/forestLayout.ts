@@ -3,7 +3,7 @@
 // All numbers are expressed in "design px" at 100% zoom; the island group is
 // scaled to fit the device width, so nothing here is device-specific.
 
-import { forestColors } from '@spartan-g/shared-ui';
+import { forestColors, forestSpeciesColors } from '@spartan-g/shared-ui';
 import { rngFor, type ForestSpecies } from './forestUtils';
 
 /** Diamond tile: width is always 2× height (classic 2:1 isometric). */
@@ -121,6 +121,8 @@ export function tileShade(dr: number, dc: number): string {
 }
 
 export interface TreePalette {
+  /** Fixed representative color shared with the Forest legend. */
+  identityColor: string;
   /** Trunk / stem. */
   trunk: string;
   /** Main foliage body. */
@@ -135,37 +137,43 @@ export interface TreePalette {
 
 const PALETTES: Record<ForestSpecies, TreePalette> = {
   pine: {
+    identityColor: forestSpeciesColors.pine,
     trunk: forestColors.trunk,
-    canopy: forestColors.pine,
+    canopy: forestSpeciesColors.pine,
     canopyDark: forestColors.pineDark,
     accent: forestColors.flower,
   },
   bush: {
+    identityColor: forestSpeciesColors.bush,
     trunk: forestColors.trunkDark,
-    canopy: forestColors.bush,
+    canopy: forestSpeciesColors.bush,
     canopyDark: forestColors.bushDark,
     accent: forestColors.bloomPink,
   },
   bloom: {
+    identityColor: forestSpeciesColors.bloom,
     trunk: forestColors.pineDark,
     canopy: forestColors.bushDark,
     canopyDark: forestColors.pine,
     accent: forestColors.bloomPurple,
   },
   bare: {
-    trunk: forestColors.bare,
+    identityColor: forestSpeciesColors.withered,
+    trunk: forestSpeciesColors.withered,
     canopy: forestColors.bare,
     canopyDark: forestColors.trunkDark,
     accent: forestColors.soilSpeckle,
   },
   golden: {
+    identityColor: forestSpeciesColors.milestone,
     trunk: forestColors.trunk,
-    canopy: forestColors.golden,
+    canopy: forestSpeciesColors.milestone,
     canopyDark: forestColors.goldenDeep,
     accent: forestColors.flower,
     sparkle: forestColors.text,
   },
   sapling: {
+    identityColor: forestColors.grassLight,
     trunk: forestColors.trunk,
     canopy: forestColors.grassLight,
     canopyDark: forestColors.grass,
@@ -176,6 +184,7 @@ const PALETTES: Record<ForestSpecies, TreePalette> = {
 const ALTERNATE_FLOWERS = [forestColors.bloomPink, forestColors.bloomPurple, forestColors.flower];
 
 export interface TreeVariant {
+  identityColor: string;
   trunk: string;
   canopy: string;
   canopyDark: string;
@@ -202,6 +211,7 @@ export function treeVariant(attemptId: string, species: ForestSpecies, growRatio
   const grow = Math.min(Math.max(growRatio, 0), 1);
   const size = (0.86 + rand() * 0.3) * (0.86 + grow * 0.24);
   return {
+    identityColor: palette.identityColor,
     trunk: palette.trunk,
     canopy: palette.canopy,
     canopyDark: palette.canopyDark,

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forest Tree Shape Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #072119;
+      --panel: #123A2C;
+      --text: #F2FBF5;
+      --muted: #A9CCB9;
+      --pine: #2F8F46;
+      --pine-dark: #1F6B33;
+      --bush: #4CAF50;
+      --bush-dark: #35803B;
+      --bloom: #B48BE0;
+      --pink: #F2A7C3;
+      --gold: #F2B01E;
+      --gold-dark: #C98A0F;
+      --brown: #6B4423;
+      --bare: #8A6A45;
+      --bare-dark: #54351B;
+      --flower: #F3D25A;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px;
+      background: radial-gradient(circle at 50% 0%, #164b38 0, var(--bg) 48%, #04150f 100%);
+      color: var(--text);
+      font-family: Georgia, 'Times New Roman', serif;
+    }
+    h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: .02em; }
+    p { margin: 0 0 22px; color: var(--muted); font: 14px/1.5 system-ui, sans-serif; }
+    .stage {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 24px;
+      min-height: 240px;
+      padding: 28px 24px 20px;
+      border: 1px solid #1E5240;
+      background: rgba(18, 58, 44, .78);
+      border-radius: 8px;
+    }
+    .species { width: 92px; text-align: center; }
+    .tree-frame {
+      position: relative;
+      width: 84px;
+      height: 150px;
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .tree {
+      position: relative;
+      width: 56px;
+      height: 84px;
+      transform-origin: 50% 100%;
+    }
+    .exact-svg { width: 60px; height: 84px; overflow: visible; }
+    .trunk, .branch, .leaf, .lobe, .petal, .sparkle, .spire, .crown-point {
+      position: absolute;
+      display: block;
+    }
+    .trunk { background: var(--brown); border-radius: 3px; }
+    .pine .trunk, .golden .trunk { left: 24px; bottom: 0; width: 8px; height: 17px; }
+    .triangle {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: solid transparent;
+      border-right: solid transparent;
+      border-bottom: solid;
+    }
+    .pine .tier1 { bottom: 13px; border-left-width: 28px; border-right-width: 28px; border-bottom-width: 27px; border-bottom-color: var(--pine-dark); }
+    .pine .tier2 { bottom: 30px; border-left-width: 23px; border-right-width: 23px; border-bottom-width: 25px; border-bottom-color: var(--pine); }
+    .pine .tier3 { bottom: 46px; border-left-width: 18px; border-right-width: 18px; border-bottom-width: 22px; border-bottom-color: var(--pine); }
+    .pine .tier4 { bottom: 61px; border-left-width: 12px; border-right-width: 12px; border-bottom-width: 18px; border-bottom-color: var(--pine); }
+    .pine .accent { left: 25px; top: 1px; width: 6px; height: 6px; border-radius: 50%; background: var(--flower); }
+
+    .bush .trunk { left: 25px; bottom: 0; width: 7px; height: 22px; background: var(--bare-dark); }
+    .lobe { border-radius: 50%; }
+    .bush .rear { left: 12px; bottom: 12px; width: 34px; height: 34px; background: var(--bush-dark); }
+    .bush .upper-left { left: 5px; bottom: 24px; width: 25px; height: 24px; background: var(--bush); }
+    .bush .upper-right { left: 27px; bottom: 25px; width: 24px; height: 25px; background: var(--bush); }
+    .bush .front-left { left: 10px; bottom: 8px; width: 25px; height: 22px; background: var(--bush); }
+    .bush .front-right { left: 29px; bottom: 8px; width: 22px; height: 21px; background: var(--bush); }
+    .bush .flower { width: 6px; height: 6px; border-radius: 50%; background: var(--pink); }
+    .bush .f1 { left: 14px; bottom: 40px; }
+    .bush .f2 { left: 35px; bottom: 46px; background: var(--bloom); }
+    .bush .f3 { left: 24px; bottom: 54px; background: var(--flower); }
+    .bush .f4 { left: 43px; bottom: 27px; background: var(--bloom); }
+
+    .bloom .stem { left: 24px; bottom: 0; width: 9px; height: 78px; background: var(--bare-dark); border-radius: 3px; z-index: 1; }
+    .bloom .leaf { width: 22px; height: 12px; border-radius: 75% 25% 75% 25%; background: var(--bush); z-index: 2; }
+    .bloom .leaf-left { left: 3px; bottom: 28px; transform: rotate(-25deg); }
+    .bloom .leaf-right { left: 32px; bottom: 43px; transform: rotate(25deg) scaleX(-1); }
+    .bloom .leaf-low-left { left: 3px; bottom: 47px; transform: rotate(-25deg); background: var(--bush-dark); }
+    .bloom .leaf-low-right { left: 32px; bottom: 27px; transform: rotate(25deg) scaleX(-1); background: var(--bush-dark); }
+    .bloom .petal { width: 13px; height: 13px; border-radius: 50%; background: var(--bloom); }
+    .bloom .p-top { left: 22px; bottom: 69px; width: 16px; height: 16px; background: var(--pink); }
+    .bloom .p-left { left: 5px; bottom: 56px; }
+    .bloom .p-right { left: 37px; bottom: 43px; background: var(--flower); }
+    .bloom .p-low { left: 14px; bottom: 31px; width: 11px; height: 11px; background: var(--pink); }
+    .bloom .sparkle { width: 5px; height: 5px; background: var(--flower); transform: rotate(45deg); }
+    .bloom .s1 { left: 2px; bottom: 66px; }
+    .bloom .s2 { left: 48px; bottom: 62px; }
+    .bloom .s3 { left: 48px; bottom: 31px; }
+    .bloom .s4 { left: 2px; bottom: 35px; }
+
+    .bare .trunk { left: 25px; bottom: 0; width: 8px; height: 79px; background: var(--bare); border-radius: 3px; }
+    .bare .branch { height: 5px; border-radius: 2px; background: var(--bare-dark); clip-path: polygon(0 20%, 100% 42%, 100% 58%, 0 80%); }
+    .bare .left { transform-origin: 100% 50%; }
+    .bare .right { transform-origin: 0 50%; }
+    .bare .b1 { right: 29px; bottom: 24px; width: 22px; transform: rotate(-20deg); }
+    .bare .b2 { left: 29px; bottom: 29px; width: 21px; transform: rotate(17deg); }
+    .bare .b3 { right: 29px; bottom: 43px; width: 28px; transform: rotate(13deg); }
+    .bare .b4 { left: 29px; bottom: 48px; width: 25px; transform: rotate(-18deg); }
+    .bare .b5 { right: 29px; bottom: 63px; width: 25px; transform: rotate(-26deg); }
+    .bare .b6 { left: 29px; bottom: 68px; width: 20px; transform: rotate(27deg); }
+    .bare .tip { height: 3px; width: 10px; border-radius: 2px; background: var(--bare-dark); clip-path: polygon(0 25%, 100% 45%, 100% 55%, 0 75%); }
+    .bare .t1 { right: 46px; bottom: 32px; transform: rotate(4deg); }
+    .bare .t2 { left: 45px; bottom: 54px; transform: rotate(-8deg); }
+    .bare .t3 { right: 48px; bottom: 69px; transform: rotate(-8deg); }
+    .bare .t4 { left: 45px; bottom: 74px; transform: rotate(5deg); }
+
+    .golden .trunk { left: 24px; bottom: 0; width: 9px; height: 18px; background: var(--brown); }
+    .golden .canopy { border-radius: 50%; background: var(--gold-dark); }
+    .golden .rear { left: 9px; bottom: 13px; width: 39px; height: 39px; }
+    .golden .center { left: 16px; bottom: 20px; width: 31px; height: 36px; background: var(--gold); }
+    .golden .left-lobe { left: 4px; bottom: 25px; width: 24px; height: 27px; background: var(--gold); }
+    .golden .right-lobe { left: 32px; bottom: 25px; width: 24px; height: 27px; background: var(--gold); }
+    .golden .spire { left: 26px; bottom: 48px; width: 6px; height: 29px; background: var(--gold); border-radius: 3px; z-index: 2; }
+    .golden .crown-star { left: 22px; bottom: 71px; width: 14px; height: 14px; background: var(--gold); transform: rotate(45deg); z-index: 3; }
+    .golden .sparkle { width: 6px; height: 6px; border-radius: 50%; background: var(--text); }
+    .golden .g1 { left: 0; bottom: 57px; }
+    .golden .g2 { left: 8px; bottom: 73px; }
+    .golden .g3 { left: 25px; bottom: 82px; }
+    .golden .g4 { left: 48px; bottom: 73px; }
+    .golden .g5 { left: 53px; bottom: 55px; }
+    .golden .g6 { left: 49px; bottom: 36px; }
+    .golden .g7 { left: 4px; bottom: 34px; }
+    .golden .g8 { left: -2px; bottom: 45px; }
+
+    .name { font-weight: 700; font-size: 14px; }
+    .hex { margin-top: 3px; color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .note { margin-top: 20px; color: var(--muted); font: 12px/1.5 system-ui, sans-serif; text-align: center; }
+    @media (max-width: 700px) {
+      body { padding: 18px 12px; }
+      .stage { flex-wrap: wrap; gap: 18px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Forest tree shape proposal</h1>
+  <p>Static concept preview at the representative in-app tree frame: 42.16px high x 27.83px wide before outer island scaling.</p>
+  <main class="stage" aria-label="Forest species preview">
+    <section class="species">
+      <div class="tree-frame"><div class="tree pine" aria-label="Pine tree">
+        <i class="trunk"></i><i class="triangle tier1"></i><i class="triangle tier2"></i><i class="triangle tier3"></i><i class="triangle tier4"></i><i class="accent"></i>
+      </div></div>
+      <div class="name">Pine</div><div class="hex">#2F8F46</div>
+    </section>
+    <section class="species">
+      <div class="tree-frame"><div class="tree bush" aria-label="Bush">
+        <i class="trunk"></i><i class="lobe rear"></i><i class="lobe upper-left"></i><i class="lobe upper-right"></i><i class="lobe front-left"></i><i class="lobe front-right"></i>
+        <i class="flower f1"></i><i class="flower f2"></i><i class="flower f3"></i><i class="flower f4"></i>
+      </div></div>
+      <div class="name">Bush</div><div class="hex">#4CAF50</div>
+    </section>
+    <section class="species">
+      <div class="tree-frame"><svg class="exact-svg" viewBox="0 0 100 140" role="img" aria-label="Bloom">
+        <line x1="50" y1="140" x2="50" y2="45" stroke="#1F6B33" stroke-width="5" />
+        <path d="M50 110 Q36 108 25 95 Q39 96 50 110 Z" fill="#35803B" />
+        <path d="M50 100 Q64 98 75 85 Q61 86 50 100 Z" fill="#35803B" />
+        <path d="M50 80 Q38 78 28 65 Q41 67 50 80 Z" fill="#35803B" />
+        <path d="M50 70 Q63 68 72 55 Q59 57 50 70 Z" fill="#35803B" />
+        <circle cx="42" cy="40" r="10" fill="#F2A7C3" />
+        <circle cx="50" cy="35" r="10" fill="#B48BE0" />
+        <circle cx="58" cy="40" r="10" fill="#F3D25A" />
+        <rect x="32" y="32" width="6" height="6" fill="#F3D25A" transform="rotate(45 35 35)" />
+        <rect x="62" y="32" width="6" height="6" fill="#F3D25A" transform="rotate(45 65 35)" />
+      </svg></div>
+      <div class="name">Bloom</div><div class="hex">#B48BE0</div>
+    </section>
+    <section class="species">
+      <div class="tree-frame"><svg class="exact-svg" viewBox="0 0 100 140" role="img" aria-label="Withered tree">
+        <path d="M47 140 L53 140 L51.5 40 L48.5 40 Z" fill="#8A6A45" />
+        <path d="M50 125 L28 100 L30 98 L52 124 Z" fill="#54351B" />
+        <path d="M50 115 L72 92 L74 94 L52 117 Z" fill="#54351B" />
+        <path d="M50 95 L22 68 L24 66 L52 94 Z" fill="#54351B" />
+        <path d="M50 85 L78 65 L80 67 L52 87 Z" fill="#54351B" />
+        <path d="M50 65 L32 42 L34 40 L52 64 Z" fill="#54351B" />
+        <path d="M50 58 L68 38 L70 40 L52 60 Z" fill="#54351B" />
+        <path d="M22 68 L12 61 L13 59 L24 66 Z" fill="#54351B" />
+        <path d="M78 65 L88 56 L89 58 L80 67 Z" fill="#54351B" />
+      </svg></div>
+      <div class="name">Withered</div><div class="hex">#8A6A45</div>
+    </section>
+    <section class="species">
+      <div class="tree-frame"><svg class="exact-svg" viewBox="0 0 100 140" role="img" aria-label="Milestone tree">
+        <rect x="47" y="105" width="6" height="35" fill="#6B4423" />
+        <circle cx="50" cy="75" r="22" fill="#F2B01E" />
+        <circle cx="35" cy="85" r="16" fill="#F2B01E" />
+        <circle cx="65" cy="85" r="16" fill="#F2B01E" />
+        <path d="M50 75 L44 45 L56 45 Z" fill="#F2B01E" />
+        <rect x="22" y="57" width="6" height="6" fill="#F2FBF5" transform="rotate(45 25 60)" />
+        <rect x="72" y="57" width="6" height="6" fill="#F2FBF5" transform="rotate(45 75 60)" />
+        <rect x="17" y="87" width="6" height="6" fill="#F2FBF5" transform="rotate(45 20 90)" />
+        <rect x="77" y="87" width="6" height="6" fill="#F2FBF5" transform="rotate(45 80 90)" />
+        <rect x="47" y="32" width="6" height="6" fill="#F2FBF5" transform="rotate(45 50 35)" />
+      </svg></div>
+      <div class="name">Milestone</div><div class="hex">#F2B01E</div>
+    </section>
+  </main>
+  <div class="note">This is a geometry review only. No ForestTree, legend, sizing, positioning, hitbox, or modal code has been changed.</div>
+</body>
+</html>

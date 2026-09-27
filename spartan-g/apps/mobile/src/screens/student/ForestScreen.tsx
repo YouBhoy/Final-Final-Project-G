@@ -23,7 +23,7 @@ import type {
 } from '@spartan-g/shared-types';
 import { CAMPUS_SHORT_LABELS } from '@spartan-g/shared-types';
 import { assessmentService, useAuthStore } from '@spartan-g/shared-services';
-import { borderRadius, fontSize, forestColors, spacing } from '@spartan-g/shared-ui';
+import { borderRadius, fontSize, forestColors, forestSpeciesColors, spacing } from '@spartan-g/shared-ui';
 import { ActivityChart } from './components/forest/ActivityChart';
 import { ForestCanvas } from './components/forest/ForestCanvas';
 import { ForestIsland } from './components/forest/ForestIsland';
@@ -596,11 +596,11 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
 
 // Legend swatches reuse the same tokens the trees are painted with.
 const LEGEND_ITEMS = [
-  { key: 'pine', label: 'Pine', color: forestColors.pine },
-  { key: 'bush', label: 'Bush', color: forestColors.bush },
-  { key: 'bloom', label: 'Bloom', color: forestColors.bloomPurple },
-  { key: 'bare', label: 'Withered', color: forestColors.bare },
-  { key: 'golden', label: 'Milestone', color: forestColors.golden },
+  { key: 'pine', label: 'Pine', color: forestSpeciesColors.pine },
+  { key: 'bush', label: 'Bush', color: forestSpeciesColors.bush },
+  { key: 'bloom', label: 'Bloom', color: forestSpeciesColors.bloom },
+  { key: 'bare', label: 'Withered', color: forestSpeciesColors.withered },
+  { key: 'golden', label: 'Milestone', color: forestSpeciesColors.milestone },
 ] as const;
 
 export const styles = StyleSheet.create({

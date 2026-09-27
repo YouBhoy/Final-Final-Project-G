@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { forestColors } from '@spartan-g/shared-ui';
 import { SHOW_FOREST_DEBUG, SPECIES_LABEL, TILE_H, TILE_W, treeVariant, type TreeVariant } from './forestLayout';
 import { formatShortDate, type ForestCheckIn, type ForestSpecies } from './forestUtils';
@@ -128,8 +129,8 @@ function PineTree({ h, w, v }: ShapeProps) {
   const trunkW = Math.max(3, w * 0.13);
   const tiers = [
     { base: w, height: h * 0.46, bottom: trunkH * 0.6, color: v.canopyDark },
-    { base: w * 0.78, height: h * 0.4, bottom: trunkH * 0.6 + h * 0.3, color: v.canopy },
-    { base: w * 0.52, height: h * 0.34, bottom: trunkH * 0.6 + h * 0.58, color: v.canopy },
+    { base: w * 0.78, height: h * 0.4, bottom: trunkH * 0.6 + h * 0.3, color: v.identityColor },
+    { base: w * 0.52, height: h * 0.34, bottom: trunkH * 0.6 + h * 0.58, color: v.identityColor },
   ];
   return (
     <View style={{ width: w, height: h, justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -165,7 +166,7 @@ function Bush({ h, w, v }: ShapeProps) {
         style={abs(
           blob * 0.72,
           blob * 0.68,
-          v.canopy,
+          v.identityColor,
           (w - blob) / 2 - blob * 0.18,
           crest + blob * 0.1,
           blob * 0.36,
@@ -175,7 +176,7 @@ function Bush({ h, w, v }: ShapeProps) {
         style={abs(
           blob * 0.58,
           blob * 0.56,
-          v.canopy,
+          v.identityColor,
           (w - blob) / 2 + blob * 0.26,
           crest + blob * 0.24,
           blob * 0.29,
@@ -190,110 +191,56 @@ function Bush({ h, w, v }: ShapeProps) {
     </View>
   );
 }
-/** Tall flowering / coral-like plant: stem, leaf pairs and blooms. */
+/** Coordinate-defined flowering plant from the approved 100x140 preview. */
 function BloomPlant({ h, w, v }: ShapeProps) {
-  const stemW = Math.max(2, w * 0.08);
-  const leafW = w * 0.4;
-  const leafH = h * 0.13;
-  const bloom = Math.max(6, w * 0.22);
-  const blooms = [
-    { top: 0.04, left: 0.5, size: 1, color: v.accent },
-    { top: 0.22, left: 0.2, size: 0.8, color: forestColors.bloomPurple },
-    { top: 0.34, left: 0.78, size: 0.72, color: v.accent },
-    { top: 0.48, left: 0.28, size: 0.62, color: forestColors.bloomPurple },
-  ];
   return (
-    <View style={{ width: w, height: h, justifyContent: 'flex-end', alignItems: 'center' }}>
-      <View style={abs(stemW, h * 0.88, v.trunk, (w - stemW) / 2, h - h * 0.88, stemW / 2)} />
-      {[0.42, 0.6].map((top, i) => (
-        <View key={i} style={{ position: 'absolute', left: i === 0 ? 0 : w * 0.6, top: h * top }}>
-          <View
-            style={[
-              abs(leafW, leafH, v.canopyDark, 0, 0, leafH / 2),
-              { transform: [{ rotate: i === 0 ? '-26deg' : '26deg' }] },
-            ]}
-          />
-        </View>
-      ))}
-      {blooms.map((b, i) => (
-        <View
-          key={i}
-          style={abs(
-            bloom * b.size,
-            bloom * b.size,
-            b.color,
-            w * b.left - (bloom * b.size) / 2,
-            h * b.top,
-            (bloom * b.size) / 2,
-          )}
-        />
-      ))}
-      <View style={abs(w * 0.62, h * 0.16, forestColors.bloomPink, w * 0.18, h * 0.76, h * 0.08)} />
-      <View style={abs(w * 0.38, h * 0.13, forestColors.bloomPink, w * 0.5, h * 0.7, h * 0.06)} />
-      {[{ left: 0.06, top: 0.12 }, { left: 0.78, top: 0.08 }, { left: 0.68, top: 0.48 }, { left: 0.08, top: 0.54 }].map(
-        (star, i) => (
-          <Star key={i} left={w * star.left} top={h * star.top} size={Math.max(4, w * 0.12)} color={forestColors.flower} />
-        ),
-      )}
-    </View>
+    <Svg width={w} height={h} viewBox="0 0 100 140">
+      <Line x1="50" y1="140" x2="50" y2="45" stroke={v.trunk} strokeWidth={5} />
+      <Path d="M50 110 Q36 108 25 95 Q39 96 50 110 Z" fill={v.canopy} />
+      <Path d="M50 100 Q64 98 75 85 Q61 86 50 100 Z" fill={v.canopy} />
+      <Path d="M50 80 Q38 78 28 65 Q41 67 50 80 Z" fill={v.canopy} />
+      <Path d="M50 70 Q63 68 72 55 Q59 57 50 70 Z" fill={v.canopy} />
+      <Circle cx="42" cy="40" r="10" fill={v.accent} />
+      <Circle cx="50" cy="35" r="10" fill={v.identityColor} />
+      <Circle cx="58" cy="40" r="10" fill={forestColors.flower} />
+      <Rect x="32" y="32" width="6" height="6" fill={forestColors.flower} rotation="45" origin="35, 35" />
+      <Rect x="62" y="32" width="6" height="6" fill={forestColors.flower} rotation="45" origin="65, 35" />
+    </Svg>
   );
 }
 
-/** Withered tree: bare trunk with angular branches (streak break). */
+/** Coordinate-defined bare winter tree from the approved 100x140 preview. */
 function WitheredTree({ h, w, v }: ShapeProps) {
-  const trunkW = Math.max(3, w * 0.14);
-  const branches = [
-    { left: 0.08, top: 0.28, rotate: '-36deg', length: w * 0.5 },
-    { left: 0.52, top: 0.16, rotate: '32deg', length: w * 0.46 },
-    { left: 0.24, top: 0.48, rotate: '-22deg', length: w * 0.34 },
-    { left: 0.46, top: 0.38, rotate: '18deg', length: w * 0.3 },
-  ];
   return (
-    <View style={{ width: w, height: h, justifyContent: 'flex-end', alignItems: 'center' }}>
-      <View style={abs(trunkW, h * 0.94, v.trunk, (w - trunkW) / 2, h - h * 0.94, trunkW / 3)} />
-      {branches.map((b, i) => (
-        <View
-          key={i}
-          style={[
-            abs(b.length, Math.max(2, trunkW * 0.5), v.canopyDark, w * b.left, h * b.top, trunkW * 0.25),
-            { transform: [{ rotate: b.rotate }] },
-          ]}
-        />
-      ))}
-    </View>
+    <Svg width={w} height={h} viewBox="0 0 100 140">
+      <Path d="M47 140 L53 140 L51.5 40 L48.5 40 Z" fill={v.trunk} />
+      <Path d="M50 125 L28 100 L30 98 L52 124 Z" fill={v.canopyDark} />
+      <Path d="M50 115 L72 92 L74 94 L52 117 Z" fill={v.canopyDark} />
+      <Path d="M50 95 L22 68 L24 66 L52 94 Z" fill={v.canopyDark} />
+      <Path d="M50 85 L78 65 L80 67 L52 87 Z" fill={v.canopyDark} />
+      <Path d="M50 65 L32 42 L34 40 L52 64 Z" fill={v.canopyDark} />
+      <Path d="M50 58 L68 38 L70 40 L52 60 Z" fill={v.canopyDark} />
+      <Path d="M22 68 L12 61 L13 59 L24 66 Z" fill={v.canopyDark} />
+      <Path d="M78 65 L88 56 L89 58 L80 67 Z" fill={v.canopyDark} />
+    </Svg>
   );
 }
 
-/** Milestone tree: golden conifer with sparkles. */
+/** Coordinate-defined rounded milestone crown from the approved preview. */
 function GoldenShape({ h, w, v }: ShapeProps) {
-  const trunkH = h * 0.18;
-  const trunkW = Math.max(3, w * 0.12);
-  const sparkles = [
-    { left: 0.1, top: 0.08 },
-    { left: 0.78, top: 0.2 },
-    { left: 0.22, top: 0.44 },
-    { left: 0.66, top: 0.58 },
-  ];
   return (
-    <View style={{ width: w, height: h, justifyContent: 'flex-end', alignItems: 'center' }}>
-      <View style={abs(trunkW, trunkH, v.trunk, (w - trunkW) / 2, h - trunkH, trunkW / 3)} />
-      <Triangle
-        w={w}
-        h={h * 0.36}
-        color={v.canopyDark}
-        style={{ position: 'absolute', bottom: h - trunkH - h * 0.3, left: 0 }}
-      />
-      <Triangle
-        w={w * 0.76}
-        h={h * 0.32}
-        color={v.canopy}
-        style={{ position: 'absolute', bottom: h - trunkH - h * 0.56, left: w * 0.12 }}
-      />
-      <View style={abs(w * 0.3, w * 0.3, v.canopy, w * 0.35, h - trunkH - h * 0.84, w * 0.15)} />
-      {sparkles.map((s, i) => (
-        <View key={i} style={abs(w * 0.09, w * 0.09, v.sparkle ?? v.accent, w * s.left, h * s.top, w * 0.045)} />
-      ))}
-    </View>
+    <Svg width={w} height={h} viewBox="0 0 100 140">
+      <Rect x="47" y="105" width="6" height="35" fill={v.trunk} />
+      <Circle cx="50" cy="75" r="22" fill={v.identityColor} />
+      <Circle cx="35" cy="85" r="16" fill={v.identityColor} />
+      <Circle cx="65" cy="85" r="16" fill={v.identityColor} />
+      <Path d="M50 75 L44 45 L56 45 Z" fill={v.identityColor} />
+      <Rect x="22" y="57" width="6" height="6" fill={v.sparkle ?? v.accent} rotation="45" origin="25, 60" />
+      <Rect x="72" y="57" width="6" height="6" fill={v.sparkle ?? v.accent} rotation="45" origin="75, 60" />
+      <Rect x="17" y="87" width="6" height="6" fill={v.sparkle ?? v.accent} rotation="45" origin="20, 90" />
+      <Rect x="77" y="87" width="6" height="6" fill={v.sparkle ?? v.accent} rotation="45" origin="80, 90" />
+      <Rect x="47" y="32" width="6" height="6" fill={v.sparkle ?? v.accent} rotation="45" origin="50, 35" />
+    </Svg>
   );
 }
 

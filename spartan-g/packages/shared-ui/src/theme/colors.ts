@@ -81,6 +81,14 @@ export const forestColors = {
   track: 'rgba(255, 255, 255, 0.08)',
 } as const;
 
+export const forestSpeciesColors = {
+  pine: '#2F8F46',
+  bush: '#4CAF50',
+  bloom: '#B48BE0',
+  withered: '#8A6A45',
+  milestone: '#F2B01E',
+} as const;
+
 export const lightColors = {
   background: palette.slate50,
   surface: palette.white,
