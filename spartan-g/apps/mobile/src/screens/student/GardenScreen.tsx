@@ -232,14 +232,14 @@ export function GardenScreen() {
           </View>
         ) : attempt && assessmentDef ? (
           <>
-            <GardenTree totalQuestions={totalQuestions} answeredCount={answeredCount} />
+            <GardenTree totalQuestions={totalQuestions} answeredCount={answeredCount} containerHeight={100} />
             <Text style={styles.assessmentCardSubtitle}>
               {answeredCount} of {totalQuestions} questions answered
             </Text>
           </>
         ) : (
           <>
-            <GardenTree totalQuestions={0} answeredCount={0} />
+            <GardenTree totalQuestions={0} answeredCount={0} containerHeight={100} />
             <Text style={styles.assessmentEmptyText}>
               Take your first assessment to grow this tree!
             </Text>
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   assessmentLoading: {
-    height: 200,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
   },

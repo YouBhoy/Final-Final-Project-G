@@ -4,8 +4,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  type ViewStyle,
 } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { palette } from '@spartan-g/shared-ui';
 
 // ─── Garden hero scene (v1) ───────────────────────────────────────────────
@@ -32,90 +32,59 @@ function stageFromLevel(level: number): HeroStage {
   return 'flourishing';
 }
 
-interface StageConfig {
-  trunkH: number;
-  trunkW: number;
-  canopyW: number;
-  canopyH: number;
-  puffs: number; // extra canopy puffs for fullness
-}
-
-function stageConfig(stage: HeroStage): StageConfig {
-  switch (stage) {
-    case 'young':
-      return { trunkH: 46, trunkW: 12, canopyW: 82, canopyH: 74, puffs: 1 };
-    case 'mature':
-      return { trunkH: 56, trunkW: 13, canopyW: 98, canopyH: 86, puffs: 2 };
-    case 'flourishing':
-      return { trunkH: 64, trunkW: 14, canopyW: 112, canopyH: 98, puffs: 3 };
-    case 'sprout':
-    default:
-      return { trunkH: 34, trunkW: 10, canopyW: 64, canopyH: 60, puffs: 0 };
-  }
-}
-
-function abs(
-  width: number,
-  height: number,
-  color: string,
-  left: number,
-  top: number,
-  radius: number = Math.min(width, height) / 2,
-): ViewStyle {
-  return {
-    position: 'absolute',
-    width,
-    height,
-    borderRadius: radius,
-    backgroundColor: color,
-    left,
-    top,
-  };
-}
-
-// Palette constants for the hero tree (green, neutral).
-const TREE = {
-  trunk: '#78350F',
-  canopy: '#22C55E',
-  puff: '#4ADE80',
-  highlight: '#BBF7D0',
-};
-
 function HeroTree({ stage }: { stage: HeroStage }) {
-  const cfg = stageConfig(stage);
-  const puffSpots = [
-    { left: 10, top: 6, s: 0.5 },
-    { left: 40, top: 0, s: 0.55 },
-    { left: -6, top: 34, s: 0.4 },
-  ];
-
   return (
     <View style={styles.treeBody}>
-      <View style={{ width: cfg.canopyW, height: cfg.canopyH }}>
-        <View style={abs(cfg.canopyW, cfg.canopyH, TREE.canopy, 0, 0)} />
-        {/* extra fullness puffs for higher stages */}
-        {puffSpots.slice(0, cfg.puffs).map((p, i) => (
-          <View
-            key={i}
-            style={abs(
-              cfg.canopyW * p.s,
-              cfg.canopyH * p.s * 0.9,
-              i === 0 ? TREE.puff : TREE.highlight,
-              p.left,
-              p.top,
-            )}
-          />
-        ))}
-        <View style={abs(22, 22, TREE.highlight, cfg.canopyW * 0.28, cfg.canopyH * 0.12, 11)} />
-      </View>
-      <View
-        style={{
-          width: cfg.trunkW,
-          height: cfg.trunkH,
-          backgroundColor: TREE.trunk,
-          borderRadius: 4,
-        }}
-      />
+      <Svg width={150} height={205} viewBox="0 0 150 205" preserveAspectRatio="xMidYMid meet">
+        {stage === 'sprout' && (
+          <>
+            <Path d="M22 188 Q32 175 48 180 Q58 166 75 178 Q91 165 103 180 Q119 174 128 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M52 181 Q70 168 70 130 Q70 111 57 96" fill="none" stroke="#7b481f" strokeWidth={6} strokeLinecap="round" />
+            <Path d="M59 101 Q43 94 35 77 Q54 76 64 91 Q66 98 59 101 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M68 122 Q82 113 96 99 Q94 119 77 128 Q71 130 68 122 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M40 82 Q51 87 61 96 M92 103 Q82 114 73 121" fill="none" stroke="#4d8f38" strokeWidth={1.5} strokeLinecap="round" />
+          </>
+        )}
+        {stage === 'young' && (
+          <>
+            <Path d="M18 188 Q29 175 44 180 Q55 166 73 178 Q89 165 104 180 Q119 174 132 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M65 181 Q68 151 67 118 Q66 94 53 69 M67 128 Q51 116 37 101 M67 111 Q82 97 102 78" fill="none" stroke="#7b481f" strokeWidth={4} strokeLinecap="round" />
+            <Path d="M54 72 Q36 68 29 48 Q49 48 60 62 Q61 69 54 72 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M100 80 Q102 59 118 46 Q120 66 108 79 Q104 83 100 80 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M38 103 Q22 98 19 84 Q35 83 47 94 Q48 100 38 103 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M70 128 Q84 114 99 111 Q94 128 77 134 Q71 135 70 128 Z" fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M32 52 Q43 57 55 67 M115 50 Q108 63 103 76 M23 88 Q34 92 43 99 M94 115 Q84 121 74 129" fill="none" stroke="#4d8f38" strokeWidth={1.5} strokeLinecap="round" />
+          </>
+        )}
+        {stage === 'mature' && (
+          <>
+            <Path d="M13 188 Q25 174 43 180 Q54 165 75 178 Q94 164 108 180 Q124 174 137 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M65 181 Q73 148 73 110 L73 63 M73 112 Q51 96 31 77 M73 96 Q91 78 111 57 M73 78 Q61 59 51 42 M73 69 Q86 53 98 39" fill="none" stroke="#e0d987" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M31 78 Q17 70 17 51 Q36 54 45 68 Q45 75 31 78 Z" fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M111 58 Q116 39 133 34 Q133 54 119 62 Q114 64 111 58 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M51 43 Q38 34 42 17 Q58 24 61 38 Q59 43 51 43 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M98 40 Q100 21 116 13 Q118 32 105 42 Q101 44 98 40 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M73 65 Q65 48 73 32 Q83 47 79 61 Q77 66 73 65 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M21 54 Q31 61 40 70 M129 38 Q120 48 114 56 M46 22 Q51 31 55 39 M114 19 Q108 29 102 38 M74 36 Q76 48 75 59" fill="none" stroke="#4d8f38" strokeWidth={1.5} strokeLinecap="round" />
+          </>
+        )}
+        {stage === 'flourishing' && (
+          <>
+            <Path d="M10 188 Q22 174 40 180 Q52 164 72 178 Q91 164 108 180 Q126 174 140 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M67 181 Q74 151 74 117 L74 91 M74 128 Q48 108 26 88 M74 122 Q101 103 126 82 M74 103 Q56 82 43 58 M74 101 Q91 79 108 55" fill="none" stroke="#7b481f" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx={43} cy={63} r={25} fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
+            <Circle cx={73} cy={49} r={29} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Circle cx={107} cy={59} r={24} fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
+            <Circle cx={27} cy={88} r={20} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Circle cx={51} cy={91} r={24} fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
+            <Circle cx={94} cy={89} r={24} fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
+            <Circle cx={123} cy={83} r={20} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Circle cx={74} cy={79} r={30} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
+            <Path d="M45 52 Q56 59 65 66 M73 24 Q73 39 73 53 M106 47 Q96 58 88 67 M28 82 Q40 85 49 89 M122 77 Q111 82 101 88" fill="none" stroke="#4d8f38" strokeWidth={2} strokeLinecap="round" />
+            <Path d="M58 47 Q64 41 70 39 M83 70 Q89 64 95 62 M105 94 Q113 93 118 89" fill="none" stroke="#a9dc63" strokeWidth={3} strokeLinecap="round" opacity={0.8} />
+          </>
+        )}
+      </Svg>
     </View>
   );
 }

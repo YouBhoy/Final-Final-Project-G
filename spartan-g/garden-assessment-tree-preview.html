@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Garden Assessment Tree Preview</title>
+  <style>
+    :root {
+      --page: #f5f8f1;
+      --ink: #18321f;
+      --muted: #5f7565;
+      --panel: #ffffff;
+      --border: #cbded0;
+      --leaf: #79c943;
+      --leaf-dark: #438b36;
+      --leaf-light: #a6da5d;
+      --branch: #78421f;
+      --branch-outline: #4b2818;
+      --outline: #4b2818;
+      --trunk: #9b5b28;
+      --trunk-dark: #613519;
+      --soil: #a9562b;
+      --empty: #c8d4c9;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px;
+      color: var(--ink);
+      background: radial-gradient(circle at 50% 0%, #ffffff 0, var(--page) 54%, #e6f0e2 100%);
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    h1 { margin: 0 0 8px; font-size: 27px; }
+    .intro { max-width: 680px; margin: 0 0 22px; color: var(--muted); font: 14px/1.5 system-ui, sans-serif; }
+    .preview {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 14px;
+      max-width: 740px;
+      margin: 0 auto;
+    }
+    .state-card {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .82);
+    }
+    .tree-frame {
+      width: 100%;
+      height: 100px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #f4fbf5;
+    }
+    svg { display: block; width: 100%; height: 100%; }
+    .state-name { margin-top: 10px; font-weight: 700; font-size: 14px; }
+    .state-detail { margin-top: 3px; color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .note { max-width: 740px; margin: 18px auto 0; color: var(--muted); font: 12px/1.5 system-ui, sans-serif; text-align: center; }
+    @media (max-width: 700px) {
+      body { padding: 18px 12px; }
+      .preview { grid-template-columns: 1fr; max-width: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Garden assessment tree shape preview</h1>
+  <p class="intro">SVG proposal for the existing compact `100px` assessment viewport. The detailed reference is simplified into a strong branch silhouette and seven readable leaf clusters so progress reads clearly at small size.</p>
+
+  <main class="preview" aria-label="Assessment tree progress states">
+    <section class="state-card">
+      <div class="tree-frame">
+        <svg viewBox="0 0 240 100" role="img" aria-label="Bare assessment tree, zero percent answered">
+          <path d="M104 94 Q120 89 136 94 Z" fill="var(--soil)" stroke="var(--trunk-dark)" stroke-width="1.5"/>
+          <path d="M108 94 Q114 76 115 51 Q116 32 120 14 Q124 32 125 51 Q126 76 132 94 Z" fill="var(--trunk)" stroke="var(--trunk-dark)" stroke-width="1.5" stroke-linejoin="round"/>
+          <g fill="var(--branch)" stroke="var(--branch-outline)" stroke-linejoin="round">
+            <path d="M116 73 C101 69 88 58 76 46 L80 43 C94 54 106 62 120 66 Z" stroke-width="1"/>
+            <path d="M124 67 C140 62 154 50 170 38 L174 42 C158 56 145 68 123 74 Z" stroke-width="1"/>
+            <path d="M117 54 C106 46 99 36 92 24 L96 22 C103 34 111 43 121 48 Z" stroke-width="1"/>
+            <path d="M123 49 C133 41 142 31 149 20 L153 23 C145 36 136 47 123 55 Z" stroke-width="1"/>
+            <path d="M120 46 C118 35 119 24 120 13 L124 13 C124 26 125 36 125 48 Z" stroke-width="1"/>
+          </g>
+          <path d="M119 91 Q120 66 120 43" fill="none" stroke="var(--trunk-dark)" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="state-name">Bare scaffold</div><div class="state-detail">0% answered</div>
+    </section>
+
+    <section class="state-card">
+      <div class="tree-frame">
+        <svg viewBox="0 0 240 100" role="img" aria-label="Half-grown assessment tree, fifty percent answered">
+          <path d="M104 94 Q120 89 136 94 Z" fill="var(--soil)" stroke="var(--trunk-dark)" stroke-width="1.5"/>
+          <path d="M108 94 Q114 76 115 51 Q116 32 120 14 Q124 32 125 51 Q126 76 132 94 Z" fill="var(--trunk)" stroke="var(--trunk-dark)" stroke-width="1.5" stroke-linejoin="round"/>
+          <g fill="var(--branch)" stroke="var(--branch-outline)" stroke-linejoin="round">
+            <path d="M116 73 C101 69 88 58 76 46 L80 43 C94 54 106 62 120 66 Z" stroke-width="1"/>
+            <path d="M124 67 C140 62 154 50 170 38 L174 42 C158 56 145 68 123 74 Z" stroke-width="1"/>
+            <path d="M117 54 C106 46 99 36 92 24 L96 22 C103 34 111 43 121 48 Z" stroke-width="1"/>
+            <path d="M123 49 C133 41 142 31 149 20 L153 23 C145 36 136 47 123 55 Z" stroke-width="1"/>
+            <path d="M120 46 C118 35 119 24 120 13 L124 13 C124 26 125 36 125 48 Z" stroke-width="1"/>
+          </g>
+          <path d="M119 91 Q120 66 120 43" fill="none" stroke="var(--trunk-dark)" stroke-width="1.5" stroke-linecap="round"/>
+          <g aria-label="partial lobed crown">
+            <!-- Scaled-down lobed backing (no top lobe / trunk flanks yet = "growing branches").
+                 Same overlapping-lobe language as 100%, just smaller/fewer. -->
+            <g fill="var(--leaf)">
+              <ellipse cx="96"  cy="44" rx="28" ry="24"/><!-- left crown body -->
+              <ellipse cx="144" cy="44" rx="28" ry="24"/><!-- right crown body -->
+              <ellipse cx="107" cy="26" rx="20" ry="16"/><!-- upper-left lobe -->
+              <ellipse cx="135" cy="26" rx="20" ry="16"/><!-- upper-right lobe -->
+            </g>
+            <!-- single soft highlight (upper-left) + single soft shadow (underside) -->
+            <ellipse cx="102" cy="28" rx="10" ry="9" fill="var(--leaf-light)"/>
+            <ellipse cx="150" cy="50" rx="12" ry="11" fill="var(--leaf-dark)"/>
+            <!-- 4 anchors growing so far: B1 B2 B3 B4 -->
+            <g fill="var(--leaf)">
+              <circle cx="78"  cy="44" r="6"/>
+              <circle cx="172" cy="40" r="6"/>
+              <circle cx="94"  cy="23" r="6"/>
+              <circle cx="152" cy="22" r="6"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="state-name">Growing branches</div><div class="state-detail">50% answered</div>
+    </section>
+
+    <section class="state-card">
+      <div class="tree-frame">
+        <svg viewBox="0 0 240 100" role="img" aria-label="Full assessment tree, one hundred percent answered">
+          <path d="M104 94 Q120 89 136 94 Z" fill="var(--soil)" stroke="var(--trunk-dark)" stroke-width="1.5"/>
+          <path d="M108 94 Q114 76 115 51 Q116 32 120 14 Q124 32 125 51 Q126 76 132 94 Z" fill="var(--trunk)" stroke="var(--trunk-dark)" stroke-width="1.5" stroke-linejoin="round"/>
+          <g fill="var(--branch)" stroke="var(--branch-outline)" stroke-linejoin="round">
+            <path d="M116 73 C101 69 88 58 76 46 L80 43 C94 54 106 62 120 66 Z" stroke-width="1"/>
+            <path d="M124 67 C140 62 154 50 170 38 L174 42 C158 56 145 68 123 74 Z" stroke-width="1"/>
+            <path d="M117 54 C106 46 99 36 92 24 L96 22 C103 34 111 43 121 48 Z" stroke-width="1"/>
+            <path d="M123 49 C133 41 142 31 149 20 L153 23 C145 36 136 47 123 55 Z" stroke-width="1"/>
+            <path d="M120 46 C118 35 119 24 120 13 L124 13 C124 26 125 36 125 48 Z" stroke-width="1"/>
+          </g>
+          <!-- Lobed leaf backing: several overlapping main-green ovals fused into ONE organic
+               canopy silhouette (no stroke). Overlapping-circle outline = soft bumpy/leafy edge,
+               not a smooth oval. Mirrors GardenHeroScene base canopy + Forest Bush lobes. -->
+          <g fill="var(--leaf)">
+            <ellipse cx="121" cy="62" rx="22" ry="24"/><!-- lower trunk wrap -->
+            <ellipse cx="112" cy="58" rx="20" ry="22"/><!-- bottom-left flank -->
+            <ellipse cx="130" cy="58" rx="20" ry="22"/><!-- bottom-right flank -->
+            <ellipse cx="96"  cy="42" rx="36" ry="30"/><!-- left crown body -->
+            <ellipse cx="146" cy="42" rx="36" ry="30"/><!-- right crown body -->
+            <ellipse cx="107" cy="22" rx="28" ry="22"/><!-- upper-left lobe -->
+            <ellipse cx="135" cy="22" rx="28" ry="22"/><!-- upper-right lobe -->
+            <ellipse cx="121" cy="15" rx="26" ry="20"/><!-- top lobe -->
+          </g>
+          <!-- Lower-right / underside shadow lobes: large, soft, darker — dimension, not dots -->
+          <g fill="var(--leaf-dark)">
+            <ellipse cx="150" cy="50" rx="16" ry="14"/>
+            <ellipse cx="165" cy="45" rx="12" ry="12"/>
+          </g>
+          <!-- Upper-left highlight lobes: large, soft, lighter — light-source dimension -->
+          <g fill="var(--leaf-light)">
+            <ellipse cx="102" cy="26" rx="14" ry="12"/>
+            <ellipse cx="89"  cy="34" rx="12" ry="11"/>
+            <ellipse cx="112" cy="14" rx="11" ry="10"/>
+          </g>
+          <!-- 7 verified anchor points kept as on-top main-green rounded blobs (bumpy edge):
+               B1 (78,44) B2 (172,40) B3 (94,23) B5 (122,13) B4 (152,22)
+               C6 (114.6,58, trunk left edge) C7 (125.4,58, trunk right edge) -->
+          <g fill="var(--leaf)">
+            <circle cx="78"  cy="44" r="7"/>
+            <circle cx="172" cy="40" r="7"/>
+            <circle cx="94"  cy="23" r="7"/>
+            <circle cx="122" cy="13" r="7"/>
+            <circle cx="152" cy="22" r="7"/>
+            <circle cx="114.6" cy="58" r="7"/>
+            <circle cx="125.4" cy="58" r="7"/>
+          </g>
+        </svg>
+      </div>
+      <div class="state-name">Full canopy</div><div class="state-detail">100% answered</div>
+    </section>
+  </main>
+  <p class="note">Preview only. No GardenTree component, progress calculation, animation, or app layout has been changed.</p>
+</body>
+</html>
