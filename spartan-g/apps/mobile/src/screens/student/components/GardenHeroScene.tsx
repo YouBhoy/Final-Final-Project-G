@@ -1,11 +1,12 @@
 import { useRef } from 'react';
 import {
   Animated,
+  Image,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { palette } from '@spartan-g/shared-ui';
 
 // ─── Garden hero scene (v1) ───────────────────────────────────────────────
@@ -25,6 +26,15 @@ interface GardenHeroSceneProps {
 
 type HeroStage = 'sprout' | 'young' | 'mature' | 'flourishing';
 
+const SCENE_HEIGHT = 230;
+const SOIL_BASELINE = 188;
+const STAGE_EFFECTS: Record<HeroStage, { top: number; spotlightRx: number; spotlightRy: number; shadowRx: number; shadowRy: number }> = {
+  sprout: { top: 76, spotlightRx: 105, spotlightRy: 70, shadowRx: 78, shadowRy: 16 },
+  young: { top: 46, spotlightRx: 130, spotlightRy: 86, shadowRx: 102, shadowRy: 21 },
+  mature: { top: 13, spotlightRx: 155, spotlightRy: 104, shadowRx: 126, shadowRy: 27 },
+  flourishing: { top: 20, spotlightRx: 180, spotlightRy: 122, shadowRx: 150, shadowRy: 34 },
+};
+
 function stageFromLevel(level: number): HeroStage {
   if (level <= 2) return 'sprout';
   if (level <= 4) return 'young';
@@ -32,56 +42,60 @@ function stageFromLevel(level: number): HeroStage {
   return 'flourishing';
 }
 
-function HeroTree({ stage }: { stage: HeroStage }) {
+function HeroTree({ stage, halo = false, haloScale = 1.06, haloOpacity = 0.42 }: { stage: HeroStage; halo?: boolean; haloScale?: number; haloOpacity?: number }) {
+  const treeColors = halo
+    ? { soil: '#ffe4a8', outline: '#ffe4a8', trunk: '#ffe4a8', trunkHighlight: '#ffe4a8', leaf: '#ffe4a8', leafDark: '#ffe4a8', leafLight: '#ffe4a8', leafDetail: '#ffe4a8' }
+    : { soil: '#a9562b', outline: '#20371f', trunk: '#7b481f', trunkHighlight: '#e0d987', leaf: '#82c94d', leafDark: '#4d8f38', leafLight: '#a9dc63', leafDetail: '#4d8f38' };
+
   return (
-    <View style={styles.treeBody}>
+    <View style={[styles.treeBody, halo && { opacity: haloOpacity, transform: [{ scale: haloScale }] }]}>
       <Svg width={150} height={205} viewBox="0 0 150 205" preserveAspectRatio="xMidYMid meet">
         {stage === 'sprout' && (
           <>
-            <Path d="M22 188 Q32 175 48 180 Q58 166 75 178 Q91 165 103 180 Q119 174 128 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
-            <Path d="M52 181 Q70 168 70 130 Q70 111 57 96" fill="none" stroke="#7b481f" strokeWidth={6} strokeLinecap="round" />
-            <Path d="M59 101 Q43 94 35 77 Q54 76 64 91 Q66 98 59 101 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M68 122 Q82 113 96 99 Q94 119 77 128 Q71 130 68 122 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M40 82 Q51 87 61 96 M92 103 Q82 114 73 121" fill="none" stroke="#4d8f38" strokeWidth={1.5} strokeLinecap="round" />
+            <Path d="M22 188 Q32 175 48 180 Q58 166 75 178 Q91 165 103 180 Q119 174 128 188 Z" fill={treeColors.soil} stroke={treeColors.outline} strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M52 181 Q70 168 70 130 Q70 111 57 96" fill="none" stroke={treeColors.trunk} strokeWidth={6} strokeLinecap="round" />
+            <Path d="M59 101 Q43 94 35 77 Q54 76 64 91 Q66 98 59 101 Z" fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M68 122 Q82 113 96 99 Q94 119 77 128 Q71 130 68 122 Z" fill={treeColors.leafLight} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M40 82 Q51 87 61 96 M92 103 Q82 114 73 121" fill="none" stroke={treeColors.leafDetail} strokeWidth={1.5} strokeLinecap="round" />
           </>
         )}
         {stage === 'young' && (
           <>
-            <Path d="M18 188 Q29 175 44 180 Q55 166 73 178 Q89 165 104 180 Q119 174 132 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
-            <Path d="M65 181 Q68 151 67 118 Q66 94 53 69 M67 128 Q51 116 37 101 M67 111 Q82 97 102 78" fill="none" stroke="#7b481f" strokeWidth={4} strokeLinecap="round" />
-            <Path d="M54 72 Q36 68 29 48 Q49 48 60 62 Q61 69 54 72 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M100 80 Q102 59 118 46 Q120 66 108 79 Q104 83 100 80 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M38 103 Q22 98 19 84 Q35 83 47 94 Q48 100 38 103 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M70 128 Q84 114 99 111 Q94 128 77 134 Q71 135 70 128 Z" fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M32 52 Q43 57 55 67 M115 50 Q108 63 103 76 M23 88 Q34 92 43 99 M94 115 Q84 121 74 129" fill="none" stroke="#4d8f38" strokeWidth={1.5} strokeLinecap="round" />
+            <Path d="M18 188 Q29 175 44 180 Q55 166 73 178 Q89 165 104 180 Q119 174 132 188 Z" fill={treeColors.soil} stroke={treeColors.outline} strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M65 181 Q68 151 67 118 Q66 94 53 69 M67 128 Q51 116 37 101 M67 111 Q82 97 102 78" fill="none" stroke={treeColors.trunk} strokeWidth={4} strokeLinecap="round" />
+            <Path d="M54 72 Q36 68 29 48 Q49 48 60 62 Q61 69 54 72 Z" fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M100 80 Q102 59 118 46 Q120 66 108 79 Q104 83 100 80 Z" fill={treeColors.leafLight} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M38 103 Q22 98 19 84 Q35 83 47 94 Q48 100 38 103 Z" fill={treeColors.leafLight} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M70 128 Q84 114 99 111 Q94 128 77 134 Q71 135 70 128 Z" fill={treeColors.leafDark} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M32 52 Q43 57 55 67 M115 50 Q108 63 103 76 M23 88 Q34 92 43 99 M94 115 Q84 121 74 129" fill="none" stroke={treeColors.leafDetail} strokeWidth={1.5} strokeLinecap="round" />
           </>
         )}
         {stage === 'mature' && (
           <>
-            <Path d="M13 188 Q25 174 43 180 Q54 165 75 178 Q94 164 108 180 Q124 174 137 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
-            <Path d="M65 181 Q73 148 73 110 L73 63 M73 112 Q51 96 31 77 M73 96 Q91 78 111 57 M73 78 Q61 59 51 42 M73 69 Q86 53 98 39" fill="none" stroke="#e0d987" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
-            <Path d="M31 78 Q17 70 17 51 Q36 54 45 68 Q45 75 31 78 Z" fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M111 58 Q116 39 133 34 Q133 54 119 62 Q114 64 111 58 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M51 43 Q38 34 42 17 Q58 24 61 38 Q59 43 51 43 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M98 40 Q100 21 116 13 Q118 32 105 42 Q101 44 98 40 Z" fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M73 65 Q65 48 73 32 Q83 47 79 61 Q77 66 73 65 Z" fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M21 54 Q31 61 40 70 M129 38 Q120 48 114 56 M46 22 Q51 31 55 39 M114 19 Q108 29 102 38 M74 36 Q76 48 75 59" fill="none" stroke="#4d8f38" strokeWidth={1.5} strokeLinecap="round" />
+            <Path d="M13 188 Q25 174 43 180 Q54 165 75 178 Q94 164 108 180 Q124 174 137 188 Z" fill={treeColors.soil} stroke={treeColors.outline} strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M65 181 Q73 148 73 110 L73 63 M73 112 Q51 96 31 77 M73 96 Q91 78 111 57 M73 78 Q61 59 51 42 M73 69 Q86 53 98 39" fill="none" stroke={treeColors.trunkHighlight} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M31 78 Q17 70 17 51 Q36 54 45 68 Q45 75 31 78 Z" fill={treeColors.leafDark} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M111 58 Q116 39 133 34 Q133 54 119 62 Q114 64 111 58 Z" fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M51 43 Q38 34 42 17 Q58 24 61 38 Q59 43 51 43 Z" fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M98 40 Q100 21 116 13 Q118 32 105 42 Q101 44 98 40 Z" fill={treeColors.leafLight} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M73 65 Q65 48 73 32 Q83 47 79 61 Q77 66 73 65 Z" fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M21 54 Q31 61 40 70 M129 38 Q120 48 114 56 M46 22 Q51 31 55 39 M114 19 Q108 29 102 38 M74 36 Q76 48 75 59" fill="none" stroke={treeColors.leafDetail} strokeWidth={1.5} strokeLinecap="round" />
           </>
         )}
         {stage === 'flourishing' && (
           <>
-            <Path d="M10 188 Q22 174 40 180 Q52 164 72 178 Q91 164 108 180 Q126 174 140 188 Z" fill="#a9562b" stroke="#20371f" strokeWidth={2.5} strokeLinejoin="round" />
-            <Path d="M67 181 Q74 151 74 117 L74 91 M74 128 Q48 108 26 88 M74 122 Q101 103 126 82 M74 103 Q56 82 43 58 M74 101 Q91 79 108 55" fill="none" stroke="#7b481f" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
-            <Circle cx={43} cy={63} r={25} fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
-            <Circle cx={73} cy={49} r={29} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Circle cx={107} cy={59} r={24} fill="#4d8f38" stroke="#20371f" strokeWidth={2.5} />
-            <Circle cx={27} cy={88} r={20} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Circle cx={51} cy={91} r={24} fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
-            <Circle cx={94} cy={89} r={24} fill="#a9dc63" stroke="#20371f" strokeWidth={2.5} />
-            <Circle cx={123} cy={83} r={20} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Circle cx={74} cy={79} r={30} fill="#82c94d" stroke="#20371f" strokeWidth={2.5} />
-            <Path d="M45 52 Q56 59 65 66 M73 24 Q73 39 73 53 M106 47 Q96 58 88 67 M28 82 Q40 85 49 89 M122 77 Q111 82 101 88" fill="none" stroke="#4d8f38" strokeWidth={2} strokeLinecap="round" />
-            <Path d="M58 47 Q64 41 70 39 M83 70 Q89 64 95 62 M105 94 Q113 93 118 89" fill="none" stroke="#a9dc63" strokeWidth={3} strokeLinecap="round" opacity={0.8} />
+            <Path d="M10 188 Q22 174 40 180 Q52 164 72 178 Q91 164 108 180 Q126 174 140 188 Z" fill={treeColors.soil} stroke={treeColors.outline} strokeWidth={2.5} strokeLinejoin="round" />
+            <Path d="M67 181 Q74 151 74 117 L74 91 M74 128 Q48 108 26 88 M74 122 Q101 103 126 82 M74 103 Q56 82 43 58 M74 101 Q91 79 108 55" fill="none" stroke={treeColors.trunk} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx={43} cy={63} r={25} fill={treeColors.leafDark} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Circle cx={73} cy={49} r={29} fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Circle cx={107} cy={59} r={24} fill={treeColors.leafDark} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Circle cx={27} cy={88} r={20} fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Circle cx={51} cy={91} r={24} fill={treeColors.leafLight} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Circle cx={94} cy={89} r={24} fill={treeColors.leafLight} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Circle cx={123} cy={83} r={20} fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Circle cx={74} cy={79} r={30} fill={treeColors.leaf} stroke={treeColors.outline} strokeWidth={2.5} />
+            <Path d="M45 52 Q56 59 65 66 M73 24 Q73 39 73 53 M106 47 Q96 58 88 67 M28 82 Q40 85 49 89 M122 77 Q111 82 101 88" fill="none" stroke={treeColors.leafDetail} strokeWidth={2} strokeLinecap="round" />
+            <Path d="M58 47 Q64 41 70 39 M83 70 Q89 64 95 62 M105 94 Q113 93 118 89" fill="none" stroke={treeColors.leafLight} strokeWidth={3} strokeLinecap="round" opacity={0.8} />
           </>
         )}
       </Svg>
@@ -90,6 +104,12 @@ function HeroTree({ stage }: { stage: HeroStage }) {
 }
 export function GardenHeroScene({ level, onWaterPress, accessibilityLabel }: GardenHeroSceneProps) {
   const stage = stageFromLevel(level);
+  const stageEffects = STAGE_EFFECTS[stage];
+  const treeBaselineY = SCENE_HEIGHT - 22;
+  const treeTop = treeBaselineY - SOIL_BASELINE;
+  const treeCenterY = treeTop + (stageEffects.top + SOIL_BASELINE) / 2;
+  const spotlightCenterY = (treeCenterY / SCENE_HEIGHT) * 380;
+  const contactShadowY = (treeBaselineY / SCENE_HEIGHT) * 380;
 
   // Watering can tilt animation (degrees).
   const canTilt = useRef(new Animated.Value(0)).current;
@@ -162,9 +182,51 @@ export function GardenHeroScene({ level, onWaterPress, accessibilityLabel }: Gar
 
   return (
     <View style={styles.scene}>
+      <Image source={require('../../../../assets/garden-hero-background.jpg')} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      <Svg width="100%" height="100%" viewBox="0 0 760 380" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <RadialGradient id="garden-spotlight" cx="50%" cy={`${(spotlightCenterY / 380) * 100}%`} rx={`${(stageEffects.spotlightRx / 760) * 100}%`} ry={`${(stageEffects.spotlightRy / 380) * 100}%`}>
+            <Stop offset="0" stopColor="#fff1bd" stopOpacity="0.76" />
+            <Stop offset="0.58" stopColor="#f4d98c" stopOpacity="0.22" />
+            <Stop offset="1" stopColor="#f4d98c" stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id="garden-contact-shadow" cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0" stopColor="#24341e" stopOpacity="0.48" />
+            <Stop offset="1" stopColor="#24341e" stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id="garden-vignette" cx="50%" cy="48%" rx="50%" ry="50%">
+            <Stop offset="0.31" stopColor="#101b12" stopOpacity="0" />
+            <Stop offset="0.72" stopColor="#101b12" stopOpacity="0.18" />
+            <Stop offset="1" stopColor="#101b12" stopOpacity="0.58" />
+          </RadialGradient>
+        </Defs>
+        <Rect width="760" height="380" fill="url(#garden-spotlight)" />
+        <Ellipse cx={380} cy={contactShadowY} rx={stageEffects.shadowRx} ry={stageEffects.shadowRy} fill="url(#garden-contact-shadow)" />
+        <Rect width="760" height="380" fill="url(#garden-vignette)" />
+      </Svg>
+
       {/* Tree + scenery */}
       <View style={styles.sceneInner}>
-        <HeroTree stage={stage} />
+        <View style={[styles.treePlacement, { top: treeTop }]}>
+          <View style={styles.treeLayer}>
+            <View style={styles.treeSvg}>
+              <HeroTree stage={stage} halo haloScale={1.14} haloOpacity={0.24} />
+            </View>
+            <View style={styles.treeSvg}>
+              <HeroTree stage={stage} halo haloScale={1.08} haloOpacity={0.68} />
+            </View>
+            <View style={styles.treeSvg}>
+              <HeroTree stage={stage} />
+            </View>
+          </View>
+        </View>
+
+        {__DEV__ && (
+          <>
+            <View pointerEvents="none" style={styles.debugVerticalCenterLine} />
+            <View pointerEvents="none" style={[styles.debugHorizontalCenterLine, { top: treeCenterY }]} />
+          </>
+        )}
 
         {/* Rocks (flat geometric) */}
         <View style={[styles.rock, styles.rock1]} />
@@ -212,15 +274,13 @@ export function GardenHeroScene({ level, onWaterPress, accessibilityLabel }: Gar
         </View>
       </View>
 
-      {/* Ground patch */}
-      <View style={styles.ground} />
     </View>
   );
 }
 const styles = StyleSheet.create({
   scene: {
     width: '100%',
-    height: 205,
+    height: SCENE_HEIGHT,
     overflow: 'hidden',
     borderRadius: 12,
     backgroundColor: palette.green100,
@@ -229,20 +289,48 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: 24,
+    paddingBottom: 0,
   },
   treeBody: {
     alignItems: 'center',
   },
-  ground: {
+  treePlacement: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    height: 22,
-    backgroundColor: '#86EFAC',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    height: 205,
+    alignItems: 'center',
+  },
+  treeLayer: {
+    position: 'relative',
+    width: 150,
+    height: 205,
+  },
+  treeSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 150,
+    height: 205,
+  },
+  debugVerticalCenterLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    width: 1,
+    backgroundColor: '#22d3ee',
+    opacity: 0.8,
+    zIndex: 20,
+  },
+  debugHorizontalCenterLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: '#fde047',
+    opacity: 0.8,
+    zIndex: 20,
   },
   rock: {
     position: 'absolute',
@@ -250,31 +338,31 @@ const styles = StyleSheet.create({
     backgroundColor: palette.slate300,
   },
   rock1: {
-    width: 20,
-    height: 16,
-    left: 8,
+    width: 16,
+    height: 12,
+    left: 10,
     bottom: 22,
   },
   rock2: {
-    width: 14,
-    height: 12,
-    left: 34,
+    width: 11,
+    height: 9,
+    left: 32,
     bottom: 24,
     backgroundColor: palette.slate400,
   },
   rock3: {
-    width: 12,
-    height: 10,
-    left: 72,
+    width: 9,
+    height: 8,
+    left: 50,
     bottom: 22,
     backgroundColor: palette.slate300,
   },
   canArea: {
     position: 'absolute',
-    right: 6,
-    bottom: 18,
-    width: 84,
-    height: 80,
+    right: 4,
+    bottom: 10,
+    width: 76,
+    height: 74,
     alignItems: 'flex-end',
     justifyContent: 'flex-end',
   },

@@ -1,5 +1,7 @@
 import {
   getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
   Firestore,
   collection,
   doc,
@@ -13,7 +15,6 @@ import {
   orderBy,
   limit,
   onSnapshot,
-  enableMultiTabIndexedDbPersistence,
   serverTimestamp,
   Timestamp,
   DocumentData,
@@ -25,22 +26,23 @@ import {
 import { getFirebaseApp } from './app';
 
 let db: Firestore;
-let persistencePromise: Promise<void> | null = null;
-
-function ensurePersistence(firestore: Firestore) {
-  if (!persistencePromise) {
-    persistencePromise = enableMultiTabIndexedDbPersistence(firestore).catch((error) => {
-      console.warn('[Firestore] Offline persistence unavailable:', error);
-    });
-  }
-
-  return persistencePromise;
-}
 
 export function getFirestoreDb(): Firestore {
   if (!db) {
-    db = getFirestore(getFirebaseApp());
-    void ensurePersistence(db);
+    const app = getFirebaseApp();
+    try {
+      // React Native does not provide browser IndexedDB, and Android can
+      // time out on Firestore's WebChannel transport. Long polling keeps the
+      // existing repository API reliable without changing backend behavior.
+      db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false,
+        localCache: memoryLocalCache(),
+      });
+    } catch {
+      // Preserve compatibility if another module initialized Firestore first.
+      db = getFirestore(app);
+    }
   }
   return db;
 }

@@ -14,8 +14,8 @@ import { useAuthStore, gardenService, assessmentService } from '@spartan-g/share
 import { StudentGardenDocument, AssessmentAttemptDocument, AssessmentDefinitionDocument, StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { lightColors } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
-import { GardenTree } from './components/GardenTree';
 import { GardenHeroScene } from './components/GardenHeroScene';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export function GardenScreen() {
   const session = useAuthStore((s) => s.session);
@@ -25,7 +25,6 @@ export function GardenScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ─── Card 2: Current Assessment Progress (question-answered tree) ────────
   const [attempt, setAttempt] = useState<(AssessmentAttemptDocument & { id: string }) | null>(null);
   const [assessmentDef, setAssessmentDef] = useState<(AssessmentDefinitionDocument & { id: string }) | null>(null);
   const [attemptLoading, setAttemptLoading] = useState(true);
@@ -216,44 +215,17 @@ export function GardenScreen() {
           </Text>
         </View>
 
-        {/* Seeds Card */}
+        {/* Streak Card */}
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{garden.seeds}</Text>
-          <Text style={styles.statLabel}>Seeds</Text>
+          <MaterialCommunityIcons name="fire" size={26} color="#D97706" />
+          <Text style={styles.statValue}>{garden.streakCount}</Text>
+          <Text style={styles.statLabel}>day streak</Text>
         </View>
       </View>
 
-      {/* Card 2 — Current Assessment Progress (question-answered tree) */}
-      <View style={styles.assessmentCard}>
-        <Text style={styles.assessmentCardTitle}>Current Assessment Progress</Text>
-        {attemptLoading ? (
-          <View style={styles.assessmentLoading}>
-            <ActivityIndicator size="small" color={lightColors.primary} />
-          </View>
-        ) : attempt && assessmentDef ? (
-          <>
-            <GardenTree totalQuestions={totalQuestions} answeredCount={answeredCount} containerHeight={100} />
-            <Text style={styles.assessmentCardSubtitle}>
-              {answeredCount} of {totalQuestions} questions answered
-            </Text>
-          </>
-        ) : (
-          <>
-            <GardenTree totalQuestions={0} answeredCount={0} containerHeight={100} />
-            <Text style={styles.assessmentEmptyText}>
-              Take your first assessment to grow this tree!
-            </Text>
-          </>
-        )}
-      </View>
-
-      {/* Last Check-in */}
-      <View style={styles.checkInCard}>
-        <Text style={styles.checkInLabel}>Last Check-in</Text>
-        <Text style={styles.checkInDate}>
-          {garden.lastCheckInDate || 'Not yet checked in'}
-        </Text>
-      </View>
+      <Text style={styles.checkInCaption}>
+        Last check-in: {garden.lastCheckInDate || 'Not yet checked in'} · {answeredCount} of {totalQuestions} questions answered
+      </Text>
     </ScrollView>
   );
 }
@@ -435,52 +407,10 @@ const styles = StyleSheet.create({
     color: lightColors.textMuted,
     marginTop: 4,
   },
-  assessmentCard: {
-    backgroundColor: lightColors.surface,
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  assessmentCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: lightColors.text,
-    alignSelf: 'flex-start',
-  },
-  assessmentCardSubtitle: {
-    fontSize: 13,
-    color: lightColors.textSecondary,
-  },
-  assessmentEmptyText: {
-    fontSize: 13,
-    color: lightColors.textSecondary,
+  checkInCaption: {
+    fontSize: 12,
+    color: lightColors.textMuted,
     textAlign: 'center',
-  },
-  assessmentLoading: {
-    height: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkInCard: {
-    backgroundColor: lightColors.surface,
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  checkInLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: lightColors.text,
-  },
-  checkInDate: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
+    paddingHorizontal: 8,
   },
 });
