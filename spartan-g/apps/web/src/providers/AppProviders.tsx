@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
+import { ThemeProvider } from "./ThemeProvider";
 
 interface AppProvidersProps {
   children: ReactNode;
 }
 
 /**
- * AppProviders is kept minimal — auth is handled inside AppRouter via AuthProvider.
- * This wrapper exists for future providers (theme, etc.).
+ * AppProviders wraps the app in the providers that sit above routing.
+ * Auth is handled separately inside AppRouter via AuthProvider.
  */
 export function AppProviders({ children }: AppProvidersProps) {
-  return <>{children}</>;
+  return <ThemeProvider>{children}</ThemeProvider>;
 }

@@ -63,12 +63,99 @@ html {
   scroll-behavior: smooth;
 }
 
+/*
+  Theme-aware neutral scale.
+  Tailwind's `gray-*` utilities and the semantic tokens above are re-pointed at
+  these variables, so light/dark mode flips the whole app from this one block
+  without touching component markup.
+*/
+:root {
+  --app-gray-50: #F8FAFC;
+  --app-gray-100: #F1F5F9;
+  --app-gray-200: #E2E8F0;
+  --app-gray-300: #CBD5E1;
+  --app-gray-400: #94A3B8;
+  --app-gray-500: #64748B;
+  --app-gray-600: #475569;
+  --app-gray-700: #334155;
+  --app-gray-800: #1E293B;
+  --app-gray-900: #0F172A;
+  --app-gray-950: #020617;
+}
+
+.dark {
+  /* Neutrals — deep slate scale (matches shared-ui darkColors) */
+  --app-gray-50: #020617;
+  --app-gray-100: #0F172A;
+  --app-gray-200: #1E293B;
+  --app-gray-300: #334155;
+  --app-gray-400: #64748B;
+  --app-gray-500: #94A3B8;
+  --app-gray-600: #CBD5E1;
+  --app-gray-700: #E2E8F0;
+  --app-gray-800: #F1F5F9;
+  --app-gray-900: #F8FAFC;
+  --app-gray-950: #FFFFFF;
+
+  /* Semantic tokens — mirrored from @spartan-g/shared-ui darkColors */
+  --color-bg: #0F172A;
+  --color-bg-alt: #1E293B;
+  --color-surface: #1E293B;
+  --color-text: #F8FAFC;
+  --color-text-secondary: #CBD5E1;
+  --color-text-muted: #94A3B8;
+  --color-border: #334155;
+  --color-border-light: #1E293B;
+
+  --color-success: #4ADE80;
+  --color-success-bg: #052E16;
+  --color-warning: #FBBF24;
+  --color-warning-bg: #451A03;
+  --color-error: #F87171;
+  --color-error-bg: #450A0A;
+  --color-info: #93C5FD;
+  --color-info-bg: #172554;
+  --color-info-text: #93C5FD;
+  --color-error-text: #FCA5A5;
+  --color-warning-text: #FDE68A;
+
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.40), 0 1px 3px rgba(0, 0, 0, 0.30);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.50), 0 2px 4px rgba(0, 0, 0, 0.30);
+  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
 body {
   font-family: var(--font-body);
   color: var(--color-text);
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+/*
+  Re-point Tailwind's neutral utilities at the theme-aware scale so existing
+  `bg-gray-50`, `text-gray-900`, `border-gray-200`, … honour dark mode.
+*/
+@theme inline {
+  --color-gray-50: var(--app-gray-50);
+  --color-gray-100: var(--app-gray-100);
+  --color-gray-200: var(--app-gray-200);
+  --color-gray-300: var(--app-gray-300);
+  --color-gray-400: var(--app-gray-400);
+  --color-gray-500: var(--app-gray-500);
+  --color-gray-600: var(--app-gray-600);
+  --color-gray-700: var(--app-gray-700);
+  --color-gray-800: var(--app-gray-800);
+  --color-gray-900: var(--app-gray-900);
+  --color-gray-950: var(--app-gray-950);
+}
+
+/* Keep native form controls in step with the theme. */
+.dark input,
+.dark textarea,
+.dark select {
+  color-scheme: dark;
 }
 
 /* ─── Type Scale Helpers ──────────────────────── */
