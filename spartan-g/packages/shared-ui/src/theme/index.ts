@@ -20,7 +20,7 @@ export interface Theme {
 export function createTheme(mode: 'light' | 'dark'): Theme {
   return {
     mode,
-    colors: mode === 'dark' ? darkColors : lightColors,
+    colors: mode === 'dark' ? (darkColors as unknown as ColorScheme) : lightColors,
     typography,
     spacing,
     borderRadius,
