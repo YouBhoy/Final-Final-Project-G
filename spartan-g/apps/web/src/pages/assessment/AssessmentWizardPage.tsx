@@ -690,7 +690,11 @@ export function AssessmentWizardPage() {
             </div>
           )}
 
-          <WizardProgressBar currentStep={wizard.currentStep} totalSteps={totalSteps} />
+          <WizardProgressBar
+            currentStep={wizard.currentStep}
+            totalSteps={totalSteps}
+            answeredCount={Object.keys(wizard.answers).length}
+          />
 
           {isOnReviewStep ? (
             <ReviewScreen

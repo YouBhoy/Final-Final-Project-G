@@ -119,6 +119,7 @@ export function RegisterPage() {
             error={formErrors.firstName}
             autoComplete="given-name"
             disabled={isLoading}
+            className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
           />
           <Input
             label="Last Name"
@@ -128,6 +129,7 @@ export function RegisterPage() {
             error={formErrors.lastName}
             autoComplete="family-name"
             disabled={isLoading}
+            className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
           />
         </div>
 
@@ -140,6 +142,7 @@ export function RegisterPage() {
           error={formErrors.email}
           autoComplete="email"
           disabled={isLoading}
+          className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
         {/* Role selector */}
@@ -160,7 +163,7 @@ export function RegisterPage() {
                   rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors
                   ${
                     formData.role === role
-                      ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                      ? "border-red-700 bg-red-50 text-red-700"
                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                   }
                   disabled:opacity-50 disabled:cursor-not-allowed
@@ -197,6 +200,8 @@ export function RegisterPage() {
           error={formErrors.password}
           autoComplete="new-password"
           disabled={isLoading}
+          showPasswordToggle
+          className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
         <Input
@@ -208,9 +213,15 @@ export function RegisterPage() {
           error={formErrors.confirmPassword}
           autoComplete="new-password"
           disabled={isLoading}
+          showPasswordToggle
+          className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
-        <Button type="submit" isLoading={isLoading} className="w-full">
+        <Button
+          type="submit"
+          isLoading={isLoading}
+          className="w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
+        >
           Create account
         </Button>
 
@@ -218,7 +229,7 @@ export function RegisterPage() {
           Already have an account?{" "}
           <Link
             to="/login"
-            className="font-medium text-indigo-600 hover:text-indigo-500"
+            className="font-medium text-[var(--auth-primary)] hover:text-[var(--auth-primary-dark)]"
           >
             Sign in
           </Link>

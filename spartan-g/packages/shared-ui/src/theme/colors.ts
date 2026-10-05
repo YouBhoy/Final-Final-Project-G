@@ -37,6 +37,26 @@ export const lightColors = {
   info: palette.info,
   tabBar: palette.white,
   tabBarBorder: palette.slate200,
+  // Semantic state backgrounds & borders
+  errorBackground: '#FEE2E2',
+  errorBorder: '#FECACA',
+  errorText: '#B91C1C',
+  errorLightBackground: '#FEF2F2',
+  successBackground: '#DCFCE7',
+  successText: palette.success,
+  warningBackground: '#FEF3C7',
+  warningBorder: '#FCD34D',
+  warningText: '#92400E',
+  infoBackground: '#EEF2FF',
+  infoBorder: '#C7D2FE',
+  infoText: '#3730A3',
+  infoBadgeText: '#4338CA',
+  neutralBackground: palette.slate100,
+  criticalBackground: '#FEF2F2',
+  criticalBorder: '#FECACA',
+  criticalText: palette.spartanRedDark,
+  moderateBackground: '#FFEDD5',
+  moderateText: '#EA580C',
 } as const;
 
 export const darkColors = {
@@ -56,6 +76,26 @@ export const darkColors = {
   info: palette.info,
   tabBar: palette.slate800,
   tabBarBorder: palette.slate700,
+  // Semantic state backgrounds & borders
+  errorBackground: '#7F1D1D',
+  errorBorder: palette.spartanRedDark,
+  errorText: '#FCA5A5',
+  errorLightBackground: '#450A0A',
+  successBackground: '#052E16',
+  successText: '#86EFAC',
+  warningBackground: '#451A03',
+  warningBorder: '#78350F',
+  warningText: '#FDE68A',
+  infoBackground: '#172554',
+  infoBorder: '#1E3A5F',
+  infoText: '#93C5FD',
+  infoBadgeText: '#93C5FD',
+  neutralBackground: palette.slate700,
+  criticalBackground: '#450A0A',
+  criticalBorder: palette.spartanRedDark,
+  criticalText: '#FCA5A5',
+  moderateBackground: '#431407',
+  moderateText: '#FDBA74',
 } as const;
 
 export type ColorScheme = typeof lightColors;

@@ -72,14 +72,14 @@ export function ForgotPasswordPage() {
                 setIsSent(false);
                 setEmail("");
               }}
-              className="font-medium text-indigo-600 hover:text-indigo-500"
+              className="font-medium text-[var(--auth-primary)] hover:text-[var(--auth-primary-dark)]"
             >
               try again
             </button>
           </p>
           <Link
             to="/login"
-            className="inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            className="inline-block text-sm font-medium text-[var(--auth-primary)] hover:text-[var(--auth-primary-dark)]"
           >
             Back to sign in
           </Link>
@@ -118,9 +118,14 @@ export function ForgotPasswordPage() {
           error={formError}
           autoComplete="email"
           disabled={isLoading}
+          className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
 
-        <Button type="submit" isLoading={isLoading} className="w-full">
+        <Button
+          type="submit"
+          isLoading={isLoading}
+          className="w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
+        >
           Send reset link
         </Button>
 
@@ -128,7 +133,7 @@ export function ForgotPasswordPage() {
           Remember your password?{" "}
           <Link
             to="/login"
-            className="font-medium text-indigo-600 hover:text-indigo-500"
+            className="font-medium text-[var(--auth-primary)] hover:text-[var(--auth-primary-dark)]"
           >
             Sign in
           </Link>
