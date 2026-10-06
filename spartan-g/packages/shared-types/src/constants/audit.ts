@@ -1,0 +1,28 @@
+/**
+ * Audit actions recorded in the existing `audit_logs` collection.
+ *
+ * Kept as constants so the Super Admin UI and backend (Cloud Functions)
+ * write the same action strings. Extend this list — do not create a
+ * second audit system.
+ */
+export const AUDIT_ACTIONS = {
+  SUPERADMIN_UPDATED_STUDENT_PROFILE: 'SUPERADMIN_UPDATED_STUDENT_PROFILE',
+  SUPERADMIN_UPDATED_FACILITATOR_PROFILE: 'SUPERADMIN_UPDATED_FACILITATOR_PROFILE',
+  SUPERADMIN_UPDATED_ADMIN_PROFILE: 'SUPERADMIN_UPDATED_ADMIN_PROFILE',
+  SUPERADMIN_CHANGED_PASSWORD: 'SUPERADMIN_CHANGED_PASSWORD',
+  SUPERADMIN_UPDATED_ACCOUNT_NAME: 'SUPERADMIN_UPDATED_ACCOUNT_NAME',
+  SUPERADMIN_CREATED_RESOURCE: 'SUPERADMIN_CREATED_RESOURCE',
+  SUPERADMIN_UPDATED_RESOURCE: 'SUPERADMIN_UPDATED_RESOURCE',
+  SUPERADMIN_DELETED_RESOURCE: 'SUPERADMIN_DELETED_RESOURCE',
+} as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
+
+/** Maps a target user role to the matching profile-update audit action. */
+export function profileUpdateAuditAction(
+  targetRole: 'student' | 'facilitator' | 'super_admin',
+): AuditAction {
+  if (targetRole === 'student') return AUDIT_ACTIONS.SUPERADMIN_UPDATED_STUDENT_PROFILE;
+  if (targetRole === 'facilitator') return AUDIT_ACTIONS.SUPERADMIN_UPDATED_FACILITATOR_PROFILE;
+  return AUDIT_ACTIONS.SUPERADMIN_UPDATED_ADMIN_PROFILE;
+}

@@ -45,8 +45,19 @@ service cloud.firestore {
       allow read: if isOwner(userId)
         || isFacilitatorOrAdmin()
         || (isStudent() && resource.data.role == 'facilitator' && resource.data.isActive == true);
-      allow create: if request.resource.data.role in ['student', 'facilitator', 'super_admin']
-        && request.resource.data.isActive == true;
+      // Registration may only create the caller's OWN document, and only as
+      // a student or facilitator. (The previous rule allowed ANY client to
+      // create a users/{uid} doc with role == 'super_admin' — a privilege
+      // escalation that would have made every other rule meaningless.)
+      // Super Admin accounts are provisioned server-side (Admin SDK /
+      // scripts/promote-superadmin.mjs) or by an existing super admin.
+      allow create: if isAuthenticated()
+        && (
+          (request.auth.uid == userId
+            && request.resource.data.role in ['student', 'facilitator']
+            && request.resource.data.isActive == true)
+          || isSuperAdmin()
+        );
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])
         || isSuperAdmin();
@@ -60,6 +71,23 @@ service cloud.firestore {
         || (isStudent() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'facilitator' && get(/databases/$(database)/documents/users/$(userId)).data.isActive == true);
       allow create, update: if isOwner(userId) || isSuperAdmin();
       allow delete: if isSuperAdmin();
+    }
+
+    // ─── Resources (shared library behind every /resources page) ──
+    // Read: any active user. Non-admins may only LIST published entries
+    // (their query must include isActive == true to be provable), while a
+    // Super Admin may list everything.
+    // Write: Super Admin only — students/facilitators can never mutate
+    // the library, even by calling Firestore directly.
+    match /resources/{resourceId} {
+      allow read: if isSuperAdmin()
+        || (isStudent()
+          && resource.data.isActive == true
+          && resource.data.audience in ['all', 'students'])
+        || (isFacilitator()
+          && resource.data.isActive == true
+          && resource.data.audience in ['all', 'facilitators']);
+      allow create, update, delete: if isSuperAdmin();
     }
 
     // ─── Courses ───────────────────────────────────────────────
@@ -124,9 +152,24 @@ service cloud.firestore {
     }
 
     // ─── Audit Logs ────────────────────────────────────────────
+    // The trail is append-only: nobody (not even a Super Admin) can edit or
+    // delete entries, and actors can only write entries attributed to
+    // themselves — so a compromised session cannot forge another admin's trail.
     match /audit_logs/{logId} {
       allow read: if isSuperAdmin();
-      allow create: if isFacilitatorOrAdmin();
+      allow create: if isSuperAdmin()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.action in [
+          'SUPERADMIN_UPDATED_STUDENT_PROFILE',
+          'SUPERADMIN_UPDATED_FACILITATOR_PROFILE',
+          'SUPERADMIN_UPDATED_ADMIN_PROFILE',
+          'SUPERADMIN_CHANGED_PASSWORD',
+          'SUPERADMIN_UPDATED_ACCOUNT_NAME',
+          'SUPERADMIN_CREATED_RESOURCE',
+          'SUPERADMIN_UPDATED_RESOURCE',
+          'SUPERADMIN_DELETED_RESOURCE'
+        ]
+        && request.resource.data.resource in ['profiles', 'users', 'auth', 'resources'];
       allow update, delete: if false;
     }
 

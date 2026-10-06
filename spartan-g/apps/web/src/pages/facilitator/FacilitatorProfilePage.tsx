@@ -1,28 +1,28 @@
 import { useEffect, useState } from 'react';
 import { profileRepository, userService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
-import { ALL_CAMPUSES, CAMPUS_LABELS, Gender } from '@spartan-g/shared-types';
-import type { Campus } from '@spartan-g/shared-types';
-import { Button } from '../../components/ui/Button';
+import type { Campus, Gender } from '@spartan-g/shared-types';
+import {
+  ProfileSettingsForm,
+  type ProfileFormValue,
+} from '../../components/profile/ProfileSettingsForm';
 
-const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: 'male', label: 'He/Him' },
-  { value: 'female', label: 'She/Her' },
-  { value: 'non_binary', label: 'They/Them' },
-  { value: 'other', label: 'Other' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-];
+const EMPTY_PROFILE: ProfileFormValue = {
+  campus: '',
+  bio: '',
+  phone: '',
+  institution: '',
+  pronouns: '',
+  gender: '',
+};
 
+/**
+ * Facilitator Profile — edits the SAME users/profiles documents the
+ * Super Admin manages, via the shared ProfileSettingsForm.
+ */
 export function FacilitatorProfilePage() {
   const { user, status } = useAuth();
-  const [campus, setCampus] = useState<Campus | ''>('');
-  const [profile, setProfile] = useState({
-    bio: '',
-    phone: '',
-    institution: '',
-    pronouns: '',
-    gender: '' as Gender | '',
-  });
+  const [profile, setProfile] = useState<ProfileFormValue>(EMPTY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,32 +30,34 @@ export function FacilitatorProfilePage() {
 
   useEffect(() => {
     if (!user || status !== 'authenticated') return;
+    let cancelled = false;
     const loadProfile = async () => {
       try {
-        setCampus(user.campus ?? '');
         const p = await profileRepository.getById(user.uid);
-        if (p) {
-          setProfile({
-            bio: p.bio || '',
-            phone: p.phone || '',
-            institution: p.institution || '',
-            pronouns: p.pronouns || '',
-            gender: p.gender || '',
-          });
-          if (p.campus) setCampus(p.campus);
-        }
+        if (cancelled) return;
+        setProfile({
+          campus: ((p?.campus as Campus | undefined) ?? user.campus ?? '') as Campus | '',
+          bio: p?.bio || '',
+          phone: p?.phone || '',
+          institution: p?.institution || '',
+          pronouns: p?.pronouns || '',
+          gender: (p?.gender || '') as Gender | '',
+        });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load profile');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load profile');
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     loadProfile();
+    return () => {
+      cancelled = true;
+    };
   }, [user?.uid, user?.campus, status]);
 
   const handleSave = async () => {
     if (!user) return;
-    if (!campus) {
+    if (!profile.campus) {
       setError('Please select your assigned campus.');
       return;
     }
@@ -63,12 +65,14 @@ export function FacilitatorProfilePage() {
     setError(null);
     setSuccess(false);
     try {
-      // Convert empty string to undefined for gender
       const dataToSave = {
-        ...profile,
+        bio: profile.bio,
+        phone: profile.phone,
+        institution: profile.institution,
+        pronouns: profile.pronouns,
         gender: profile.gender || undefined,
       };
-      await userService.updateCampus(user.role, user.uid, campus, user.uid);
+      await userService.updateCampus(user.role, user.uid, profile.campus, user.uid);
       await userService.updateProfile(user.role, user.uid, dataToSave, user.uid);
       setSuccess(true);
     } catch (err) {
@@ -89,117 +93,27 @@ export function FacilitatorProfilePage() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-6 text-xl font-semibold text-gray-900">My Profile</h1>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          Profile saved successfully!
-        </div>
-      )}
-
-      <div className="space-y-6">
-        {/* Assigned campus */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="campus">
-            Assigned Campus
-          </label>
-          <select
-            id="campus"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            value={campus}
-            onChange={(e) => setCampus(e.target.value as Campus)}
-          >
-            <option value="">Select your campus...</option>
-            {ALL_CAMPUSES.map((c) => (
-              <option key={c} value={c}>
-                {CAMPUS_LABELS[c]}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500">
-            Students filter facilitators by campus, so keep this up to date.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="pronouns">Pronouns</label>
-          <input
-            id="pronouns"
-            type="text"
-            placeholder="e.g., they/them, she/her, he/him"
-            value={profile.pronouns}
-            onChange={e => setProfile({ ...profile, pronouns: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="gender">Gender</label>
-          <select
-            id="gender"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            value={profile.gender}
-            onChange={e => setProfile({ ...profile, gender: e.target.value as Gender })}
-          >
-            <option value="">Select gender...</option>
-            {GENDER_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="bio">Bio</label>
-          <textarea
-            id="bio"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            rows={4}
-            placeholder="Tell students about yourself..."
-            value={profile.bio}
-            onChange={e => setProfile({ ...profile, bio: e.target.value })}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="phone">Phone</label>
-          <input
-            id="phone"
-            type="tel"
-            placeholder="Your contact number"
-            value={profile.phone}
-            onChange={e => setProfile({ ...profile, phone: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="institution">Institution</label>
-          <input
-            id="institution"
-            type="text"
-            placeholder="Your institution/organization"
-            value={profile.institution}
-            onChange={e => setProfile({ ...profile, institution: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-
-        <Button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="w-full"
-        >
-          {isSaving ? 'Saving...' : 'Save Profile'}
-        </Button>
-      </div>
+      <ProfileSettingsForm
+        value={profile}
+        onChange={setProfile}
+        onSave={handleSave}
+        isSaving={isSaving}
+        error={error}
+        success={success}
+        campusHint="Students filter facilitators by campus, so keep this up to date."
+      />
     </div>
   );
 }

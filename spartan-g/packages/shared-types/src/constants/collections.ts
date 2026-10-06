@@ -24,6 +24,8 @@ export const COLLECTIONS = {
   ASSESSMENT_RESPONSES: 'assessment_responses',
   // Assessment feature collections (Phase 3B)
   ASSESSMENT_ATTEMPTS: 'assessment_attempts',
+  // Shared resource library (all portals read, Super Admin manages)
+  RESOURCES: 'resources',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -33,4 +35,6 @@ export const STORAGE_PATHS = {
   ASSIGNMENT_FILES: 'assignments',
   COURSE_MEDIA: 'courses',
   MESSAGE_ATTACHMENTS: 'messages',
+  /** Shared resource-library files (Super Admin uploads, everyone reads). */
+  RESOURCES: 'resources',
 } as const;

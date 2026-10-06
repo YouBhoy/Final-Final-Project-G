@@ -228,3 +228,40 @@ export interface AssessmentResponseDocument extends FirestoreDocument {
   score?: number;
   feedback?: string;
 }
+
+/**
+ * Shared resource-library document (`resources` collection).
+ *
+ * Single data source for every portal's /resources page:
+ * Super Admin manages entries, Students and Facilitators read the
+ * published (`isActive`) entries.
+ */
+export type ResourceAudience = 'all' | 'students' | 'facilitators';
+
+export type ResourceCategory =
+  | 'article'
+  | 'video'
+  | 'guide'
+  | 'worksheet'
+  | 'helpline'
+  | 'other';
+
+export interface ResourceDocument extends FirestoreDocument {
+  title: string;
+  description?: string | null;
+  category: ResourceCategory;
+  /** Free-form tags for grouping/filtering. */
+  tags?: string[];
+  /** External link (when the resource is a URL). */
+  url?: string | null;
+  /** Firebase Storage download URL (when a file was uploaded). */
+  fileUrl?: string | null;
+  /** Firebase Storage path of the uploaded file, used for deletes. */
+  filePath?: string | null;
+  /** Which roles should see this resource (display filter). */
+  audience: ResourceAudience;
+  /** Only published resources are visible to Students and Facilitators. */
+  isActive: boolean;
+  /** UID of the user (Super Admin) who created the entry. */
+  createdBy: string;
+}

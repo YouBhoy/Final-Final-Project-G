@@ -72,10 +72,15 @@ export const facilitatorNavItems: NavItem[] = [
   { to: "/facilitator/profile", label: "Profile", iconPath: profileIcon },
 ];
 
+const auditIcon =
+  "M9 12h3.75m-3.75 3H12m0-3h3.75M9 18h3.75M3.75 6.75h16.5A2.25 2.25 0 0122.5 9v8.25a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 17.25V9a2.25 2.25 0 012.25-2.25zM6 9.75V6.75m12 3V6.75";
+
 export const adminNavItems: NavItem[] = [
   { to: "/admin/dashboard", label: "Dashboard", iconPath: dashboardIcon },
   { to: "/admin/users", label: "Users", iconPath: userIcon },
   { to: "/admin/assessment-templates", label: "Assessment Templates", iconPath: templateIcon },
   { to: "/admin/resources", label: "Resources", iconPath: resourceIcon },
+  { to: "/admin/audit-logs", label: "Audit Log", iconPath: auditIcon },
+  { to: "/admin/profile", label: "Profile", iconPath: profileIcon },
   { to: "/admin/settings", label: "Settings", iconPath: settingsIcon },
 ];

@@ -227,4 +227,19 @@ export const FIRESTORE_SCHEMAS = {
     createdAt: 'timestamp',
     updatedAt: 'timestamp',
   },
+  // Shared resource library (Super Admin manages, all portals read)
+  resources: {
+    title: 'string',
+    description: 'string?',
+    category: 'article | video | guide | worksheet | helpline | other',
+    tags: 'string[]?',
+    url: 'string?',
+    fileUrl: 'string?',
+    filePath: 'string?',
+    audience: 'all | students | facilitators',
+    isActive: 'boolean',
+    createdBy: 'string',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
 } as const;
