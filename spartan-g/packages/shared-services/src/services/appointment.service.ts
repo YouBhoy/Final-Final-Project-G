@@ -44,6 +44,20 @@ export interface CreateNotificationPayload {
 
 class AppointmentService {
   /**
+   * Whether an appointment's scheduled end time (start + duration) has passed.
+   * Used to let facilitators still resolve stale/past appointments that were
+   * never completed, cancelled, or marked no-show.
+   */
+  private isPastAppointment(appointment: AppointmentDocument): boolean {
+    const raw = appointment.scheduledAt as any;
+    const startMs =
+      typeof raw?.toDate === 'function' ? raw.toDate().getTime() : new Date(raw).getTime();
+    if (Number.isNaN(startMs)) return false;
+    const endMs = startMs + (appointment.durationMinutes || 0) * 60 * 1000;
+    return endMs < Date.now();
+  }
+
+  /**
    * Create an in-app notification for the user.
    */
   private async createNotification(payload: CreateNotificationPayload) {
@@ -284,7 +298,11 @@ class AppointmentService {
     const appointment = await appointmentRepository.getById(appointmentId);
     if (!appointment) throw new Error('Appointment not found');
     if (appointment.facilitatorId !== facilitatorId) throw new Error('Not authorized');
-    if (appointment.status !== 'requested') throw new Error('Appointment is not in requested status');
+    // Normally only requested appointments can be rescheduled, but a past one that
+    // was never actioned should also be reschedulable to a future slot.
+    if (appointment.status !== 'requested' && !this.isPastAppointment(appointment)) {
+      throw new Error('Appointment is not in requested status');
+    }
 
     await appointmentRepository.update(appointmentId, {
       status: 'reschedule_requested',
@@ -423,7 +441,11 @@ class AppointmentService {
     const appointment = await appointmentRepository.getById(appointmentId);
     if (!appointment) throw new Error('Appointment not found');
     if (appointment.facilitatorId !== facilitatorId) throw new Error('Not authorized');
-    if (appointment.status !== 'accepted') throw new Error('Appointment must be accepted first');
+    // Allow completing past appointments that were never actioned (stale requests),
+    // in addition to normally accepted ones.
+    if (appointment.status !== 'accepted' && !this.isPastAppointment(appointment)) {
+      throw new Error('Appointment must be accepted first');
+    }
 
     await appointmentRepository.update(appointmentId, {
       status: 'completed',
@@ -496,7 +518,11 @@ class AppointmentService {
     const appointment = await appointmentRepository.getById(appointmentId);
     if (!appointment) throw new Error('Appointment not found');
     if (appointment.facilitatorId !== facilitatorId) throw new Error('Not authorized');
-    if (appointment.status !== 'accepted') throw new Error('Appointment must be accepted first');
+    // Allow no-showing past appointments that were never actioned, in addition
+    // to normally accepted ones.
+    if (appointment.status !== 'accepted' && !this.isPastAppointment(appointment)) {
+      throw new Error('Appointment must be accepted first');
+    }
 
     await appointmentRepository.update(appointmentId, {
       status: 'no_show',
