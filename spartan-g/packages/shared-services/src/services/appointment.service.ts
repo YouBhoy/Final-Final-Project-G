@@ -299,8 +299,10 @@ class AppointmentService {
     if (!appointment) throw new Error('Appointment not found');
     if (appointment.facilitatorId !== facilitatorId) throw new Error('Not authorized');
     // Normally only requested appointments can be rescheduled, but a past one that
-    // was never actioned should also be reschedulable to a future slot.
-    if (appointment.status !== 'requested' && !this.isPastAppointment(appointment)) {
+    // was never actioned (or a resolved/terminal one being re-opened) should also
+    // be reschedulable to a future slot.
+    const isTerminalStatus = ['completed', 'cancelled', 'rejected', 'no_show'].includes(appointment.status);
+    if (appointment.status !== 'requested' && !isTerminalStatus && !this.isPastAppointment(appointment)) {
       throw new Error('Appointment is not in requested status');
     }
 

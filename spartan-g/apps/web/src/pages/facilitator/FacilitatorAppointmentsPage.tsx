@@ -19,6 +19,7 @@ export function FacilitatorAppointmentsPage() {
   const [rescheduleAppointmentId, setRescheduleAppointmentId] = useState<string | null>(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [expandedPastId, setExpandedPastId] = useState<string | null>(null);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const { user } = useAuth();
 
   const loadAppointments = useCallback(async () => {
@@ -382,15 +383,55 @@ export function FacilitatorAppointmentsPage() {
           <p className="text-sm text-gray-500">No appointment history.</p>
         ) : (
           <div className="space-y-2">
-            {history.map(apt => (
-              <div key={apt.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
-                  <p className="text-xs text-gray-500">{formatDateTime(apt.scheduledAt)}</p>
+            {history.map(apt => {
+              const isExpanded = expandedHistoryId === apt.id;
+              return (
+                <div key={apt.id} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
+                      <p className="text-xs text-gray-500">{formatDateTime(apt.scheduledAt)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AppointmentStatusBadge status={apt.status} />
+                      <button
+                        onClick={() => setExpandedHistoryId(isExpanded ? null : apt.id)}
+                        aria-expanded={isExpanded}
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 border rounded hover:bg-gray-100"
+                      >
+                        {isExpanded ? 'Close' : 'Edit'}
+                      </button>
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className="flex gap-2 mt-3 flex-wrap border-t pt-3">
+                      <button
+                        onClick={() => handleAction('reschedule', apt.id)}
+                        disabled={actionLoading === apt.id}
+                        className="px-4 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 disabled:bg-gray-400"
+                      >
+                        Reschedule
+                      </button>
+                      {apt.status !== 'cancelled' && (
+                        <button
+                          onClick={() => handleAction('cancel', apt.id)}
+                          disabled={actionLoading === apt.id}
+                          className="px-4 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:bg-gray-400"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
+                        className="px-4 py-1.5 text-gray-700 text-sm border rounded hover:bg-gray-50"
+                      >
+                        Notes
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <AppointmentStatusBadge status={apt.status} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
