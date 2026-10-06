@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
+import { ResourcesBrowsePage } from "../components/resources/ResourcesBrowsePage";
+import { useAuth } from "../hooks/useAuth";
 import { FacilitatorAssessmentsPage } from "../pages/facilitator/FacilitatorAssessmentsPage";
 import { FacilitatorStudentsPage } from "../pages/facilitator/FacilitatorStudentsPage";
 import { FacilitatorRiskAlertsPage } from "../pages/facilitator/FacilitatorRiskAlertsPage";
@@ -12,6 +14,7 @@ import { FacilitatorDashboardPage } from "../pages/facilitator/FacilitatorDashbo
 import { facilitatorNavItems } from "./navConfigs";
 
 export function FacilitatorPortalRoutes() {
+  const { user } = useAuth();
   return (
     <PortalLayout
       portalName="Facilitator Portal"
@@ -54,15 +57,8 @@ export function FacilitatorPortalRoutes() {
           element={<FacilitatorWorkHoursPage />}
         />
         <Route path="messages" element={<FacilitatorMessagesPage />} />
-        <Route
-          path="resources"
-          element={
-            <PlaceholderPage
-              title="Resources"
-              description="Curated resources you can share with students."
-            />
-          }
-        />
+        {/* Shared resource library — same `resources` collection the Super Admin manages */}
+        <Route path="resources" element={<ResourcesBrowsePage actorRole={user?.role} />} />
         <Route path="profile" element={<FacilitatorProfilePage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>

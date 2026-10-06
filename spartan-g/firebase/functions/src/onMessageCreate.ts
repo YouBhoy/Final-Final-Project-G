@@ -1,7 +1,9 @@
 import * as admin from 'firebase-admin';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 
-admin.initializeApp();
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 export const onMessageCreate = onDocumentCreated('messages/{messageId}', async (event: any) => {
   const message = event.data?.data();

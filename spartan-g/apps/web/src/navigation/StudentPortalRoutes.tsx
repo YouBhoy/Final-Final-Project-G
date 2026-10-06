@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
+import { ResourcesBrowsePage } from "../components/resources/ResourcesBrowsePage";
+import { useAuth } from "../hooks/useAuth";
 import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
 import { AssessmentWizardPage } from "../pages/assessment/AssessmentWizardPage";
 import { StudentMessagesPage } from "../pages/messaging/StudentMessagesPage";
@@ -12,6 +14,7 @@ import { StudentProfilePage } from "../pages/student/StudentProfilePage";
 import { studentNavItems } from "./navConfigs";
 
 export function StudentPortalRoutes() {
+  const { user } = useAuth();
   return (
     <PortalLayout
       portalName="Student Portal"
@@ -53,14 +56,10 @@ export function StudentPortalRoutes() {
             />
           }
         />
+        {/* Shared resource library — same `resources` collection the Super Admin manages */}
         <Route
           path="resources"
-          element={
-            <PlaceholderPage
-              title="Resources"
-              description="Curated articles, videos, and self-help materials."
-            />
-          }
+          element={<ResourcesBrowsePage actorRole={user?.role} />}
         />
         <Route path="messages" element={<StudentMessagesPage />} />
         <Route path="profile" element={<StudentProfilePage />} />

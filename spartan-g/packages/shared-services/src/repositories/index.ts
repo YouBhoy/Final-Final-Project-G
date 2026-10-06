@@ -15,3 +15,5 @@ export { assessmentRepository } from './assessment.repository';
 export { assessmentResponseRepository } from './assessment-response.repository';
 export { assessmentAttemptRepository } from './assessment-attempt.repository';
 export { notificationRepository } from './notification.repository';
+export { resourceRepository } from './resource.repository';
+export { auditLogRepository } from './audit-log.repository';

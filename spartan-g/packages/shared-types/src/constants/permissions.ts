@@ -31,6 +31,8 @@ export const PERMISSIONS = {
   MANAGE_ROLES: 'manage_roles',
   VIEW_SYSTEM_ANALYTICS: 'view_system_analytics',
   MANAGE_PLATFORM_SETTINGS: 'manage_platform_settings',
+  /** Full CRUD over the shared /resources library (Super Admin only). */
+  MANAGE_RESOURCES: 'manage_resources',
 
   // Assessment feature (Phase 3A)
   MANAGE_ASSESSMENT_TEMPLATES: 'manage_assessment_templates',

@@ -1,5 +1,16 @@
 export { authService } from './auth.service';
 export { userService } from './user.service';
+export { auditService, type AuditEntry } from './audit.service';
+export {
+  resourceService,
+  type CreateResourcePayload,
+  type UpdateResourcePayload,
+} from './resource.service';
+export {
+  adminService,
+  type AdminActor,
+  type SaveUserProfileInput,
+} from './admin.service';
 export { notificationService } from './notification.service';
 export { storageService } from './storage.service';
 export { riskAlertService } from './risk-alert.service';

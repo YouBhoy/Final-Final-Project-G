@@ -69,5 +69,14 @@ service firebase.storage {
       allow write: if isActiveUser() && isValidDocument();
       allow delete: if isFacilitatorOrAdmin();
     }
+
+    // Shared resource-library files — Super Admin uploads/replaces/removes,
+    // every active user can read/download. No other role can write here,
+    // even by calling Storage directly from the browser.
+    match /resources/{resourceId}/{fileName} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin() && isValidDocument();
+      allow delete: if isSuperAdmin();
+    }
   }
 }
