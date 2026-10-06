@@ -1,3 +1,5 @@
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getFirebaseApp } from '../firebase/app';
 import {
   PERMISSIONS,
   Role,
@@ -12,18 +14,11 @@ import {
   getFirestoreDb,
   doc,
   setDoc,
-  updateDoc,
-  query,
-  where,
-  getDocs,
-  collection,
-  getDoc,
   runTransaction,
 } from '../firebase/firestore';
 import { appointmentRepository } from '../repositories/appointment.repository';
 import { workHoursRepository } from '../repositories/work-hours.repository';
 import { notificationRepository } from '../repositories/notification.repository';
-import { messagingService } from './messaging.service';
 
 export interface RequestAppointmentPayload {
   studentId: string;
@@ -96,96 +91,20 @@ class AppointmentService {
     return appointmentRepository.getUpcomingByFacilitator(facilitatorId);
   }
 
-  /**
-   * Request an appointment with atomic availability check using Firestore transaction.
-   * This prevents race conditions where two students book the same time slot.
-   */
+  /** Booking is authorized and checked atomically by the backend. */
   async requestAppointment(payload: RequestAppointmentPayload, actorRole: Role) {
-    if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
-      throw new PermissionError();
-    }
-
-    // Validate past booking
-    if (payload.scheduledAt < new Date()) {
-      throw new Error('Cannot book appointments in the past');
-    }
-
-    const db = getFirestoreDb();
-    const id = `apt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const newStart = payload.scheduledAt.getTime();
-    const newEnd = newStart + payload.durationMinutes * 60 * 1000;
-
-    // Use a transaction to prevent race conditions
-    try {
-      await runTransaction(db, async (transaction) => {
-        // Check for overlapping active appointments for this facilitator at this time
-        try {
-          const overlapQuery = query(
-            collection(db, COLLECTIONS.APPOINTMENTS),
-            where('facilitatorId', '==', payload.facilitatorId),
-            where('status', 'in', ['requested', 'accepted']),
-          );
-
-          const overlapDocs = await getDocs(overlapQuery);
-
-          for (const doc of overlapDocs.docs) {
-            const apt = doc.data() as AppointmentDocument;
-            const aptStart = apt.scheduledAt.toDate().getTime();
-            const aptEnd = aptStart + apt.durationMinutes * 60 * 1000;
-
-            if (newStart < aptEnd && newEnd > aptStart) {
-              throw new Error('This time slot is already booked. Someone else may have booked it already.');
-            }
-          }
-        } catch (error: any) {
-          const message = error?.message || '';
-          const isFirestoreReadBlock =
-            message.includes('Missing or insufficient permissions') ||
-            message.includes('requires an index') ||
-            message.includes('Failed to list appointments');
-
-          if (!isFirestoreReadBlock) {
-            throw error;
-          }
-
-          console.warn('Skipping appointment overlap check because Firestore blocked the query:', message);
-        }
-
-        // Create the appointment
-        const data: any = {
-          studentId: payload.studentId,
-          facilitatorId: payload.facilitatorId,
-          scheduledAt: Timestamp.fromDate(payload.scheduledAt),
-          durationMinutes: payload.durationMinutes,
-          status: 'requested',
-          notifyBeforeMinutes: payload.notifyBeforeMinutes ?? 30,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        if (payload.notes) {
-          data.notes = payload.notes;
-        }
-
-        transaction.set(doc(db, COLLECTIONS.APPOINTMENTS, id), data);
-      });
-
-      // Create notification for facilitator
-      await this.createNotification({
-        userId: payload.facilitatorId,
-        title: 'New Appointment Request',
-        body: `A student has requested an appointment at ${payload.scheduledAt.toLocaleString()}.`,
-        type: 'appointment',
-        relatedId: id,
-      });
-
-      return id;
-    } catch (error: any) {
-      if (error.message?.includes('already booked')) {
-        throw error;
-      }
-      throw new Error(error.message || 'Failed to request appointment');
-    }
+    if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) throw new PermissionError();
+    const callable = httpsCallable<Record<string, unknown>, { appointmentId: string }>(
+      getFunctions(getFirebaseApp()), 'requestAppointment',
+    );
+    const result = await callable({
+      facilitatorId: payload.facilitatorId,
+      scheduledAtMs: payload.scheduledAt.getTime(),
+      durationMinutes: payload.durationMinutes,
+      ...(payload.notes !== undefined ? { notes: payload.notes } : {}),
+      ...(payload.notifyBeforeMinutes !== undefined ? { notifyBeforeMinutes: payload.notifyBeforeMinutes } : {}),
+    });
+    return result.data.appointmentId;
   }
 
   /**
@@ -326,9 +245,7 @@ class AppointmentService {
     return appointmentId;
   }
 
-  /**
-   * Student updates the appointment time after a reschedule request.
-   */
+  /** Rescheduling uses the same serialized backend overlap check as booking. */
   async rescheduleAppointment(
     appointmentId: string,
     studentId: string,
@@ -336,98 +253,13 @@ class AppointmentService {
     newDurationMinutes: number,
     actorRole: Role,
   ) {
-    if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) {
-      throw new PermissionError();
-    }
-
-    if (newScheduledAt < new Date()) {
-      throw new Error('Cannot reschedule to a past time');
-    }
-
-    const appointment = await appointmentRepository.getById(appointmentId);
-    if (!appointment) throw new Error('Appointment not found');
-    if (appointment.studentId !== studentId) throw new Error('Not authorized');
-    if (appointment.status !== 'reschedule_requested') {
-      throw new Error('Appointment is not awaiting a reschedule');
-    }
-
-    // Check for time overlap with other active appointments for the facilitator
-    const newStart = newScheduledAt.getTime();
-    const newEnd = newStart + newDurationMinutes * 60 * 1000;
-
-    try {
-      const existingAppointments = await appointmentRepository.getActiveByDateRange(
-        appointment.facilitatorId,
-        new Date(newStart - 24 * 60 * 60 * 1000),
-        new Date(newEnd + 24 * 60 * 60 * 1000),
-      );
-
-      for (const apt of existingAppointments) {
-        if (apt.id === appointmentId) continue; // skip self
-        const aptStart = apt.scheduledAt.toDate().getTime();
-        const aptEnd = aptStart + apt.durationMinutes * 60 * 1000;
-        if (newStart < aptEnd && newEnd > aptStart) {
-          throw new Error('This time slot conflicts with another appointment');
-        }
-      }
-    } catch (error: any) {
-      const message = error?.message || '';
-      const isFirestoreReadBlock =
-        message.includes('Missing or insufficient permissions') ||
-        message.includes('requires an index') ||
-        message.includes('Failed to list appointments');
-
-      if (!isFirestoreReadBlock) {
-        throw error;
-      }
-
-      console.warn('Skipping reschedule overlap check because Firestore blocked the query:', message);
-    }
-
-    try {
-      await appointmentRepository.update(appointmentId, {
-        status: 'requested',
-        scheduledAt: Timestamp.fromDate(newScheduledAt) as any,
-        durationMinutes: newDurationMinutes,
-        rescheduleReason: undefined,
-        rescheduleRequestedAt: undefined,
-      } as Partial<AppointmentDocument>);
-
-      // Notify facilitator that student has rescheduled
-      await this.createNotification({
-        userId: appointment.facilitatorId,
-        title: 'Appointment Rescheduled',
-        body: `The student has rescheduled the appointment to ${newScheduledAt.toLocaleString()}.`,
-        type: 'appointment',
-        relatedId: appointmentId,
-      });
-
-      return appointmentId;
-    } catch (error: any) {
-      const message = error?.message || '';
-      const isFirestorePermissionBlock = message.includes('Missing or insufficient permissions');
-
-      if (!isFirestorePermissionBlock) {
-        throw error;
-      }
-
-      const fallbackNotes = appointment.notes
-        ? `${appointment.notes}\n\nRescheduled from appointment ${appointmentId}.`
-        : `Rescheduled from appointment ${appointmentId}.`;
-
-      const newAppointmentId = await this.requestAppointment(
-        {
-          studentId,
-          facilitatorId: appointment.facilitatorId,
-          scheduledAt: newScheduledAt,
-          durationMinutes: newDurationMinutes,
-          notes: fallbackNotes,
-        },
-        actorRole,
-      );
-
-      return newAppointmentId;
-    }
+    if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) throw new PermissionError();
+    const callable = httpsCallable<Record<string, unknown>, { appointmentId: string }>(
+      getFunctions(getFirebaseApp()), 'rescheduleAppointment',
+    );
+    const result = await callable({ appointmentId, scheduledAtMs: newScheduledAt.getTime(),
+      durationMinutes: newDurationMinutes });
+    return result.data.appointmentId;
   }
 
   async completeAppointment(

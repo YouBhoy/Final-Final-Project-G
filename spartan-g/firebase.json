@@ -10,7 +10,8 @@
     {
       "source": "firebase/functions",
       "codebase": "default",
-      "ignore": ["node_modules", "lib", "*.test.*", "*.local"]
+      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"],
+      "ignore": ["node_modules", "test", "*.test.*", "*.local"]
     }
   ]
 }

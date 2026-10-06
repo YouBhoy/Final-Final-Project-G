@@ -20,6 +20,9 @@ web-build/
 .env.*.local
 
 # Firebase
+firebase/functions/lib/
+firebase-debug.log
+firestore-debug.log
 google-services.json
 GoogleService-Info.plist
 scripts/service-account.json

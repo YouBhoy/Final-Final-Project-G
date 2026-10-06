@@ -202,22 +202,20 @@ service cloud.firestore {
             resource.data.studentId == request.auth.uid
             || (resource.data.status in ['requested', 'accepted'] && resource.data.facilitatorId is string)
           ));
-      // Students can create appointment requests
-      allow create: if isStudent()
-        && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.status == 'requested'
-        && request.resource.data.facilitatorId is string;
-      // Facilitators manage appointments; students can cancel their own requested ones or reschedule from a reschedule request
-      allow update: if isFacilitatorOrAdmin()
-        || (isStudent()
-          && resource.data.studentId == request.auth.uid
-          && resource.data.status == 'requested'
-          && request.resource.data.status == 'cancelled'
-        )
-        || (isStudent()
-          && resource.data.studentId == request.auth.uid
-          && resource.data.status == 'reschedule_requested'
-          && request.resource.data.status == 'requested'
+      // Booking and rescheduling must pass the backend overlap transaction.
+      allow create: if false;
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes'])
+        && (
+          (isFacilitatorOrAdmin()
+            && (resource.data.status in ['requested', 'accepted']
+              || !(request.resource.data.status in ['requested', 'accepted'])))
+          || (isStudent()
+            && resource.data.studentId == request.auth.uid
+            && resource.data.status == 'requested'
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'cancellationReason', 'updatedAt']))
         );
       allow delete: if isSuperAdmin();
     }
