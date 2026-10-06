@@ -1,6 +1,7 @@
 export const COLLECTIONS = {
   USERS: 'users',
   PROFILES: 'profiles',
+  CAMPUSES: 'campuses',
   COURSES: 'courses',
   ENROLLMENTS: 'enrollments',
   ASSIGNMENTS: 'assignments',

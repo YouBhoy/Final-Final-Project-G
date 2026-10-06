@@ -5,12 +5,13 @@ import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
+import { useCampuses } from "../hooks/useCampuses";
 import { getRoleRedirect } from "../lib/auth";
-import { ALL_CAMPUSES, CAMPUS_LABELS } from "@spartan-g/shared-types";
 import type { RegisterFormData, Role, Campus } from "@spartan-g/shared-types";
 
 export function RegisterPage() {
   const { register, user, error, clearError } = useAuth();
+  const { campuses } = useCampuses();
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<RegisterFormData>({
@@ -184,9 +185,9 @@ export function RegisterPage() {
           disabled={isLoading}
         >
           <option value="">Select your campus...</option>
-          {ALL_CAMPUSES.map((campus) => (
-            <option key={campus} value={campus}>
-              {CAMPUS_LABELS[campus]}
+          {campuses.map((campus) => (
+            <option key={campus.key} value={campus.key}>
+              {campus.label}
             </option>
           ))}
         </Select>

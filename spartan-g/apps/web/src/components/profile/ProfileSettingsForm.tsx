@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useCampuses } from "../../hooks/useCampuses";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import {
@@ -62,6 +63,7 @@ export function ProfileSettingsForm({
   actions,
 }: ProfileSettingsFormProps) {
   const set = (patch: Partial<ProfileFormValue>) => onChange({ ...value, ...patch });
+  const { campuses } = useCampuses();
 
   return (
     <div className="space-y-6">
@@ -88,9 +90,9 @@ export function ProfileSettingsForm({
           onChange={(e) => set({ campus: e.target.value as Campus })}
         >
           <option value="">Select your campus...</option>
-          {ALL_CAMPUSES.map((c) => (
-            <option key={c} value={c}>
-              {CAMPUS_LABELS[c]}
+          {campuses.map((campus) => (
+            <option key={campus.key} value={campus.key}>
+              {campus.label}
             </option>
           ))}
         </select>

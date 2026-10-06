@@ -73,6 +73,16 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ─── Campuses (admin-managed directory) ───────────────────
+    // Active users can read active campuses for registration, profiles, and
+    // facilitator filtering. Super Admins can manage the directory, but
+    // deletion is intentionally disabled so existing user references remain valid.
+    match /campuses/{campusId} {
+      allow read: if isSuperAdmin() || resource.data.isActive == true;
+      allow create, update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
     // ─── Resources (shared library behind every /resources page) ──
     // Read: any active user. Non-admins may only LIST published entries
     // (their query must include isActive == true to be provable), while a
@@ -167,9 +177,11 @@ service cloud.firestore {
           'SUPERADMIN_UPDATED_ACCOUNT_NAME',
           'SUPERADMIN_CREATED_RESOURCE',
           'SUPERADMIN_UPDATED_RESOURCE',
-          'SUPERADMIN_DELETED_RESOURCE'
+          'SUPERADMIN_DELETED_RESOURCE',
+          'SUPERADMIN_CREATED_CAMPUS',
+          'SUPERADMIN_UPDATED_CAMPUS'
         ]
-        && request.resource.data.resource in ['profiles', 'users', 'auth', 'resources'];
+        && request.resource.data.resource in ['profiles', 'users', 'auth', 'resources', 'campuses'];
       allow update, delete: if false;
     }
 

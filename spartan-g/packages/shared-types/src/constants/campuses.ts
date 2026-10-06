@@ -15,7 +15,9 @@ export const CAMPUSES = {
   LIPA: 'lipa',
 } as const;
 
-export type Campus = (typeof CAMPUSES)[keyof typeof CAMPUSES];
+type KnownCampus = (typeof CAMPUSES)[keyof typeof CAMPUSES];
+/** Campus keys may be extended by Super Admins and persisted in Firestore. */
+export type Campus = KnownCampus | (string & {});
 
 /** All campuses in the canonical system order. */
 export const ALL_CAMPUSES: readonly Campus[] = [
@@ -27,7 +29,7 @@ export const ALL_CAMPUSES: readonly Campus[] = [
 ];
 
 /** Full display names for each campus. */
-export const CAMPUS_LABELS: Record<Campus, string> = {
+export const CAMPUS_LABELS: Record<string, string> = {
   [CAMPUSES.PABLO_BORBON]: 'Pablo Borbon (Main I) – Batangas City',
   [CAMPUSES.ALANGILAN]: 'Alangilan (Main II) – Batangas City',
   [CAMPUSES.ARASOF_NASUGBU]: 'ARASOF-Nasugbu – Nasugbu',
@@ -36,7 +38,7 @@ export const CAMPUS_LABELS: Record<Campus, string> = {
 };
 
 /** Short campus name (without the location suffix). */
-export const CAMPUS_SHORT_LABELS: Record<Campus, string> = {
+export const CAMPUS_SHORT_LABELS: Record<string, string> = {
   [CAMPUSES.PABLO_BORBON]: 'Pablo Borbon',
   [CAMPUSES.ALANGILAN]: 'Alangilan',
   [CAMPUSES.ARASOF_NASUGBU]: 'ARASOF-Nasugbu',
@@ -45,7 +47,7 @@ export const CAMPUS_SHORT_LABELS: Record<Campus, string> = {
 };
 
 /** Geographic location / city for each campus. */
-export const CAMPUS_LOCATIONS: Record<Campus, string> = {
+export const CAMPUS_LOCATIONS: Record<string, string> = {
   [CAMPUSES.PABLO_BORBON]: 'Batangas City',
   [CAMPUSES.ALANGILAN]: 'Batangas City',
   [CAMPUSES.ARASOF_NASUGBU]: 'Nasugbu',
