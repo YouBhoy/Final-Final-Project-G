@@ -18,6 +18,7 @@ export function FacilitatorAppointmentsPage() {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleAppointmentId, setRescheduleAppointmentId] = useState<string | null>(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [expandedPastId, setExpandedPastId] = useState<string | null>(null);
   const { user } = useAuth();
 
   const loadAppointments = useCallback(async () => {
@@ -131,14 +132,38 @@ export function FacilitatorAppointmentsPage() {
     return `Requested appointment for ${formatDateTime(apt.scheduledAt)}.`;
   };
 
+  const toMillis = (timestamp: any): number | null => {
+    if (!timestamp) return null;
+    if (typeof timestamp.toDate === 'function') return timestamp.toDate().getTime();
+    const parsed = new Date(timestamp).getTime();
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  /**
+   * An appointment counts as "past" once its end time (start + duration) has
+   * elapsed. Using the end time means a session that is currently in progress
+   * still shows under Upcoming so it can be completed/no-showed on time.
+   */
+  const isPastAppointment = (apt: AppointmentDocument): boolean => {
+    const start = toMillis(apt.scheduledAt);
+    if (start === null) return false;
+    const end = start + (apt.durationMinutes || 0) * 60 * 1000;
+    return end < Date.now();
+  };
+
   if (isLoading) {
     return <div className="text-center py-12 text-gray-500">Loading appointments...</div>;
   }
 
-  const pendingRequests = appointments.filter(a => a.status === 'requested');
-  const upcoming = appointments.filter(a => a.status === 'accepted');
-  const rescheduleRequests = appointments.filter(a => a.status === 'reschedule_requested');
-  const history = appointments.filter(a => ['completed', 'cancelled', 'rejected', 'no_show'].includes(a.status));
+  const terminalStatuses = ['completed', 'cancelled', 'rejected', 'no_show'];
+  const pendingRequests = appointments.filter(a => a.status === 'requested' && !isPastAppointment(a));
+  const upcoming = appointments.filter(a => a.status === 'accepted' && !isPastAppointment(a));
+  const rescheduleRequests = appointments.filter(a => a.status === 'reschedule_requested' && !isPastAppointment(a));
+  // Non-terminal appointments whose scheduled time has elapsed — they never got
+  // completed / cancelled / marked no-show, so surface them under "Past" instead
+  // of leaving them in Upcoming forever.
+  const past = appointments.filter(a => !terminalStatuses.includes(a.status) && isPastAppointment(a));
+  const history = appointments.filter(a => terminalStatuses.includes(a.status));
 
   return (
     <div className="space-y-6">
@@ -275,6 +300,81 @@ export function FacilitatorAppointmentsPage() {
         </div>
       )}
 
+      {/* Past — scheduled time has elapsed but never actioned */}
+      {past.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Past ({past.length})
+          </h2>
+          <p className="text-sm text-gray-500 mb-3">
+            These appointments have passed their scheduled time but were not completed, cancelled, or marked as a no-show. Click <span className="font-medium text-gray-700">Edit</span> to resolve one.
+          </p>
+          <div className="space-y-3">
+            {past.map(apt => {
+              const isExpanded = expandedPastId === apt.id;
+              return (
+                <div key={apt.id} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between items-start gap-3">
+                    <div>
+                      <p className="font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
+                      <p className="text-sm text-gray-500">{formatDateTime(apt.scheduledAt)}</p>
+                      <p className="text-xs text-gray-400">{apt.durationMinutes} minutes</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AppointmentStatusBadge status="past" />
+                      <button
+                        onClick={() => setExpandedPastId(isExpanded ? null : apt.id)}
+                        aria-expanded={isExpanded}
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 border rounded hover:bg-gray-100"
+                      >
+                        {isExpanded ? 'Close' : 'Edit'}
+                      </button>
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className="flex gap-2 mt-3 flex-wrap border-t pt-3">
+                      <button
+                        onClick={() => { setSelectedAppointment(apt); setOutcomeNotes(''); }}
+                        className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      >
+                        Complete
+                      </button>
+                      <button
+                        onClick={() => handleAction('no-show', apt.id)}
+                        disabled={actionLoading === apt.id}
+                        className="px-4 py-1.5 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:bg-gray-400"
+                      >
+                        No Show
+                      </button>
+                      <button
+                        onClick={() => handleAction('cancel', apt.id)}
+                        disabled={actionLoading === apt.id}
+                        className="px-4 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:bg-gray-400"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleAction('reschedule', apt.id)}
+                        disabled={actionLoading === apt.id}
+                        className="px-4 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 disabled:bg-gray-400"
+                      >
+                        Reschedule
+                      </button>
+                      <button
+                        onClick={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
+                        className="px-4 py-1.5 text-gray-700 text-sm border rounded hover:bg-gray-50"
+                      >
+                        Notes
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* History */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">History</h2>
@@ -296,7 +396,7 @@ export function FacilitatorAppointmentsPage() {
       </div>
 
       {/* Complete Modal */}
-      {selectedAppointment && outcomeNotes !== undefined && selectedAppointment.status === 'accepted' && (
+      {selectedAppointment && outcomeNotes !== undefined && !['completed', 'cancelled', 'rejected', 'no_show'].includes(selectedAppointment.status) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { setSelectedAppointment(null); setOutcomeNotes(''); }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">Complete Appointment</h3>
