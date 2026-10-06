@@ -75,6 +75,15 @@ export interface AuditLogDocument extends FirestoreDocument {
   metadata?: Record<string, unknown>;
 }
 
+export interface CampusDocument extends FirestoreDocument {
+  key: string;
+  label: string;
+  location: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdBy: string;
+}
+
 export interface RiskAlertDocument extends FirestoreDocument {
   studentId: string;
   facilitatorId: string;

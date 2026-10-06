@@ -78,7 +78,7 @@ const auditIcon =
 export const adminNavItems: NavItem[] = [
   { to: "/admin/dashboard", label: "Dashboard", iconPath: dashboardIcon },
   { to: "/admin/users", label: "Users", iconPath: userIcon },
-  { to: "/admin/assessment-templates", label: "Assessment Templates", iconPath: templateIcon },
+  { to: "/admin/campuses", label: "Campuses", iconPath: templateIcon },
   { to: "/admin/resources", label: "Resources", iconPath: resourceIcon },
   { to: "/admin/audit-logs", label: "Audit Log", iconPath: auditIcon },
   { to: "/admin/profile", label: "Profile", iconPath: profileIcon },

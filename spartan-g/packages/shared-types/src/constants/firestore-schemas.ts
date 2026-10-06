@@ -22,6 +22,16 @@ export const FIRESTORE_SCHEMAS = {
     metadata: 'map?',
     updatedAt: 'timestamp',
   },
+  campuses: {
+    key: 'string',
+    label: 'string',
+    location: 'string',
+    isActive: 'boolean',
+    sortOrder: 'number',
+    createdBy: 'string',
+    createdAt: 'timestamp',
+    updatedAt: 'timestamp',
+  },
   courses: {
     title: 'string',
     description: 'string',

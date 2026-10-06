@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { userService, workHoursService, profileRepository } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
+import { useCampuses } from '../../hooks/useCampuses';
 import {
-  ALL_CAMPUSES,
   CAMPUS_LABELS,
   CAMPUS_SHORT_LABELS,
   Gender,
@@ -39,6 +39,7 @@ export function StudentFindFacilitatorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, status } = useAuth();
+  const { campuses } = useCampuses();
 
   // Facilitators visible under the current campus filter. The student's own
   // campus is surfaced first when "all campuses" is selected.
@@ -156,19 +157,19 @@ export function StudentFindFacilitatorPage() {
         >
           All Campuses
         </button>
-        {ALL_CAMPUSES.map((c) => (
+        {campuses.map((campus) => (
           <button
-            key={c}
+            key={campus.key}
             type="button"
-            onClick={() => setCampusFilter(c)}
+            onClick={() => setCampusFilter(campus.key)}
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              campusFilter === c
+              campusFilter === campus.key
                 ? 'bg-[var(--color-primary)] text-white shadow-sm'
                 : 'bg-[var(--color-bg-alt)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-pastel)] hover:text-[var(--color-primary)]'
             }`}
           >
-            {CAMPUS_SHORT_LABELS[c]}
-            {user?.campus === c && ' ★'}
+            {campus.label}
+            {user?.campus === campus.key && ' ★'}
           </button>
         ))}
       </div>
@@ -211,7 +212,7 @@ export function StudentFindFacilitatorPage() {
                       <h3 className="font-semibold text-gray-900 truncate">{fac.displayName}</h3>
                       {fac.campus && (
                         <span className="inline-flex shrink-0 items-center rounded-full bg-[var(--color-accent-pastel)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent-dark)]">
-                          {CAMPUS_SHORT_LABELS[fac.campus]}
+                          {CAMPUS_SHORT_LABELS[fac.campus] ?? fac.campus}
                         </span>
                       )}
                       {user?.campus && fac.campus === user.campus && (

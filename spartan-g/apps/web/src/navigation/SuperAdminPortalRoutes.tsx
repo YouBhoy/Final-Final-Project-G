@@ -1,8 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
 import { PlaceholderPage } from "../components/PlaceholderPage";
-import { AssessmentTemplatesPage } from "../pages/admin/AssessmentTemplatesPage";
-import { TemplateFormPage } from "../pages/admin/TemplateFormPage";
+import { AdminCampusesPage } from "../pages/admin/AdminCampusesPage";
 import { AdminUsersPage } from "../pages/admin/AdminUsersPage";
 import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
 import { AdminResourcesPage } from "../pages/admin/AdminResourcesPage";
@@ -31,9 +30,7 @@ export function SuperAdminPortalRoutes() {
         />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="users/:uid" element={<AdminUserDetailPage />} />
-        <Route path="assessment-templates" element={<AssessmentTemplatesPage />} />
-        <Route path="assessment-templates/new" element={<TemplateFormPage />} />
-        <Route path="assessment-templates/:id/edit" element={<TemplateFormPage />} />
+        <Route path="campuses" element={<AdminCampusesPage />} />
         <Route path="resources" element={<AdminResourcesPage />} />
         <Route path="audit-logs" element={<AdminAuditLogsPage />} />
         <Route path="profile" element={<AdminProfilePage />} />
