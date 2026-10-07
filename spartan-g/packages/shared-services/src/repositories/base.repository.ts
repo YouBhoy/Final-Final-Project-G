@@ -51,8 +51,12 @@ export abstract class BaseRepository<T extends DocumentData> {
 
   async create(id: string, data: T): Promise<void> {
     try {
+      // Firestore rejects `undefined` field values (invalid-argument); drop them like update() does.
+      const sanitizedData = Object.fromEntries(
+        Object.entries(data).filter(([, value]) => value !== undefined),
+      ) as T;
       await setDoc(this.getDocRef(id), {
-        ...data,
+        ...sanitizedData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

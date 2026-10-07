@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { assessmentService } from '@spartan-g/shared-services';
+import { assessmentService, assessmentOverrideService } from '@spartan-g/shared-services';
 import type { AssessmentDefinitionDocument, AssessmentQuestion, WizardState, AssessmentAnswer } from '@spartan-g/shared-types';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { WizardProgressBar } from '../../components/assessment/WizardProgressBar';
@@ -113,7 +113,12 @@ export function AssessmentWizardPage() {
         }
 
         const attemptCount = await assessmentService.getAttemptCount(assessmentId, user.uid);
-        const hasReachedLimit = attemptCount >= assessmentData.maxAttempts;
+        const effectiveMax = await assessmentOverrideService.getEffectiveMaxAttempts(
+          assessmentId,
+          user.uid,
+          assessmentData.maxAttempts,
+        );
+        const hasReachedLimit = attemptCount >= effectiveMax;
         const existingAttemptId = await assessmentService.getInProgressAttempt(assessmentId, user.uid);
 
         // If no in-progress attempt but attempts exist, the student already submitted — show the "already completed" state
@@ -177,6 +182,15 @@ export function AssessmentWizardPage() {
           }
         }
       } catch (err) {
+        // Surface the real cause: the repository wraps Firestore errors in a generic message.
+        const cause = (err as { cause?: { code?: string; message?: string } })?.cause;
+        console.error('[AssessmentWizard] failed to load or start the assessment', {
+          assessmentId,
+          appCode: (err as { code?: string })?.code,
+          firestoreCode: cause?.code,
+          firestoreMessage: cause?.message,
+          error: err,
+        });
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load assessment');
         }

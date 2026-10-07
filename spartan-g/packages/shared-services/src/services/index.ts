@@ -28,3 +28,4 @@ export { assessmentService } from './assessment.service';
 export { assessmentResponseService, type SaveResponsePayload } from './assessment-response.service';
 export { notificationRepository } from '../repositories/notification.repository';
 export { profileRepository } from '../repositories/profile.repository';
+export { assessmentOverrideService, assessmentOverrideId, type AssessmentOverrideDocument } from './assessment-override.service';

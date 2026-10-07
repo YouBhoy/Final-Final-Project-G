@@ -1,5 +1,6 @@
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { BOOKING_WINDOW_MESSAGE, isWithinBookingWindow } from './bookingWindow.js';
 
 interface BookingInput {
   facilitatorId?: string;
@@ -11,7 +12,8 @@ interface BookingInput {
 }
 
 // Shared by both callable functions and emulator integration tests.
-export async function bookAppointment(db: Firestore, uid: string, input: BookingInput) {
+// `nowMs` is injectable so tests can pin the clock; production always uses the real time.
+export async function bookAppointment(db: Firestore, uid: string, input: BookingInput, nowMs: number = Date.now()) {
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   if (!input || !Number.isFinite(input.scheduledAtMs)
     || !Number.isInteger(input.durationMinutes) || input.durationMinutes <= 0
@@ -37,8 +39,13 @@ export async function bookAppointment(db: Firestore, uid: string, input: Booking
     : db.collection('appointments').doc();
   const notificationRef = db.collection('notifications').doc();
   await db.runTransaction(async (tx) => {
-    if (input.scheduledAtMs <= Date.now()) {
+    if (input.scheduledAtMs <= nowMs) {
       throw new HttpsError('invalid-argument', 'Cannot book appointments in the past');
+    }
+    // Students may only book from today through this week's Saturday (Asia/Manila).
+    // Rescheduling goes through this same path, so it is covered too.
+    if (!isWithinBookingWindow(input.scheduledAtMs, nowMs)) {
+      throw new HttpsError('invalid-argument', BOOKING_WINDOW_MESSAGE, { reason: 'outside_booking_window' });
     }
     const student = await tx.get(db.collection('users').doc(uid));
     if (student.data()?.role !== 'student' || student.data()?.isActive !== true) {

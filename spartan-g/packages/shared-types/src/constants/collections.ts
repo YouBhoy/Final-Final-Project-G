@@ -26,6 +26,7 @@ export const COLLECTIONS = {
   // Assessment feature collections (Phase 3B)
   ASSESSMENT_ATTEMPTS: 'assessment_attempts',
   ASSESSMENT_AI_SUMMARIES: 'assessment_ai_summaries',
+  ASSESSMENT_OVERRIDES: 'assessment_overrides',
   // Shared resource library (all portals read, Super Admin manages)
   RESOURCES: 'resources',
 } as const;
