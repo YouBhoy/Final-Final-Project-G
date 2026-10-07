@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit false",
     "test:booking": "node --test test/appointmentBooking.test.mjs",
+    "test:profile": "node --test test/studentProfile.test.mjs",
     "lint": "tsc -p tsconfig.json --noEmit",
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions"

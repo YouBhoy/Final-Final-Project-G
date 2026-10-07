@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin';
+import admin from 'firebase-admin';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 
 if (!admin.apps.length) {
