@@ -99,3 +99,114 @@ test('rules reject direct booking, time edits and reactivation; allow student ca
   assert.equal((await patch(students[0], appointmentId, { status: { stringValue: 'cancelled' } })).status, 200);
   assert.equal((await patch(facilitatorId, appointmentId, { status: { stringValue: 'accepted' } })).status, 403);
 });
+
+// ─── Student overlap ────────────────────────────────────────────
+async function setupTwoFacilitators() {
+  const id = `test_${Date.now()}_${++sequence}`;
+  const facilitators = [`${id}_f1`, `${id}_f2`];
+  const student = `${id}_s`;
+  await Promise.all([
+    ...facilitators.map(uid => db.doc(`users/${uid}`).set({ role: 'facilitator', isActive: true })),
+    db.doc(`users/${student}`).set({ role: 'student', isActive: true }),
+  ]);
+  return { facilitators, student };
+}
+
+test('one student booking two facilitators at the same time: exactly one wins', async () => {
+  const { facilitators, student } = await setupTwoFacilitators();
+  const results = await Promise.allSettled(facilitators.map(f => bookAppointment(db, student, input(f))));
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  const rejected = results.find(r => r.status === 'rejected').reason;
+  assert.equal(rejected.code, 'already-exists');
+  assert.equal(rejected.details.reason, 'student_overlap');
+  assert.equal((await db.collection('appointments').where('studentId', '==', student).get()).size, 1);
+});
+
+test('overlapping but different start times are rejected for the same student', async () => {
+  const { facilitators, student } = await setupTwoFacilitators();
+  await bookAppointment(db, student, input(facilitators[0]));
+  for (const offset of [-1800000, 1800000, 3599000]) {
+    await assert.rejects(bookAppointment(db, student, input(facilitators[1], start + offset)),
+      err => err.code === 'already-exists' && err.details.reason === 'student_overlap');
+  }
+});
+
+test('back-to-back appointments for the same student are allowed', async () => {
+  const { facilitators, student } = await setupTwoFacilitators();
+  await bookAppointment(db, student, input(facilitators[0]));
+  await bookAppointment(db, student, input(facilitators[1], start + 3600000));
+  await bookAppointment(db, student, input(facilitators[1], start - 3600000));
+  assert.equal((await db.collection('appointments').where('studentId', '==', student).get()).size, 3);
+});
+
+test('facilitator conflicts keep their own distinct error', async () => {
+  const { facilitatorId, students } = await setup();
+  await bookAppointment(db, students[0], input(facilitatorId));
+  await assert.rejects(bookAppointment(db, students[1], input(facilitatorId)),
+    err => err.code === 'already-exists' && err.details.reason === 'facilitator_overlap');
+});
+
+test('cancel then rebook the same time with another facilitator', async () => {
+  const { facilitators, student } = await setupTwoFacilitators();
+  const { appointmentId } = await bookAppointment(db, student, input(facilitators[0]));
+  await assert.rejects(bookAppointment(db, student, input(facilitators[1])), { code: 'already-exists' });
+  await db.doc(`appointments/${appointmentId}`).update({ status: 'cancelled' });
+  await bookAppointment(db, student, input(facilitators[1]));
+});
+
+test('reschedule onto the student\'s own old slot is allowed; onto another active appointment is not', async () => {
+  const { facilitators, student } = await setupTwoFacilitators();
+  const mine = await db.collection('appointments').add({ facilitatorId: facilitators[0], studentId: student,
+    scheduledAt: Timestamp.fromMillis(start), durationMinutes: 60, status: 'reschedule_requested' });
+  await bookAppointment(db, student, { ...input(facilitators[0], start + 900000), appointmentId: mine.id });
+  assert.equal((await mine.get()).data().status, 'requested');
+
+  const other = await db.collection('appointments').add({ facilitatorId: facilitators[1], studentId: student,
+    scheduledAt: Timestamp.fromMillis(start + 7200000), durationMinutes: 60, status: 'accepted' });
+  const second = await db.collection('appointments').add({ facilitatorId: facilitators[0], studentId: student,
+    scheduledAt: Timestamp.fromMillis(start + 86400000), durationMinutes: 60, status: 'reschedule_requested' });
+  await assert.rejects(bookAppointment(db, student, { ...input(facilitators[0], start + 7200000), appointmentId: second.id }),
+    err => err.details.reason === 'student_overlap');
+  assert.equal((await other.get()).data().status, 'accepted');
+});
+
+test('a failing student overlap query aborts with no writes', async () => {
+  const queryError = new Error('Student query failed');
+  let writes = 0;
+  let reads = 0;
+  const ref = { id: 'new-appointment' };
+  const fakeDb = {
+    collection: () => ({ doc: () => ref, where: field => ({ field }) }),
+    runTransaction: async callback => callback({
+      get: async target => {
+        if (target.field === 'studentId') throw queryError;
+        if (target.field === 'facilitatorId') return { docs: [] };
+        return { data: () => ({ role: ++reads === 1 ? 'student' : 'facilitator', isActive: true }) };
+      },
+      set: () => { writes++; }, create: () => { writes++; }, update: () => { writes++; },
+    }),
+  };
+  await assert.rejects(bookAppointment(fakeDb, 'student', input('facilitator')), queryError);
+  assert.equal(writes, 0);
+});
+
+test('booking lock documents are closed to every client', async () => {
+  const { facilitatorId, students } = await setup();
+  await bookAppointment(db, students[0], input(facilitatorId));
+  const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const token = uid => `${encode({ alg: 'none', typ: 'JWT' })}.${encode({
+    sub: uid, user_id: uid, aud: 'demo-spartan-booking', iss: 'https://securetoken.google.com/demo-spartan-booking',
+    iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 3600,
+    firebase: { sign_in_provider: 'custom', identities: {} },
+  })}.`;
+  const base = `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/demo-spartan-booking/databases/(default)/documents/appointment_booking_locks`;
+  const call = (uid, id, method, body) => fetch(`${base}/${id}${method === 'PATCH' ? '?updateMask.fieldPaths=updatedAt' : ''}`,
+    { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token(uid)}` },
+      ...(body ? { body: JSON.stringify(body) } : {}) });
+  for (const [uid, id] of [[students[0], `student_${students[0]}`], [facilitatorId, facilitatorId], [students[1], `student_${students[0]}`]]) {
+    assert.equal((await call(uid, id, 'GET')).status, 403);
+    assert.equal((await call(uid, id, 'PATCH', { fields: { updatedAt: { stringValue: 'x' } } })).status, 403);
+    assert.equal((await call(uid, id, 'DELETE')).status, 403);
+  }
+  assert.equal((await db.doc(`appointment_booking_locks/student_${students[0]}`).get()).exists, true);
+});

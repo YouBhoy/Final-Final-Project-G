@@ -61,26 +61,41 @@ export async function bookAppointment(db: Firestore, uid: string, input: Booking
     }
     // Every booking/reschedule for this facilitator reads AND writes the same
     // document. Even an empty overlap query therefore cannot admit two winners.
-    const lockRef = db.collection('appointment_booking_locks').doc(facilitatorId);
-    await tx.get(lockRef);
-    // Single-field query includes existing appointments without a migration or
+    // The student gets the same treatment under a prefixed id, so one student
+    // booking two facilitators at once is serialized too. Both locks are always
+    // read in the same order (facilitator, then student) and before any write.
+    const facilitatorLockRef = db.collection('appointment_booking_locks').doc(facilitatorId);
+    const studentLockRef = db.collection('appointment_booking_locks').doc(`student_${uid}`);
+    await tx.get(facilitatorLockRef);
+    await tx.get(studentLockRef);
+    // Single-field queries include existing appointments without a migration or
     // composite index. Read failure aborts the transaction; never fail open.
-    const existing = await tx.get(db.collection('appointments').where('facilitatorId', '==', facilitatorId));
     const end = input.scheduledAtMs + input.durationMinutes * 60000;
-    for (const record of existing.docs) {
-      const appointment = record.data();
-      if (record.id === appointmentRef.id || !['requested', 'accepted'].includes(appointment.status)) continue;
-      const start = appointment.scheduledAt?.toMillis?.();
-      const duration = appointment.durationMinutes;
-      if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) {
-        throw new HttpsError('failed-precondition', 'An existing appointment has invalid scheduling data.');
+    const hasOverlap = async (field: 'facilitatorId' | 'studentId', value: string) => {
+      const snapshot = await tx.get(db.collection('appointments').where(field, '==', value));
+      for (const record of snapshot.docs) {
+        const appointment = record.data();
+        if (record.id === appointmentRef.id || !['requested', 'accepted'].includes(appointment.status)) continue;
+        const start = appointment.scheduledAt?.toMillis?.();
+        const duration = appointment.durationMinutes;
+        if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) {
+          throw new HttpsError('failed-precondition', 'An existing appointment has invalid scheduling data.');
+        }
+        if (input.scheduledAtMs < start + duration * 60000 && end > start) return true;
       }
-      if (input.scheduledAtMs < start + duration * 60000 && end > start) {
-        throw new HttpsError('already-exists', 'This time slot is already booked. Please choose another time.');
-      }
+      return false;
+    };
+    if (await hasOverlap('facilitatorId', facilitatorId)) {
+      throw new HttpsError('already-exists', 'This time slot is already booked. Please choose another time.',
+        { reason: 'facilitator_overlap' });
+    }
+    if (await hasOverlap('studentId', uid)) {
+      throw new HttpsError('already-exists', 'You already have an appointment at this time. Please choose a different time.',
+        { reason: 'student_overlap' });
     }
     const now = FieldValue.serverTimestamp();
-    tx.set(lockRef, { updatedAt: now });
+    tx.set(facilitatorLockRef, { updatedAt: now });
+    tx.set(studentLockRef, { updatedAt: now });
     const schedule = { scheduledAt: Timestamp.fromMillis(input.scheduledAtMs), durationMinutes: input.durationMinutes,
       status: 'requested', updatedAt: now };
     if (input.appointmentId) {

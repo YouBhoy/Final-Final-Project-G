@@ -235,7 +235,14 @@ service cloud.firestore {
 
     // ─── Conversations & Messages ──────────────────────────────
     match /conversations/{conversationId} {
-      allow read, update: if isActiveUser()
+      // Reads may only look at resource.data (request.resource is null on reads).
+      // `resource == null` lets the get-then-create transactions (appointment
+      // acceptance, ensureConversation) probe a conversation that doesn't exist yet.
+      allow read: if isActiveUser()
+        && (resource == null || request.auth.uid in resource.data.participantIds);
+      // Participants may only touch last-message metadata and unread counts;
+      // participantIds can never be changed by a client update.
+      allow update: if isActiveUser()
         && request.auth.uid in resource.data.participantIds
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'lastMessageAt',
@@ -353,6 +360,14 @@ service cloud.firestore {
       allow update: if isStudent()
         && resource.data.studentId == request.auth.uid;
       allow delete: if isFacilitatorOrAdmin();
+    }
+
+    // ─── Assessment AI Summaries (facilitator-only, server-written) ──
+    // Written exclusively by the generateAssessmentSummary Cloud Function
+    // (Admin SDK bypasses rules), so clients can never create or edit one.
+    match /assessment_ai_summaries/{summaryId} {
+      allow read: if isFacilitatorOrAdmin();
+      allow write: if false;
     }
 
     // ─── Assessment Attempts (Phase 3B) ────────────────────────
