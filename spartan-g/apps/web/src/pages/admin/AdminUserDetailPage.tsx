@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { saveStudentProfile } from "../../lib/adminStudentProfile";
 import { userRepository, profileRepository, adminService } from "@spartan-g/shared-services";
 import {
   CAMPUS_LABELS,
@@ -150,7 +151,20 @@ export function AdminUserDetailPage() {
         });
       }
 
-      if (changedFields.some((f) => f !== "displayName")) {
+      if (changedFields.some((f) => f !== "displayName") && target.role === "student") {
+        // Student profiles are written by a Cloud Function that validates the
+        // caller, the target role and every value server-side.
+        await saveStudentProfile({
+          actorRole: actor.role,
+          targetUid: target.id,
+          campus: profile.campus,
+          bio: profile.bio,
+          phone: profile.phone,
+          institution: profile.institution,
+          pronouns: profile.pronouns,
+          gender: profile.gender,
+        });
+      } else if (changedFields.some((f) => f !== "displayName")) {
         await adminService.saveUserProfile({
           actorRole: actor.role,
           actorUid: actor.uid,

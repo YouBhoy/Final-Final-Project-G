@@ -9,7 +9,7 @@ import {
   type Gender,
 } from "@spartan-g/shared-types";
 
-const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+export const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "male", label: "He/Him" },
   { value: "female", label: "She/Her" },
   { value: "non_binary", label: "They/Them" },

@@ -58,9 +58,18 @@ service cloud.firestore {
             && request.resource.data.isActive == true)
           || isSuperAdmin()
         );
-      allow update: if isOwner(userId)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])
-        || isSuperAdmin();
+      // Students cannot edit their own account/profile fields (campus, displayName,
+      // photoURL, email, role, ...): profile changes go through a super admin
+      // (adminUpdateStudentProfile). The only key a student client may still touch is
+      // updatedAt, which the shared repository stamps on every write.
+      // Facilitators keep editing their own profile, except role and isActive.
+      allow update: if isSuperAdmin()
+        || (isOwner(userId)
+          && resource.data.role == 'student'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']))
+        || (isOwner(userId)
+          && resource.data.role != 'student'
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive']));
       allow delete: if isSuperAdmin();
     }
 
@@ -69,7 +78,16 @@ service cloud.firestore {
       allow read: if isOwner(userId)
         || isFacilitatorOrAdmin()
         || (isStudent() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'facilitator' && get(/databases/$(database)/documents/users/$(userId)).data.isActive == true);
-      allow create, update: if isOwner(userId) || isSuperAdmin();
+      // Students are read-only on their own profile. They may only create the
+      // initial {uid, campus} document at registration; everything after that is
+      // managed by a super admin. Facilitators keep editing their own profile.
+      allow create: if isSuperAdmin()
+        || (isOwner(userId)
+          && (get(/databases/$(database)/documents/users/$(userId)).data.role != 'student'
+            || request.resource.data.keys().hasOnly(['uid', 'campus', 'createdAt', 'updatedAt'])));
+      allow update: if isSuperAdmin()
+        || (isOwner(userId)
+          && get(/databases/$(database)/documents/users/$(userId)).data.role != 'student');
       allow delete: if isSuperAdmin();
     }
 

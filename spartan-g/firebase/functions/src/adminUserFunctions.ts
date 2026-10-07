@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin';
+import admin from 'firebase-admin';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 if (!admin.apps.length) {
@@ -16,7 +16,7 @@ interface CallerContext {
  * admin. Read the caller's `users/{uid}` doc with the Admin SDK and require
  * an active super_admin role.
  */
-async function requireSuperAdmin(context: CallerContext) {
+export async function requireSuperAdmin(context: CallerContext) {
   const uid = context.auth?.uid;
   if (!uid) {
     throw new HttpsError('unauthenticated', 'Sign in required.');
@@ -52,7 +52,7 @@ async function requireExistingTarget(targetUid: string) {
   }
 }
 
-async function writeAuditEntry(entry: {
+export async function writeAuditEntry(entry: {
   actorId: string;
   actorEmail: string | null;
   action: string;
