@@ -1,0 +1,4 @@
+{
+  "firestore": { "rules": "firebase/functions/test/fixtures/open.rules" },
+  "emulators": { "firestore": { "port": 8181 }, "ui": { "enabled": false }, "singleProjectMode": true }
+}

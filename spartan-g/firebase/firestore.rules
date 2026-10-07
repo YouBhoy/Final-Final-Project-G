@@ -197,9 +197,11 @@ service cloud.firestore {
           'SUPERADMIN_UPDATED_RESOURCE',
           'SUPERADMIN_DELETED_RESOURCE',
           'SUPERADMIN_CREATED_CAMPUS',
-          'SUPERADMIN_UPDATED_CAMPUS'
+          'SUPERADMIN_UPDATED_CAMPUS',
+          'SUPERADMIN_SET_ASSESSMENT_OVERRIDE',
+          'SUPERADMIN_REMOVED_ASSESSMENT_OVERRIDE'
         ]
-        && request.resource.data.resource in ['profiles', 'users', 'auth', 'resources', 'campuses'];
+        && request.resource.data.resource in ['profiles', 'users', 'auth', 'resources', 'campuses', 'assessment_overrides'];
       allow update, delete: if false;
     }
 
@@ -388,13 +390,70 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ─── Assessment attempt-limit overrides ────────────────────
+    // Document id: {assessmentId}_{studentId}. Only an active super admin may
+    // create, change or remove one; facilitators and students are read-only
+    // (students read their own).
+    match /assessment_overrides/{overrideId} {
+      allow read: if isFacilitatorOrAdmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow create, update: if isSuperAdmin() && validAttemptOverride(overrideId, request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    // Exactly the fields the mobile app reads, with a 1-10 whole-number cap,
+    // a non-blank reason, the writer's own uid and a server timestamp.
+    function validAttemptOverride(overrideId, data) {
+      return data.keys().hasOnly(['assessmentId', 'studentId', 'maxAttemptsOverride', 'grantedBy', 'grantedAt', 'reason'])
+        && data.keys().hasAll(['assessmentId', 'studentId', 'maxAttemptsOverride', 'grantedBy', 'grantedAt', 'reason'])
+        && data.assessmentId is string
+        && data.studentId is string
+        && overrideId == data.assessmentId + '_' + data.studentId
+        && data.maxAttemptsOverride is int
+        && data.maxAttemptsOverride >= 1
+        && data.maxAttemptsOverride <= 10
+        && data.grantedBy == request.auth.uid
+        && data.grantedAt == request.time
+        && data.reason is string
+        && data.reason.size() <= 500
+        && data.reason.matches('(?s).*\\S.*')
+        && get(/databases/$(database)/documents/users/$(data.studentId)).data.role == 'student';
+    }
+
+    // Limit check used by assessment_attempts create (see below).
+    function attemptWithinLimit(attemptId, data) {
+      return data.assessmentId is string
+        && data.studentId is string
+        && data.attemptNumber is int
+        && data.attemptNumber >= 1
+        && attemptId == data.assessmentId + '_' + data.studentId + '_' + string(data.attemptNumber)
+        && data.attemptNumber <= effectiveMaxAttempts(data.assessmentId, data.studentId)
+        && (data.attemptNumber == 1
+          || get(/databases/$(database)/documents/assessment_attempts/$(data.assessmentId + '_' + data.studentId + '_' + string(data.attemptNumber - 1)))
+              .data.status in ['submitted', 'graded']);
+    }
+
+    function effectiveMaxAttempts(assessmentId, studentId) {
+      return exists(/databases/$(database)/documents/assessment_overrides/$(assessmentId + '_' + studentId))
+          && get(/databases/$(database)/documents/assessment_overrides/$(assessmentId + '_' + studentId)).data.maxAttemptsOverride is int
+          && get(/databases/$(database)/documents/assessment_overrides/$(assessmentId + '_' + studentId)).data.maxAttemptsOverride > 0
+        ? get(/databases/$(database)/documents/assessment_overrides/$(assessmentId + '_' + studentId)).data.maxAttemptsOverride
+        : get(/databases/$(database)/documents/assessments/$(assessmentId)).data.maxAttempts;
+    }
+
     // ─── Assessment Attempts (Phase 3B) ────────────────────────
     match /assessment_attempts/{attemptId} {
       allow read: if isFacilitatorOrAdmin()
         || (isStudent() && resource.data.studentId == request.auth.uid);
+      // Server-side attempt limit. The id must be {assessmentId}_{studentId}_{n} with
+      // attemptNumber == n, n must be 1 or follow a submitted/graded attempt n-1, and
+      // n may not exceed the effective limit: the student's override when one exists
+      // (> 0), otherwise the assessment's maxAttempts. In-progress attempts are
+      // resumed with reads/updates, so they never hit this create rule again.
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.status == 'in_progress';
+        && request.resource.data.status == 'in_progress'
+        && attemptWithinLimit(attemptId, request.resource.data);
       allow update: if isFacilitatorOrAdmin()
         || (isStudent()
           && resource.data.studentId == request.auth.uid

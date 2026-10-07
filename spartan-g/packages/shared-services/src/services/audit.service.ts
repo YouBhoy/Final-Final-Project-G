@@ -37,7 +37,7 @@ class AuditService {
     if (!Object.values(AUDIT_ACTIONS).includes(entry.action as AuditAction)) {
       throw new AppError('Audit action is not recognized', 'audit/invalid-action');
     }
-    if (!['profiles', 'users', 'auth', 'resources', 'campuses'].includes(entry.resource)) {
+    if (!['profiles', 'users', 'auth', 'resources', 'campuses', 'assessment_overrides'].includes(entry.resource)) {
       throw new AppError('Audit resource is not recognized', 'audit/invalid-resource');
     }
     const doc: Omit<AuditLogDocument, 'id' | 'createdAt' | 'updatedAt'> = {

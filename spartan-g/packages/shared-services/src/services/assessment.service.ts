@@ -2,6 +2,7 @@ import {
   PERMISSIONS,
   Role,
   PermissionError,
+  AppError,
   hasPermission,
   AssessmentDocument,
   AssessmentAttemptDocument,
@@ -9,6 +10,7 @@ import {
   AssessmentDefinitionDocument,
   UserDocument,
   evaluateAssessmentRisk,
+  planNextAttempt,
   type Campus,
   type RiskEvaluationResult,
   type RiskFlag,
@@ -20,6 +22,7 @@ import { assessmentQuestionRepository } from '../repositories/assessment-questio
 import { assessmentResponseRepository } from '../repositories/assessment-response.repository';
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
 import { userRepository } from '../repositories/user.repository';
+import { assessmentOverrideService } from './assessment-override.service';
 import { riskAlertService } from './risk-alert.service';
 import { notificationService } from './notification.service';
 
@@ -175,18 +178,61 @@ class AssessmentService {
   }
 
   async startAttempt(assessmentId: string, studentId: string): Promise<string> {
-    const assessment = await assessmentRepository.getById(assessmentId) as unknown as AssessmentDocument & { id: string } | null;
+    // Ids become document paths and attempt ids; empty ones or ones containing "/" are invalid paths.
+    const validId = (value: unknown) => typeof value === 'string' && value.length > 0 && !value.includes('/');
+    if (!validId(assessmentId) || !validId(studentId)) {
+      console.error('[AssessmentService.startAttempt] invalid assessment or student id', { assessmentId, studentId });
+      throw new AppError(
+        "We couldn't start this assessment because the link or your account details are incomplete. Please sign in again or contact your administrator.",
+        'assessment/invalid-reference',
+      );
+    }
+
+    const assessment = await this.tracedStartStep('load assessment', { assessmentId }, () =>
+      assessmentRepository.getById(assessmentId),
+    ) as unknown as AssessmentDocument & { id: string } | null;
     if (!assessment) {
       throw new Error('Assessment not found');
     }
 
-    const attemptCount = await this.getAttemptCount(assessmentId, studentId);
-    if (attemptCount >= (assessment as any).maxAttempts) {
-      throw new Error('Maximum number of attempts reached');
+    // Every attempt of this student on this assessment (any status).
+    const existingAttempts = await this.tracedStartStep('list existing attempts', { assessmentId, studentId }, () =>
+      assessmentAttemptRepository.getAll([
+        where('assessmentId', '==', assessmentId),
+        where('studentId', '==', studentId),
+      ]),
+    );
+
+    // An unfinished attempt is resumed, never duplicated.
+    const inProgress = existingAttempts.find((a) => a.status === 'in_progress');
+    if (inProgress) return inProgress.id;
+
+    const effectiveMax = await assessmentOverrideService.getEffectiveMaxAttempts(
+      assessmentId,
+      studentId,
+      (assessment as any).maxAttempts,
+    );
+
+    // The next number is (highest existing number) + 1, not (finished count) + 1, so gaps or
+    // legacy attempts can't make us pick an id the Firestore rule refuses or one that exists.
+    const plan = planNextAttempt(assessmentId, studentId, existingAttempts, effectiveMax);
+    if (!plan.ok) {
+      if (plan.reason === 'limit') throw this.attemptLimitError(effectiveMax);
+      console.error('[AssessmentService.startAttempt] attempt history is out of sequence', {
+        assessmentId,
+        detail: plan.detail,
+        issues: plan.analysis.issues,
+        attempts: plan.analysis.entries.map((e) => ({ id: e.id, status: e.status, number: e.fieldNumber })),
+      });
+      throw new AppError(
+        "Your attempt history has records that are out of sequence, so a new attempt can't be started automatically. Please contact your administrator.",
+        'assessment/attempt-chain-broken',
+      );
     }
+    const attemptCount = plan.analysis.finishedCount;
 
     const now = serverTimestamp() as Timestamp;
-    const attemptId = `${assessmentId}_${studentId}_${attemptCount + 1}`;
+    const attemptId = plan.attemptId;
 
     // Associate the student's campus with this attempt so results can be
     // aggregated by campus for analytics (best-effort lookup).
@@ -194,21 +240,127 @@ class AssessmentService {
     try {
       const studentUser = await userRepository.getById(studentId);
       campus = (studentUser as (UserDocument & { id: string }) | null)?.campus;
-    } catch {
+    } catch (error) {
+      console.warn('[AssessmentService.startAttempt] could not read the student record for the campus; continuing without it', error);
       campus = undefined;
     }
 
-    await assessmentAttemptRepository.create(attemptId, {
-      assessmentId,
-      studentId,
-      campus,
-      answers: [],
-      status: 'in_progress',
-      startedAt: now,
-      attemptNumber: attemptCount + 1,
-    } as unknown as AssessmentAttemptDocument);
+    try {
+      // Only include fields that have a value: Firestore rejects `undefined` (invalid-argument), and
+      // accounts created before campuses were required have no campus.
+      await assessmentAttemptRepository.create(attemptId, {
+        assessmentId,
+        studentId,
+        ...(campus ? { campus } : {}),
+        answers: [],
+        status: 'in_progress',
+        startedAt: now,
+        attemptNumber: plan.attemptNumber,
+      } as unknown as AssessmentAttemptDocument);
+    } catch (error) {
+      throw await this.explainStartFailure(error, {
+        assessmentId,
+        studentId,
+        attemptId,
+        attemptCount,
+        effectiveMax,
+        defaultMax: (assessment as any).maxAttempts,
+      });
+    }
 
     return attemptId;
+  }
+
+  /** Runs one Firestore step of startAttempt and logs the real Firestore error (not the repository wrapper). */
+  private async tracedStartStep<T>(step: string, context: Record<string, unknown>, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (error) {
+      const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
+      console.error(`[AssessmentService.startAttempt] "${step}" failed`, {
+        ...context,
+        firestoreCode: cause?.code ?? (error as { code?: string })?.code ?? 'unknown',
+        firestoreMessage: cause?.message ?? (error instanceof Error ? error.message : String(error)),
+      });
+      throw error;
+    }
+  }
+
+  private attemptLimitError(limit: number): AppError {
+    return new AppError(
+      `You have used all ${limit} attempt${limit === 1 ? '' : 's'}. Ask your administrator for an override.`,
+      'assessment/attempt-limit',
+    );
+  }
+
+  /**
+   * The repository wraps every Firestore failure in a generic "Failed to create ..."
+   * message, which hides the real cause. Log the real Firestore error code, then work
+   * out (with fresh, non-swallowed reads) whether the attempt limit was the reason.
+   */
+  private async explainStartFailure(
+    error: unknown,
+    ctx: {
+      assessmentId: string;
+      studentId: string;
+      attemptId: string;
+      attemptCount: number;
+      effectiveMax: number;
+      defaultMax: number;
+    },
+  ): Promise<AppError> {
+    const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
+    const code = cause?.code ?? (error as { code?: string })?.code ?? 'unknown';
+    console.error('[AssessmentService.startAttempt] could not create attempt', {
+      attemptId: ctx.attemptId,
+      firestoreCode: code,
+      firestoreMessage: cause?.message ?? (error instanceof Error ? error.message : String(error)),
+      attemptsCounted: ctx.attemptCount,
+      limitUsedByClient: ctx.effectiveMax,
+      assessmentDefaultMax: ctx.defaultMax,
+    });
+
+    if (code === 'invalid-argument') {
+      return new AppError(
+        "We couldn't start the assessment because some of your account or attempt data is invalid (invalid-argument). Please contact your administrator.",
+        'assessment/invalid-data',
+        error,
+      );
+    }
+
+    if (code !== 'permission-denied') {
+      return new AppError(
+        `We couldn't start the assessment (${code}). Please check your connection and try again.`,
+        'assessment/start-failed',
+        error,
+      );
+    }
+
+    // Re-check against fresh data. Unlike getEffectiveMaxAttempts, a failed override read is not hidden.
+    let overrideValue: number | null = null;
+    let overrideReadError: unknown = null;
+    try {
+      const override = await assessmentOverrideService.getOverride(ctx.assessmentId, ctx.studentId);
+      overrideValue = override && override.maxAttemptsOverride > 0 ? override.maxAttemptsOverride : null;
+    } catch (overrideError) {
+      overrideReadError = overrideError;
+      console.error('[AssessmentService.startAttempt] could not read the override document', overrideError);
+    }
+    const freshCount = await this.getAttemptCount(ctx.assessmentId, ctx.studentId).catch(() => ctx.attemptCount);
+    const limit = overrideValue ?? ctx.defaultMax;
+    if (freshCount >= limit) return this.attemptLimitError(limit);
+
+    // Not the limit: the previous attempt isn't finished, or the attempt numbering is inconsistent.
+    console.error('[AssessmentService.startAttempt] denied although the limit looks fine', {
+      freshCount,
+      limit,
+      overrideReadFailed: overrideReadError !== null,
+    });
+    return new AppError(
+      "We couldn't start a new attempt because your previous attempt record isn't complete. Please contact your administrator.",
+      'assessment/start-denied',
+      error,
+    );
   }
 
   async saveAnswer(attemptId: string, answer: AssessmentAnswer): Promise<void> {

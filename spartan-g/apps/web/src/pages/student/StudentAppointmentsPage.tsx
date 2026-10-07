@@ -2,7 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appointmentService, messagingService, userService } from '@spartan-g/shared-services';
 import { useAuth } from '../../hooks/useAuth';
-import { AppointmentDocument } from '@spartan-g/shared-types';
+import {
+  AppointmentDocument,
+  BOOKING_WINDOW_MESSAGE,
+  getBookingWindow,
+  manilaDateTimeToMs,
+  manilaMinutesOfDay,
+} from '@spartan-g/shared-types';
 import { AppointmentStatusBadge } from '../../components/appointments/AppointmentStatusBadge';
 import { Modal } from '../../components/ui/Modal';
 
@@ -16,7 +22,8 @@ export function StudentAppointmentsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<(AppointmentDocument & { id: string }) | null>(null);
-  const [newScheduledAt, setNewScheduledAt] = useState<Date>(new Date());
+  // 'YYYY-MM-DD' (Asia/Manila calendar day); restricted to today..Saturday of the current week.
+  const [newDateKey, setNewDateKey] = useState<string>(() => getBookingWindow(Date.now()).startDateKey);
   const [newTime, setNewTime] = useState('09:00');
   const [rescheduleError, setRescheduleError] = useState('');
   const { user } = useAuth();
@@ -74,10 +81,11 @@ export function StudentAppointmentsPage() {
   const openRescheduleModal = (apt: (AppointmentDocument & { id: string })) => {
     setRescheduleAppointment(apt);
     const aptDate = apt.scheduledAt?.toDate ? apt.scheduledAt.toDate() : new Date();
-    setNewScheduledAt(aptDate);
-    const hours = String(aptDate.getHours()).padStart(2, '0');
-    const mins = String(aptDate.getMinutes()).padStart(2, '0');
-    setNewTime(`${hours}:${mins}`);
+    const currentWindow = getBookingWindow(Date.now());
+    // Start from today; the old date is usually outside this week. Keep the old time of day.
+    setNewDateKey(currentWindow.startDateKey);
+    const minutesOfDay = manilaMinutesOfDay(aptDate.getTime());
+    setNewTime(`${String(Math.floor(minutesOfDay / 60)).padStart(2, '0')}:${String(minutesOfDay % 60).padStart(2, '0')}`);
     setRescheduleError('');
     setShowRescheduleModal(true);
   };
@@ -88,8 +96,21 @@ export function StudentAppointmentsPage() {
     setRescheduleError('');
     try {
       const [hours, minutes] = newTime.split(':').map(Number);
-      const scheduledAt = new Date(newScheduledAt);
-      scheduledAt.setHours(hours, minutes, 0, 0);
+      // Asia/Manila wall-clock time on the chosen day, whatever timezone the browser is in.
+      const scheduledAtMs = manilaDateTimeToMs(newDateKey, hours, minutes);
+      const nowMs = Date.now();
+      const bookingWindow = getBookingWindow(nowMs);
+      if (!newDateKey || Number.isNaN(scheduledAtMs) || scheduledAtMs < bookingWindow.startMs || scheduledAtMs >= bookingWindow.endMs) {
+        setRescheduleError(BOOKING_WINDOW_MESSAGE);
+        setActionLoading(null);
+        return;
+      }
+      if (scheduledAtMs <= nowMs) {
+        setRescheduleError('Please choose a time later than the current time.');
+        setActionLoading(null);
+        return;
+      }
+      const scheduledAt = new Date(scheduledAtMs);
 
       await appointmentService.rescheduleAppointment(
         rescheduleAppointment.id,
@@ -244,11 +265,13 @@ export function StudentAppointmentsPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">New Date</label>
             <input
               type="date"
-              value={newScheduledAt.toISOString().split('T')[0]}
-              onChange={e => setNewScheduledAt(new Date(e.target.value))}
-              min={new Date().toISOString().split('T')[0]}
+              value={newDateKey}
+              onChange={e => setNewDateKey(e.target.value)}
+              min={getBookingWindow(Date.now()).startDateKey}
+              max={getBookingWindow(Date.now()).endDateKey}
               className="w-full border rounded-lg px-3 py-2 text-sm"
             />
+            <p className="mt-1 text-xs text-gray-400">Rescheduling is limited to the current week (today through Saturday).</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">New Time</label>

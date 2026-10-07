@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { saveStudentProfile } from "../../lib/adminStudentProfile";
+import { listStudentOverrides, type StudentOverride } from "../../lib/assessmentOverrides";
+import { AssessmentOverrideDialog } from "../../components/admin/AssessmentOverrideDialog";
 import { userRepository, profileRepository, adminService } from "@spartan-g/shared-services";
 import {
   CAMPUS_LABELS,
@@ -71,6 +73,11 @@ export function AdminUserDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrides, setOverrides] = useState<StudentOverride[]>([]);
+  const [overridesLoading, setOverridesLoading] = useState(false);
+  const [overridesError, setOverridesError] = useState<string | null>(null);
+
   const [pwOpen, setPwOpen] = useState(false);
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
@@ -115,6 +122,24 @@ export function AdminUserDetailPage() {
   }, [load]);
 
   const isSelf = !!actor && actor.uid === uid;
+  const canOverride = !!actor && actor.role === "super_admin" && target?.role === "student";
+
+  const loadOverrides = useCallback(async () => {
+    if (!uid || !canOverride) return;
+    setOverridesLoading(true);
+    setOverridesError(null);
+    try {
+      setOverrides(await listStudentOverrides(uid));
+    } catch (err) {
+      setOverridesError(getErrorMessage(err));
+    } finally {
+      setOverridesLoading(false);
+    }
+  }, [uid, canOverride]);
+
+  useEffect(() => {
+    void loadOverrides();
+  }, [loadOverrides]);
 
   const handleSave = async () => {
     if (!actor || !target) return;
@@ -288,6 +313,11 @@ export function AdminUserDetailPage() {
             >
               Edit Profile
             </Button>
+            {canOverride && (
+              <Button variant="outline" onClick={() => setOverrideOpen(true)}>
+                Override Attempts
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => setPwOpen(true)} disabled={isSelf}>
               Change Password
             </Button>
@@ -387,6 +417,54 @@ export function AdminUserDetailPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* Assessment attempt-limit overrides (students only, super admin only) */}
+      {canOverride && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-gray-900">Assessment Overrides</h2>
+              <Button variant="outline" size="sm" onClick={() => setOverrideOpen(true)}>
+                Override
+              </Button>
+            </div>
+          </CardHeader>
+          <CardBody>
+            {overridesLoading ? (
+              <Spinner label="Loading overrides…" />
+            ) : overridesError ? (
+              <p className="text-sm text-red-700" role="alert">{overridesError}</p>
+            ) : overrides.length === 0 ? (
+              <p className="text-sm text-gray-500">No attempt overrides. This student uses each assessment&apos;s default limit.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {overrides.map((o) => (
+                  <li key={o.id} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-medium text-gray-900">{o.assessmentTitle}</p>
+                      <p className="mt-0.5 break-words text-xs text-gray-500">
+                        {o.reason ? `Reason: ${o.reason}` : "No reason recorded"}
+                        {o.grantedAt ? ` · ${o.grantedAt.toLocaleDateString()}` : ""}
+                      </p>
+                    </div>
+                    <Badge variant="warning">Limit: {o.maxAttemptsOverride}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
+      )}
+
+      {canOverride && actor && target && (
+        <AssessmentOverrideDialog
+          open={overrideOpen}
+          onClose={() => setOverrideOpen(false)}
+          student={{ id: target.id, name: target.displayName || target.email || "this student" }}
+          actorRole={actor.role}
+          onChanged={() => void loadOverrides()}
+        />
+      )}
 
       {/* Change password — handled by the adminSetUserPassword Cloud Function */}
       <Modal

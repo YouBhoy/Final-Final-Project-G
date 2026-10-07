@@ -9,6 +9,7 @@ import { Spinner } from "../../components/ui/Spinner";
 import { Input } from "../../components/ui/Input";
 import { CAMPUS_LABELS, ROLE_LABELS, ROLES } from "@spartan-g/shared-types";
 import type { Role } from "@spartan-g/shared-types";
+import { AssessmentOverrideDialog } from "../../components/admin/AssessmentOverrideDialog";
 
 type RoleFilter = "all" | "student" | "facilitator";
 
@@ -30,6 +31,7 @@ export function AdminUsersPage() {
   const { users, loading, error } = useAdminUsers();
   const [filter, setFilter] = useState<RoleFilter>("all");
   const [search, setSearch] = useState("");
+  const [overrideStudent, setOverrideStudent] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
 
   const counts = useMemo(
@@ -189,6 +191,18 @@ export function AdminUsersPage() {
                       >
                         View
                       </button>
+                      {u.role === ROLES.STUDENT && actor?.role === ROLES.SUPER_ADMIN && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOverrideStudent({ id: u.id, name: u.displayName || u.email || "this student" });
+                          }}
+                          className="ml-1 rounded-md px-2.5 py-1 text-amber-700 hover:bg-amber-50"
+                        >
+                          Override
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -196,6 +210,15 @@ export function AdminUsersPage() {
             </table>
           </div>
         </Card>
+      )}
+
+      {actor && overrideStudent && (
+        <AssessmentOverrideDialog
+          open
+          onClose={() => setOverrideStudent(null)}
+          student={overrideStudent}
+          actorRole={actor.role}
+        />
       )}
     </div>
   );
