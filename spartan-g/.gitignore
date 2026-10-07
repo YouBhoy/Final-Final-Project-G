@@ -16,8 +16,11 @@ web-build/
 
 # Environment
 .env
+.env.*
 .env.local
 .env.*.local
+*.secret.local
+**/.secret.local
 
 # Firebase
 firebase/functions/lib/
@@ -25,8 +28,14 @@ firebase-debug.log
 firestore-debug.log
 google-services.json
 GoogleService-Info.plist
+# Firebase service-account keys (FCM V1 / Admin SDK) — sensitive, NEVER commit
 scripts/service-account.json
 *-firebase-adminsdk-*.json
+*firebase-adminsdk*.json
+*service-account*.json
+*service_account*.json
+*-adminsdk-*.json
+key.json
 
 # IDE
 .idea/
