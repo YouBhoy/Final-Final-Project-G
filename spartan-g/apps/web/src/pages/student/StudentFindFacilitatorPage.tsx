@@ -193,13 +193,6 @@ export function StudentFindFacilitatorPage() {
         ? 'md:grid-cols-[1.35fr_1fr]'
         : 'md:grid-cols-[1fr_1.35fr]';
 
-  const chipClass = (active: boolean) =>
-    `shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-      active
-        ? 'bg-[var(--color-primary)] text-white shadow-sm'
-        : 'bg-[var(--color-bg-alt)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-pastel)] hover:text-[var(--color-primary)]'
-    }`;
-
   return (
     <div className="mx-auto w-full max-w-[1100px]">
       <h1 className="mb-2 font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-text)]">Find a Facilitator</h1>
@@ -225,23 +218,29 @@ export function StudentFindFacilitatorPage() {
         />
       </div>
 
-      {/* Campus filter: scrolls sideways on small screens, wraps on larger ones */}
-      <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
-        <span className="shrink-0 text-sm font-medium text-[var(--color-text)]">Campus:</span>
-        <button type="button" onClick={() => setCampusFilter('all')} className={chipClass(campusFilter === 'all')}>
-          All Campuses
-        </button>
-        {campuses.map((campus) => (
-          <button
-            key={campus.key}
-            type="button"
-            onClick={() => setCampusFilter(campus.key)}
-            className={chipClass(campusFilter === campus.key)}
-          >
-            {campus.label}
-            {user?.campus === campus.key && ' ★'}
-          </button>
-        ))}
+      {/* Campus selection */}
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[{ key: 'all', label: 'All Campuses', location: 'View everyone' }, ...campuses].map((c) => {
+          const active = campusFilter === c.key;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setCampusFilter(c.key as Campus | 'all')}
+              className={`flex h-full flex-col justify-center rounded-[var(--radius-md)] px-4 py-3 text-left transition-colors ${
+                active
+                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                  : 'bg-[var(--color-bg-alt)] text-[var(--color-text)] hover:bg-[var(--color-primary-pastel)]'
+              }`}
+            >
+              <span className="break-words text-sm font-semibold leading-snug">{c.label}</span>
+              <span className={`mt-1 text-xs ${active ? 'text-white/80' : 'text-[var(--color-text-muted)]'}`}>
+                {c.location}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {facilitators.length > 0 && (
