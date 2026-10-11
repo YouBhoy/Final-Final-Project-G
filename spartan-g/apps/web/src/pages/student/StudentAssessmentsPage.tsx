@@ -10,6 +10,13 @@ import type { AssessmentDefinitionDocument } from "@spartan-g/shared-types";
 
 type AssessmentWithId = AssessmentDefinitionDocument & { id: string };
 
+// The stored courseId is an internal key (e.g. "mental-health-screening"); show a readable label instead.
+function categoryLabel(courseId: string) {
+  if (/screening|mental|wellbeing|well-being/i.test(courseId)) return "Wellbeing assessment";
+  const words = courseId.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function StudentAssessmentsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -79,19 +86,19 @@ export function StudentAssessmentsPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="mx-auto w-full max-w-[1100px] rounded-[var(--radius-md)] border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
         Failed to load assessments: {error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[1100px] space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text)] sm:text-3xl">
           Assessments
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
           Take your check-in assessments to track your wellbeing.
         </p>
       </div>
@@ -102,37 +109,44 @@ export function StudentAssessmentsPage() {
           description="Check-in assessments will appear here when your facilitators publish them."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {assessments.map((a) => (
-            <Card key={a.id} className="flex flex-col">
-              <div className="flex-1 px-6 py-5">
-                <div className="flex items-start justify-between">
-                  <Badge variant="info">{a.courseId}</Badge>
-                  <span className="text-xs text-gray-500">
-                    {a.questions?.length ?? 0} {a.questions?.length === 1 ? "question" : "questions"}
-                  </span>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {assessments.map((a) => {
+            const questionCount = a.questions?.length ?? 0;
+            return (
+              <Card key={a.id} className="flex flex-col">
+                <div className="flex-1 px-6 py-5">
+                  <Badge variant="info">{categoryLabel(a.courseId)}</Badge>
+                  <h3 className="mt-3 text-lg font-semibold text-[var(--color-text)]">{a.title}</h3>
+                  {a.description && (
+                    <p className="mt-1 line-clamp-3 text-sm text-[var(--color-text-secondary)]">{a.description}</p>
+                  )}
+
+                  {/* Metadata */}
+                  <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-[var(--color-text-secondary)]">
+                    <div className="flex gap-1.5">
+                      <dt className="text-[var(--color-text-muted)]">Questions</dt>
+                      <dd className="font-medium text-[var(--color-text)]">{questionCount}</dd>
+                    </div>
+                    {a.maxAttempts > 0 && (
+                      <div className="flex gap-1.5">
+                        <dt className="text-[var(--color-text-muted)]">Attempts allowed</dt>
+                        <dd className="font-medium text-[var(--color-text)]">{a.maxAttempts}</dd>
+                      </div>
+                    )}
+                  </dl>
                 </div>
-                <h3 className="mt-3 text-base font-semibold text-gray-900">{a.title}</h3>
-                {a.description && (
-                  <p className="mt-1 line-clamp-3 text-sm text-gray-500">{a.description}</p>
-                )}
-                {a.maxAttempts > 0 && (
-                  <p className="mt-2 text-xs text-gray-400">
-                    Max {a.maxAttempts} {a.maxAttempts === 1 ? "attempt" : "attempts"}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-6 py-3">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => navigate(`/student/assessment/${a.id}`)}
-                >
-                  Start assessment
-                </Button>
-              </div>
-            </Card>
-          ))}
+                <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] px-6 py-3">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => navigate(`/student/assessment/${a.id}`)}
+                  >
+                    Start assessment
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

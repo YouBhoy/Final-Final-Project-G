@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Sidebar, type NavItem } from "./Sidebar";
 import { Header } from "./Header";
+import { TopNav } from "./TopNav";
 
 interface PortalLayoutProps {
   /** The display name of the portal, shown in the header (e.g. "Student Portal"). */
@@ -9,6 +10,13 @@ interface PortalLayoutProps {
   portalTagline?: string;
   /** Items rendered inside the sidebar. */
   navItems: NavItem[];
+  /**
+   * Where the navigation lives.
+   *  - "side" (default): fixed left sidebar on desktop.
+   *  - "top": horizontal bar above the page content on large screens.
+   * On smaller screens both use the slide-in drawer opened from the Header.
+   */
+  navPlacement?: "side" | "top";
   /** The page content. */
   children: ReactNode;
 }
@@ -30,20 +38,26 @@ export function PortalLayout({
   portalName,
   portalTagline,
   navItems,
+  navPlacement = "side",
   children,
 }: PortalLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const topNav = navPlacement === "top";
+  // The drawer is the fallback wherever the permanent nav isn't shown.
+  const drawerHideClass = topNav ? "lg:hidden" : "md:hidden";
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
-      {/* Desktop sidebar (fixed, full height) */}
-      <div className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
-        <Sidebar items={navItems} />
-      </div>
+      {/* Desktop sidebar (fixed, full height) — side placement only */}
+      {!topNav && (
+        <div className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
+          <Sidebar items={navItems} />
+        </div>
+      )}
 
       {/* Mobile drawer */}
       <div
-        className={`md:hidden fixed inset-0 z-40 ${
+        className={`${drawerHideClass} fixed inset-0 z-40 ${
           mobileOpen ? "" : "pointer-events-none"
         }`}
         aria-hidden={!mobileOpen}
@@ -66,13 +80,15 @@ export function PortalLayout({
       </div>
 
       {/* Content column — offset on desktop to make room for the fixed sidebar */}
-      <div className="md:pl-64">
+      <div className={topNav ? "" : "md:pl-64"}>
         <Header
           portalName={portalName}
           portalTagline={portalTagline}
+          navPlacement={navPlacement}
           onMenuClick={() => setMobileOpen(true)}
         />
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          {topNav && <TopNav items={navItems} className="mb-6 hidden lg:block" />}
           {children}
         </main>
       </div>

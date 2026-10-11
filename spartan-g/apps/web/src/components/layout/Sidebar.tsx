@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 export interface NavItem {
   /** Path the link points to, e.g. "/student/dashboard". */
@@ -7,6 +7,11 @@ export interface NavItem {
   label: string;
   /** Heroicons-style SVG path data, drawn at 24x24 with stroke-width 1.5. */
   iconPath: string;
+  /**
+   * Extra path prefixes that should keep this item highlighted, e.g. the assessment
+   * wizard lives at "/student/assessment/:id" but belongs under "Assessments".
+   */
+  activePrefixes?: string[];
 }
 
 interface SidebarProps {
@@ -20,6 +25,8 @@ interface SidebarProps {
  * with a maroon background and gold left-border indicator when active.
  */
 export function Sidebar({ items, onNavigate }: SidebarProps) {
+  const { pathname } = useLocation();
+
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* Brand Header — BatStateU Identity */}
@@ -45,20 +52,25 @@ export function Sidebar({ items, onNavigate }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Sidebar navigation">
         <ul className="space-y-1">
-          {items.map((item) => (
+          {items.map((item) => {
+            const matchesPrefix = item.activePrefixes?.some((prefix) => pathname.startsWith(prefix)) ?? false;
+            return (
             <li key={item.to}>
               <NavLink
                 to={item.to}
                 onClick={onNavigate}
-                className={({ isActive }) =>
-                  `group flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+                className={({ isActive: linkActive }) => {
+                  const isActive = linkActive || matchesPrefix;
+                  return `group flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                     isActive
                       ? "bg-[var(--color-primary)] text-white shadow-sm"
                       : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-primary)]"
-                  }`
-                }
+                  }`;
+                }}
               >
-                {({ isActive }) => (
+                {({ isActive: linkActive }) => {
+                  const isActive = linkActive || matchesPrefix;
+                  return (
                   <>
                     {/* Active indicator bar */}
                     {isActive && (
@@ -84,10 +96,12 @@ export function Sidebar({ items, onNavigate }: SidebarProps) {
                     </svg>
                     <span className="truncate">{item.label}</span>
                   </>
-                )}
+                  );
+                }}
               </NavLink>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </nav>
 

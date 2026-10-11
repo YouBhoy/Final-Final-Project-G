@@ -8,6 +8,21 @@ interface ConversationItemProps {
   onClick: () => void;
 }
 
+// "10:30 AM" today, "Yesterday", weekday within the last week, otherwise "Sep 7".
+function formatListTime(timestamp: any) {
+  if (!timestamp) return '';
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / (1000 * 60 * 60 * 24));
+
+  if (days <= 0) return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return date.toLocaleDateString('en-US', { weekday: 'short' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export function ConversationItem({
   conversation,
   participantNames,
@@ -15,24 +30,6 @@ export function ConversationItem({
   isActive = false,
   onClick,
 }: ConversationItemProps) {
-  const formatTime = (timestamp: any) => {
-    if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-  };
-
   const otherParticipantId =
     conversation.participantIds.find((participantId) => participantId !== currentUserId) ||
     conversation.participantIds[0];
@@ -40,34 +37,53 @@ export function ConversationItem({
   const unreadCount = currentUserId ? conversation.unreadCount?.[currentUserId] || 0 : 0;
 
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      className={`p-4 border-b cursor-pointer transition-colors hover:bg-gray-50 ${
-        isActive ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+      aria-current={isActive ? 'true' : undefined}
+      className={`flex w-full items-center gap-3 border-b border-l-[3px] border-b-[var(--color-border)] px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)] ${
+        isActive
+          ? 'border-l-[var(--color-primary)] bg-[var(--color-primary)]/10'
+          : 'border-l-transparent hover:bg-[var(--color-primary)]/5'
       }`}
     >
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="text-sm font-semibold text-gray-900 truncate">
-              {otherParticipantName}
-            </h3>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {unreadCount > 0 ? (
-                <span className="inline-flex min-w-5 justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              ) : null}
-              <span className="text-xs text-gray-500">
-                {formatTime(conversation.lastMessageAt)}
-              </span>
-            </div>
-          </div>
-          <p className="text-sm text-gray-600 truncate">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-sm font-semibold text-[var(--color-primary)]">
+        {otherParticipantName.charAt(0).toUpperCase()}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <h3
+            className={`truncate text-sm text-[var(--color-text)] ${
+              unreadCount > 0 ? 'font-bold' : 'font-semibold'
+            }`}
+          >
+            {otherParticipantName}
+          </h3>
+          <span className="shrink-0 text-xs text-[var(--color-text-muted)]">
+            {formatListTime(conversation.lastMessageAt)}
+          </span>
+        </div>
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          <p
+            className={`truncate text-sm ${
+              unreadCount > 0
+                ? 'font-medium text-[var(--color-text)]'
+                : 'text-[var(--color-text-secondary)]'
+            }`}
+          >
             {conversation.lastMessagePreview || 'No messages yet'}
           </p>
+          {unreadCount > 0 ? (
+            <span
+              className="inline-flex min-w-5 shrink-0 justify-center rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-semibold text-white"
+              aria-label={`${unreadCount} unread`}
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          ) : null}
         </div>
       </div>
-    </div>
+    </button>
   );
 }

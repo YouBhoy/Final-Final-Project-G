@@ -20,6 +20,7 @@ export function StudentPortalRoutes() {
       portalName="Student Portal"
       portalTagline="Track your wellbeing journey"
       navItems={studentNavItems}
+      navPlacement="top"
     >
       <Routes>
         <Route index element={<Navigate to="dashboard" replace />} />

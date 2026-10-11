@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { ROLE_LABELS } from "@spartan-g/shared-types";
 import { NotificationBell } from "../notifications/NotificationBell";
@@ -12,17 +12,45 @@ interface HeaderProps {
   portalTagline?: string;
   /** Called when the hamburger button is pressed (mobile only). */
   onMenuClick?: () => void;
+  /** With "top", the hamburger stays visible until the top nav appears (lg). */
+  navPlacement?: "side" | "top";
 }
 
 /**
  * Header is the top bar shown in every portal.
- * Features BatStateU branding, notification bell, user info, and sign-out.
+ * Left: BatStateU branding. Right: theme toggle, notification bell and a
+ * profile menu (profile link + sign out) so the bar stays uncluttered.
  */
-export function Header({ portalName, portalTagline, onMenuClick }: HeaderProps) {
+export function Header({ portalName, portalTagline, onMenuClick, navPlacement = "side" }: HeaderProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Close the profile menu on outside click or Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -36,8 +64,21 @@ export function Header({ portalName, portalTagline, onMenuClick }: HeaderProps) 
     }
   }
 
+  const menuHideClass = navPlacement === "top" ? "lg:hidden" : "md:hidden";
   const roleKey = user?.role ?? "student";
   const roleLabel = user ? ROLE_LABELS[roleKey] : "";
+  const profilePath =
+    roleKey === "facilitator"
+      ? "/facilitator/profile"
+      : roleKey === "super_admin"
+        ? "/admin/profile"
+        : "/student/profile";
+  const displayName = user?.displayName ?? user?.email ?? "";
+
+  const iconButton =
+    "inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]";
+  const menuItem =
+    "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-bg-alt)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
@@ -48,10 +89,10 @@ export function Header({ portalName, portalTagline, onMenuClick }: HeaderProps) 
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-primary)] md:hidden"
+            className={`${iconButton} ${menuHideClass}`}
             aria-label="Open navigation"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
             </svg>
           </button>
@@ -66,9 +107,7 @@ export function Header({ portalName, portalTagline, onMenuClick }: HeaderProps) 
                 {portalName}
               </h1>
               {portalTagline && (
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  {portalTagline}
-                </p>
+                <p className="text-xs text-[var(--color-text-secondary)]">{portalTagline}</p>
               )}
             </div>
           </div>
@@ -82,12 +121,12 @@ export function Header({ portalName, portalTagline, onMenuClick }: HeaderProps) 
         </div>
 
         {/* Right section */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Theme toggle */}
           <button
             type="button"
             onClick={toggleTheme}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-primary)]"
+            className={iconButton}
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             title={theme === "dark" ? "Light mode" : "Dark mode"}
           >
@@ -107,42 +146,87 @@ export function Header({ portalName, portalTagline, onMenuClick }: HeaderProps) 
           {/* Notifications */}
           <NotificationBell />
 
-          {/* User info — desktop */}
+          {/* Profile menu */}
           {user && (
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium text-[var(--color-text)]">
-                {user.displayName ?? user.email}
-              </p>
-              <span className="mt-0.5 inline-flex items-center rounded-full bg-[var(--color-primary)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
-                {roleLabel}
-              </span>
+            <div className="relative ml-1" ref={menuRef}>
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-label={`Account menu for ${displayName}`}
+                className="flex items-center gap-2 rounded-[var(--radius-md)] p-1 pr-2 transition-colors hover:bg-[var(--color-bg-alt)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-semibold text-white">
+                  {initials(user.displayName ?? user.email)}
+                </span>
+                <span className="hidden text-left sm:block">
+                  <span className="block max-w-[10rem] truncate text-sm font-medium leading-tight text-[var(--color-text)]">
+                    {displayName}
+                  </span>
+                  <span className="block text-xs leading-tight text-[var(--color-text-secondary)]">
+                    {roleLabel}
+                  </span>
+                </span>
+                <svg
+                  className={`hidden h-4 w-4 text-[var(--color-text-secondary)] transition-transform duration-150 motion-reduce:transition-none sm:block ${
+                    menuOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+
+              {menuOpen && (
+                <div
+                  role="menu"
+                  aria-label="Account"
+                  className="absolute right-0 top-full z-40 mt-2 w-64 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-dropdown"
+                >
+                  <div className="px-3 py-2">
+                    <p className="truncate text-sm font-semibold text-[var(--color-text)]">
+                      {displayName}
+                    </p>
+                    {user.email && user.displayName && (
+                      <p className="truncate text-xs text-[var(--color-text-secondary)]">
+                        {user.email}
+                      </p>
+                    )}
+                    <span className="mt-1.5 inline-flex rounded-full bg-[var(--color-primary-pastel)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
+                      {roleLabel}
+                    </span>
+                  </div>
+                  <div className="my-1 border-t border-[var(--color-border)]" role="separator" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate(profilePath);
+                    }}
+                  >
+                    Profile
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                  >
+                    {isLoggingOut ? "Signing out…" : "Sign out"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
-
-          {/* Avatar with initials */}
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-semibold text-white shadow-sm">
-            {initials(user?.displayName ?? user?.email)}
-          </div>
-
-          {/* Sign out button */}
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-secondary)] shadow-sm transition-all duration-150 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isLoggingOut ? (
-              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-              </svg>
-            )}
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
         </div>
       </div>
     </header>

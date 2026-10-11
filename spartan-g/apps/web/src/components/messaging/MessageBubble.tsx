@@ -13,20 +13,18 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
   };
 
   return (
-    <div
-      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-4`}
-    >
+    <div className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
-        className={`max-w-[70%] rounded-lg px-4 py-2 ${
+        className={`max-w-[80%] px-4 py-2 sm:max-w-[70%] ${
           isCurrentUser
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-200 text-gray-900'
+            ? 'rounded-2xl rounded-br-md bg-[var(--color-primary)] text-white'
+            : 'rounded-2xl rounded-bl-md bg-[var(--color-bg-alt)] text-[var(--color-text)]'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
+        <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>
         <p
-          className={`text-xs mt-1 ${
-            isCurrentUser ? 'text-blue-100' : 'text-gray-500'
+          className={`mt-1 text-right text-[11px] ${
+            isCurrentUser ? 'text-white/70' : 'text-[var(--color-text-muted)]'
           }`}
         >
           {formatTime(message.createdAt)}

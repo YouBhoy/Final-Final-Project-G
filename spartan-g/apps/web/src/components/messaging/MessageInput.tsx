@@ -1,42 +1,54 @@
 import { useState } from 'react';
 
 interface MessageInputProps {
-  onSend: (body: string) => void;
+  /** Return `false` (or reject) to keep the typed text, e.g. when sending failed. */
+  onSend: (body: string) => void | boolean | Promise<void | boolean>;
   disabled?: boolean;
+  isSending?: boolean;
   placeholder?: string;
 }
 
 export function MessageInput({
   onSend,
   disabled = false,
+  isSending = false,
   placeholder = 'Type a message...',
 }: MessageInputProps) {
   const [body, setBody] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (body.trim() && !disabled) {
-      onSend(body.trim());
-      setBody('');
+    const trimmed = body.trim();
+    if (!trimmed || disabled) return;
+
+    try {
+      const result = await onSend(trimmed);
+      if (result !== false) setBody('');
+    } catch {
+      // Keep the text so the user can retry.
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 p-4 border-t">
+    <form
+      onSubmit={handleSubmit}
+      className="flex gap-2 border-t border-[var(--color-border)] p-3 sm:p-4"
+    >
       <input
         type="text"
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+        aria-label="Message"
+        className="flex-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20 disabled:cursor-not-allowed disabled:bg-[var(--color-bg-alt)]"
       />
       <button
         type="submit"
         disabled={disabled || !body.trim()}
-        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+        className="rounded-[var(--radius-md)] bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[var(--color-primary-light)] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Send
+        {isSending ? 'Sending...' : 'Send'}
       </button>
     </form>
   );

@@ -96,9 +96,9 @@ function InfoCard({
   children: ReactNode;
 }) {
   return (
-    <Card className={className}>
+    <Card className={`h-full ${className}`}>
       <CardBody>
-        <h2 className="mb-4 text-sm font-semibold text-[var(--color-text)]">{title}</h2>
+        <h2 className="mb-4 border-b border-[var(--color-border)] pb-3 text-sm font-semibold text-[var(--color-text)]">{title}</h2>
         <dl className={wide ? 'grid grid-cols-1 gap-4 sm:grid-cols-2' : 'space-y-4'}>{children}</dl>
       </CardBody>
     </Card>
@@ -155,22 +155,34 @@ export function StudentProfilePage() {
   const show = (value?: string | null) => (value && value.trim() ? value : NOT_SET);
 
   return (
-    <div className="mx-auto max-w-2xl">
-      {/* Header info */}
-      <div className="mb-6 flex items-center gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-2xl font-semibold text-[var(--color-primary)]">
-          {(user.displayName || 'S').charAt(0).toUpperCase()}
-        </div>
-        <div className="min-w-0">
-          <h1 className="break-words text-xl font-semibold text-[var(--color-text)]">
-            {user.displayName || 'Student'}
-          </h1>
-          <p className="break-all text-sm text-[var(--color-text-secondary)]">{user.email}</p>
-          <span className="mt-1 inline-flex items-center rounded-full bg-[var(--color-primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">
-            {ROLE_LABELS[user.role]}
-          </span>
-        </div>
+    <div className="mx-auto w-full max-w-[900px]">
+      {/* Page heading */}
+      <div className="mb-5">
+        <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-text)]">My Profile</h1>
+        <p className="text-sm text-[var(--color-text-secondary)]">View your student account information.</p>
       </div>
+
+      {/* Profile header */}
+      <Card className="mb-4">
+        <CardBody>
+          <div className="flex items-center gap-4 sm:gap-5">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-2xl font-semibold text-[var(--color-primary)] sm:h-20 sm:w-20 sm:text-3xl">
+              {(user.displayName || 'S').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h2 className="break-words text-xl font-semibold text-[var(--color-text)]">
+                  {user.displayName || 'Student'}
+                </h2>
+                <span className="inline-flex items-center rounded-full bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
+                  {ROLE_LABELS[user.role]}
+                </span>
+              </div>
+              <p className="mt-0.5 break-all text-sm text-[var(--color-text-secondary)]">{user.email}</p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
@@ -189,7 +201,7 @@ export function StudentProfilePage() {
           <Field label="Gender" icon={icons.gender}>{show(genderLabel)}</Field>
         </InfoCard>
 
-        <InfoCard title="Contact" className="md:col-span-2" wide>
+        <InfoCard title="Contact Information" className="md:col-span-2" wide>
           <Field label="Phone" icon={icons.phone}>{show(profile?.phone)}</Field>
           <Field label="Email" icon={icons.email}>
             <span className="break-all">{user.email}</span>
@@ -197,9 +209,15 @@ export function StudentProfilePage() {
         </InfoCard>
       </div>
 
-      <div className="mt-4 flex items-start gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+      <div className="mt-4 flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
         <span className="mt-0.5 text-[var(--color-info)]">{icons.info}</span>
-        <p>To update your profile, contact your administrator.</p>
+        <div>
+          <p className="font-medium text-[var(--color-text)]">Need to update your information?</p>
+          <p>
+            Your profile is managed by an administrator. Contact your administrator to request changes to your student
+            profile, including any fields shown as "Not set".
+          </p>
+        </div>
       </div>
     </div>
   );

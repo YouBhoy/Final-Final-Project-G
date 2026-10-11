@@ -50,9 +50,9 @@ const settingsIcon =
 
 export const studentNavItems: NavItem[] = [
   { to: "/student/dashboard", label: "Dashboard", iconPath: dashboardIcon },
-  { to: "/student/facilitators", label: "Find Facilitator", iconPath: searchIcon },
+  { to: "/student/facilitators", label: "Find Facilitator", iconPath: searchIcon, activePrefixes: ["/student/facilitator/"] },
   { to: "/student/appointments", label: "Appointments", iconPath: appointmentIcon },
-  { to: "/student/assessments", label: "Assessments", iconPath: assessmentIcon },
+  { to: "/student/assessments", label: "Assessments", iconPath: assessmentIcon, activePrefixes: ["/student/assessment/"] },
   { to: "/student/checkins", label: "Check-ins", iconPath: checkinIcon },
   { to: "/student/messages", label: "Messages", iconPath: messageIcon },
   { to: "/student/resources", label: "Resources", iconPath: resourceIcon },
