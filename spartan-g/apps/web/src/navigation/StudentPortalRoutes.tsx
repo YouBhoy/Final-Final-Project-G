@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
-import { PlaceholderPage } from "../components/PlaceholderPage";
 import { ResourcesBrowsePage } from "../components/resources/ResourcesBrowsePage";
 import { useAuth } from "../hooks/useAuth";
 import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
@@ -47,15 +46,6 @@ export function StudentPortalRoutes() {
         <Route
           path="assessment/:assessmentId"
           element={<AssessmentWizardPage />}
-        />
-        <Route
-          path="checkins"
-          element={
-            <PlaceholderPage
-              title="Check-ins"
-              description="Daily and weekly self-reported check-ins."
-            />
-          }
         />
         {/* Shared resource library — same `resources` collection the Super Admin manages */}
         <Route
