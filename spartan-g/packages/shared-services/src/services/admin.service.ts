@@ -159,7 +159,7 @@ function mapCallableError(error: unknown, action: string): Error {
   if (code === 'functions/not-found' || code === 'functions/internal') {
     return new AppError(
       `Unable to ${action}: the admin backend function is not deployed yet. ` +
-        'Deploy firebase/functions first (see docs/super-admin-implementation.md).',
+        'Deploy firebase/functions first (see docs/super-admin/super-admin-implementation.md).',
       'admin/function-unavailable',
       error,
     );
