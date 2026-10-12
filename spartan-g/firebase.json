@@ -6,6 +6,13 @@
   "storage": {
     "rules": "firebase/storage.rules"
   },
+  "hosting": {
+    "site": "spartan-g-a2d80",
+    "public": "apps/web/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "predeploy": ["npm run build:web:production"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  },
   "functions": [
     {
       "source": "firebase/functions",

@@ -151,8 +151,10 @@ function AppRoutes() {
         }
       />
 
-      {/* Dev routes */}
-      <Route path="/dev/seed" element={<SeederPage />} />
+      {/* Seeder is available only to local development admins. */}
+      {import.meta.env.DEV && <Route path="/dev/seed" element={
+        <ProtectedRoute allowedRoles={["super_admin"]}><SeederPage /></ProtectedRoute>
+      } />}
 
       {/* Default redirect */}
       <Route

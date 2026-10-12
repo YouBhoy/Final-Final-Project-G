@@ -23,6 +23,7 @@ web-build/
 **/.secret.local
 
 # Firebase
+.firebase/
 firebase/functions/lib/
 firebase-debug.log
 firestore-debug.log

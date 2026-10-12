@@ -7,6 +7,7 @@ import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
 import { AdminResourcesPage } from "../pages/admin/AdminResourcesPage";
 import { AdminAuditLogsPage } from "../pages/admin/AdminAuditLogsPage";
 import { AdminProfilePage } from "../pages/admin/AdminProfilePage";
+import { AdminStatisticsPage } from "../pages/admin/AdminStatisticsPage";
 import { adminNavItems } from "./navConfigs";
 
 /** Super Admin is web-only — no mobile counterpart. */
@@ -29,16 +30,7 @@ export function SuperAdminPortalRoutes() {
           }
         />
         <Route path="users" element={<AdminUsersPage />} />
-        <Route
-          path="statistics"
-          element={
-            <PlaceholderPage
-              title="Statistics"
-              description="Assessment participation, completion rates, and wellbeing trends across campuses."
-              iconPath="M3 3v18h18M7 16v-4m5 4V8m5 8V5"
-            />
-          }
-        />
+        <Route path="statistics" element={<AdminStatisticsPage />} />
         <Route path="users/:uid" element={<AdminUserDetailPage />} />
         <Route path="campuses" element={<AdminCampusesPage />} />
         <Route path="resources" element={<AdminResourcesPage />} />

@@ -5,6 +5,7 @@ export * from './types/firestore.types';
 export * from './navigation/mobile.types';
 export * from './navigation/web.types';
 export * from './types/assessment.types';
+export * from './types/statistics.types';
 export * from './rbac';
 export * from './utils/errors';
 export * from './utils/validators';

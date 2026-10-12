@@ -11,6 +11,8 @@
     "test:registration-clients": "node --test test/registrationClients.test.mjs",
     "test:facilitator-access": "node --test test/facilitatorAccess.test.mjs",
     "test:summary": "node --test test/assessmentSummary.test.mjs",
+    "test:statistics": "node --test test/statistics.test.mjs",
+    "test:statistics-access": "node --test test/statisticsAccess.test.mjs",
     "test:window": "node --test test/bookingWindow.test.mjs",
     "test:chain": "node --test test/attemptChain.test.mjs",
     "test:smoke": "node --test test/webImportSmoke.test.mjs",

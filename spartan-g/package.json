@@ -10,7 +10,9 @@
     "mobile": "npm run start --workspace=@spartan-g/mobile",
     "web": "npm run dev --workspace=@spartan-g/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "build:web": "npm run build --workspace=@spartan-g/web"
+    "build:web": "npm run build --workspace=@spartan-g/web",
+    "build:web:production": "node scripts/build-web-production.mjs",
+    "dev:statistics": "npm --prefix firebase/functions run build && firebase emulators:exec --project demo-spartan-statistics --config firebase.statistics-demo.json --only auth,firestore,storage,functions \"node scripts/statistics-demo.mjs\""
   },
   "devDependencies": {
     "firebase-admin": "^14.3.0",

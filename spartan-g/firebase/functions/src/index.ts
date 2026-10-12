@@ -5,3 +5,4 @@ export { generateAssessmentSummary } from './assessmentSummary.js';
 export { getPublishedAssessmentDefinitions } from './assessmentDefinitions.js';
 export { adminUpdateStudentProfile } from './adminStudentProfile.js';
 export { superAdminOverrideAttempts } from './assessmentOverride.js';
+export { getAdminStatistics } from './adminStatistics.js';

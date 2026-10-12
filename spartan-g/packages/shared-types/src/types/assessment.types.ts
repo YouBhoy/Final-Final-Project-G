@@ -32,6 +32,8 @@ export interface AssessmentDefinitionDocument extends FirestoreDocument {
   isPublished: boolean;
   facilitatorId: string;
   passingScore: number;         // percentage e.g. 70
+  /** Only declare after verifying the standard numeric question set and scoring. */
+  analyticsScoringVersion?: 'standard-v1';
 }
 
 // Student's answer to a single question

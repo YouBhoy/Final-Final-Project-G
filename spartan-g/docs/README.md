@@ -2,7 +2,7 @@
 
 Documents are grouped by topic. Dated audits describe the repository at the time they were written; historical paths mentioned in those findings may have changed.
 
-- **Analytics:** [Statistics page specification](analytics/statistics-page-specification.md), [assessment analytics opportunities](analytics/assessment-analytics-opportunities.md)
+- **Analytics:** [Statistics page specification](analytics/statistics-page-specification.md), [implementation and testing](analytics/statistics-implementation.md), [assessment analytics opportunities](analytics/assessment-analytics-opportunities.md)
 - **Appointments:** [Booking concurrency fix](appointments/appointment-booking-concurrency-fix.md)
 - **Architecture:** [Architecture decisions](architecture/architecture-decisions.md)
 - **Authentication:** [Implementation roadmap](authentication/authentication-implementation-roadmap.md), [migration plan](authentication/authentication-migration-plan.md)

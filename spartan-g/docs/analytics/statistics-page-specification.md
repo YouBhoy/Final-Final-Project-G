@@ -6,7 +6,7 @@ Route: `/admin/statistics`
 
 Navigation: Statistics in the admin's left sidebar, below Dashboard
 
-Status: implementation specification; the route currently displays a placeholder.
+Status: initial website implementation complete. See [implementation and testing](statistics-implementation.md) for the local demo, validation rules and hosted-backend dependency. Legacy template counts remain separate, and historical scoring/campus snapshots remain data limitations.
 
 ## Purpose and agreed scope
 
@@ -24,31 +24,33 @@ Individual assessment scores will contribute to aggregates, but names, emails, a
 
 ## Page structure
 
-### Shared controls
+### Tabs and independent controls
+
+Display **Participation**, **Trends** and **Assessment Scores** as separate tabs. Each tab owns its filters, reporting period, refresh state and report; changes in one tab do not affect the others. Retain each visited tab's state when switching, and discard it when the account changes. Show only the active view rather than stacking all three sections on one page.
 
 - **Campus:** All campuses by default, plus the college's configured campuses. Use the campus directory and canonical labels rather than hardcoded display names. Preserve historical/inactive campuses when they have reportable data.
-- **Date range:** current calendar month by default, with this week, previous calendar month and a custom inclusive start/end date.
+- **Date range:** Participation and Assessment Scores default to this month; Trends defaults to the last three calendar months through today. Each tab offers this week, this month, previous month, the three-month window and custom inclusive start/end dates. Presets load immediately for the current tab; exact date inputs appear only for Custom dates.
 - **Assessment:** All supported assessments by default; allow a definition/version selection for assessment metrics. This filter does not change appointment or messaging totals, and that scope is stated next to the control.
-- **Trend interval:** weekly or monthly, using the same selected period.
-- **Refresh:** reload the report and display its generation time.
+- **Trend interval:** weekly or monthly in Trends, using that tab's period.
+- **Refresh:** reload only the current tab's report and display its generation time.
 
 Dates use Asia/Manila. Convert an inclusive end date to the next local midnight as an exclusive boundary. Weeks run Monday through Sunday. Reject reversed/invalid dates and visibly mark partial weeks/months. Never silently use the browser's timezone to determine report boundaries.
 
 Suggested desktop composition:
 
 ```text
-Statistics                          Last updated / Refresh
-Campus / Date range / Assessment / Trend interval
+Statistics
+Participation | Trends | Assessment Scores
 
-Participation totals and rates
-Campus participation comparison
+Active view description              Refresh this tab
+Campus / Period preset / Relevant view controls
+Custom date inputs (only when selected)
 
-Engagement trend chart and activity breakdown
+Participation: totals + campus comparison + completion details
+Trends: period totals + selected activity chart
+Scores: campus comparison + one selected campus distribution
 
-Assessment score overview
-Instrument selector / Campus distribution / Score summaries
-
-Data coverage and limitations
+Expandable data coverage and limitations
 ```
 
 Use the existing admin layout, theme tokens and responsive navigation. Filters stack on narrow screens. Charts have readable legends, units, sample sizes and accessible summaries; information must not depend on color or hover alone.
@@ -212,7 +214,7 @@ Do not bypass the deferred backend by shipping unrestricted raw-response queries
 ## Acceptance criteria
 
 - Statistics is reachable from the admin's left sidebar and cannot be accessed by student/facilitator sessions or unauthorized direct API requests.
-- All three views use the selected campus/date controls consistently; assessment-only filters are visibly scoped.
+- Each view applies its own campus/date controls consistently and preserves them while switching tabs; assessment-only filters are visibly scoped. Changing a view's reporting period does not change either other view.
 - Unique students are counted once in period totals despite multiple appointments/messages/retakes. Weekly unique counts are not incorrectly summed into a period total.
 - Activity timestamps and bucket boundaries respect Asia/Manila, including local midnight, period-end and week-boundary cases.
 - Campus counts include Unknown/Unassigned records; current-campus fallbacks and estimated denominators are clearly labeled.
