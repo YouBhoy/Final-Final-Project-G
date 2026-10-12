@@ -7,7 +7,7 @@ import { notificationRoute, UiNotification } from "../../lib/notificationRouting
 /**
  * Facilitator Dashboard — daily workflow summary, fully data-driven via
  * useFacilitatorDashboard:
- *   - risk summary     → riskAlertService.getOpenAlerts (real counts)
+ *   - risk summary     → getAssignedRiskAlerts (assigned students only)
  *   - appointments     → appointmentService (today + upcoming, real names)
  *   - recent messages  → messagingService (real-time subscription)
  * No mock data, no hardcoded IDs.

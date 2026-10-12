@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { riskAlertService } from "@spartan-g/shared-services";
+import { getAssignedRiskAlerts } from "../../lib/facilitatorAccess";
 import { userRepository } from "@spartan-g/shared-services";
 import type { RiskAlertDocument, RiskLevel } from "@spartan-g/shared-types";
 import { Badge } from "../../components/ui/Badge";
@@ -73,7 +74,7 @@ export function FacilitatorRiskAlertsPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await riskAlertService.getAlertsForFacilitator(user!.uid, user!.role);
+        const data = await getAssignedRiskAlerts(user!.uid);
         if (!cancelled) {
           setAlerts(data as AlertWithId[]);
         }

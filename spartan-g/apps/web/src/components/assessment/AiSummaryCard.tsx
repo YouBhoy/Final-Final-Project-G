@@ -25,6 +25,8 @@ function friendlyError(err: unknown): string {
   }
   if (code === "functions/permission-denied") return "You don't have permission to generate summaries.";
   if (code === "functions/unauthenticated") return "Your session expired. Please sign in again.";
+  if (code === "functions/internal") return "The AI summary service couldn't complete the request. Please retry or contact an administrator.";
+  if (code === "functions/deadline-exceeded") return "The summary took too long to generate. Please try again.";
   // Server-supplied messages (unavailable, failed-precondition, ...) are already user-friendly.
   if (code.startsWith("functions/") && message && message.toLowerCase() !== "internal") return message;
   return FALLBACK_ERROR;

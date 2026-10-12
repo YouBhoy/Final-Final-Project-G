@@ -2,7 +2,7 @@
  * SPARTAN-G — Promote/demote a Super Admin account (Admin SDK).
  *
  * Super Admin accounts CANNOT be self-registered (the Firestore users
- * create rule only allows role student/facilitator for self-signup), so
+ * create rule only allows role student for self-signup), so
  * this trusted server-side script is the supported provisioning path.
  *
  * Usage:

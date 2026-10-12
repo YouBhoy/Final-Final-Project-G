@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { assessmentService, userRepository } from "@spartan-g/shared-services";
+import { assessmentService } from "@spartan-g/shared-services";
+import { getAssignedStudents } from "../../lib/facilitatorAccess";
 import {
   calculatePHQ9Score,
   calculateGAD7Score,
@@ -252,7 +253,7 @@ export function FacilitatorStudentsPage() {
         setLoading(true);
         setError(null);
 
-        const result = await userRepository.getAllStudents();
+        const result = await getAssignedStudents(user!.uid);
 
         if (!cancelled) {
           const items: StudentUser[] = result.map((u) => ({
@@ -462,7 +463,7 @@ export function FacilitatorStudentsPage() {
       {students.length === 0 ? (
         <EmptyState
           title="No active students"
-          description="There are no active students enrolled in the system."
+          description="Students appear here after you accept their appointment or an administrator assigns them to you."
         />
       ) : (
         <Card className="overflow-hidden">

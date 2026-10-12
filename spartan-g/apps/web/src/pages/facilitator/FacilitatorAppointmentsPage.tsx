@@ -34,7 +34,10 @@ export function FacilitatorAppointmentsPage() {
           try {
             const userDoc = await userService.getUser(apt.studentId);
             if (userDoc) names[apt.studentId] = userDoc.displayName || 'Unknown Student';
-          } catch { /* ignore */ }
+          } catch {
+            // A pending booking does not grant access to the student's private profile.
+            names[apt.studentId] = 'Student';
+          }
         }
       }
       setStudentNames(names);

@@ -2,6 +2,7 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
+import { requireStudentAccess } from './studentAccess.js';
 import { calculateDASS21Score, calculateGAD7Score, calculatePHQ9Score } from './assessmentScoring.js';
 
 if (!getApps().length) initializeApp();
@@ -14,7 +15,7 @@ const MAX_ATTEMPTS = 3;
 const BASE_BACKOFF_MS = 1000;
 const REQUEST_TIMEOUT_MS = 60_000;
 
-interface AssessmentScores {
+export interface AssessmentScores {
   phqScore: number;
   phqSeverity: string;
   gadScore: number;
@@ -34,7 +35,7 @@ export interface AssessmentSummaryResult {
   cached: boolean;
 }
 
-function buildPrompt(scores: AssessmentScores): string {
+export function buildPrompt(scores: AssessmentScores): string {
   return `You are a clinical mental health screening assistant for guidance counselors.
 You are given the results of a student's completed mental health screening
 (PHQ-9, GAD-7, and DASS-21 assessments).
@@ -94,7 +95,7 @@ class TransientGeminiError extends Error {
   }
 }
 
-async function requestGemini(apiKey: string, prompt: string): Promise<string> {
+export async function requestGemini(apiKey: string, prompt: string): Promise<string> {
   let response: Response;
   try {
     response = await fetch(GEMINI_URL, {
@@ -103,7 +104,8 @@ async function requestGemini(apiKey: string, prompt: string): Promise<string> {
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         // Default Gemini safety settings are intentionally left untouched.
-        generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+        // Match the mobile assessment summary's generation settings.
+        generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -115,9 +117,14 @@ async function requestGemini(apiKey: string, prompt: string): Promise<string> {
     throw new TransientGeminiError(response.status);
   }
   if (!response.ok) {
-    // The body is logged server-side only and is never returned to the client.
-    const body = await response.text().catch(() => '');
-    console.error('[generateAssessmentSummary] Gemini error', response.status, body.slice(0, 500));
+    // Log status only; provider responses can include private input or credential details.
+    console.error('[generateAssessmentSummary] Gemini error', response.status);
+    if (response.status === 401 || response.status === 403) {
+      throw new HttpsError('failed-precondition', 'The AI service credentials are not authorized. Please contact an administrator.');
+    }
+    if (response.status === 404) {
+      throw new HttpsError('failed-precondition', 'The configured AI model is unavailable. Please contact an administrator.');
+    }
     throw new HttpsError('internal', 'The AI service returned an error. Please try again later.');
   }
 
@@ -163,7 +170,7 @@ async function requestGemini(apiKey: string, prompt: string): Promise<string> {
   return text;
 }
 
-async function generateWithRetry(apiKey: string, prompt: string): Promise<string> {
+export async function generateWithRetry(apiKey: string, prompt: string): Promise<string> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
       return await requestGemini(apiKey, prompt);
@@ -199,6 +206,12 @@ export const generateAssessmentSummary = onCall(
     }
     const force = request.data?.force === true;
 
+    const attemptSnap = await db.doc(`assessment_attempts/${attemptId}`).get();
+    if (!attemptSnap.exists) throw new HttpsError('not-found', 'Assessment attempt not found.');
+    const attempt = attemptSnap.data() ?? {};
+    // Authorize before returning cached data or sending anything to the AI provider.
+    await requireStudentAccess(db, uid, attempt.studentId);
+
     const cacheRef = db.doc(`assessment_ai_summaries/${attemptId}`);
     if (!force) {
       const cached = (await cacheRef.get()).data();
@@ -207,9 +220,6 @@ export const generateAssessmentSummary = onCall(
       }
     }
 
-    const attemptSnap = await db.doc(`assessment_attempts/${attemptId}`).get();
-    if (!attemptSnap.exists) throw new HttpsError('not-found', 'Assessment attempt not found.');
-    const attempt = attemptSnap.data() ?? {};
     if (attempt.status === 'in_progress') {
       throw new HttpsError('failed-precondition', 'This attempt has not been submitted yet.');
     }

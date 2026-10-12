@@ -221,11 +221,16 @@ test('rules: an override written through the client rule is honored by the attem
   assert.equal(await createAttempt(ids, ids.student, 3), 403, 'the limit still applies afterwards');
 });
 
-test('rules: overrides are readable by their student, facilitators and admins only', async () => {
+test('rules: overrides are readable by their student, assigned facilitators and admins only', async () => {
   const ids = await setup();
   await setOverride(ids, 3);
   const path = `assessment_overrides/${overrideId(ids)}`;
-  for (const uid of [ids.student, ids.fac, ids.admin]) assert.equal(await request(uid, 'GET', path), 200);
+  for (const uid of [ids.student, ids.admin]) assert.equal(await request(uid, 'GET', path), 200);
+  assert.equal(await request(ids.fac, 'GET', path), 403, 'unassigned facilitator');
+  await db.doc(`facilitator_student_links/${ids.fac}_${ids.student}`).set({
+    facilitatorId: ids.fac, studentId: ids.student, status: 'accepted', requestedAt: Timestamp.now(),
+  });
+  assert.equal(await request(ids.fac, 'GET', path), 200, 'assigned facilitator');
   assert.equal(await request(ids.other, 'GET', path), 403);
 });
 

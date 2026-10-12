@@ -7,7 +7,7 @@ import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { useCampuses } from "../hooks/useCampuses";
 import { getRoleRedirect } from "../lib/auth";
-import type { RegisterFormData, Role, Campus } from "@spartan-g/shared-types";
+import type { RegisterFormData, Campus } from "@spartan-g/shared-types";
 
 export function RegisterPage() {
   const { register, user, error, clearError } = useAuth();
@@ -97,7 +97,7 @@ export function RegisterPage() {
 
   return (
     <AuthLayout
-      title="Create your account"
+      title="Create your student account"
       subtitle="Join SPARTAN-G"
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -145,36 +145,6 @@ export function RegisterPage() {
           disabled={isLoading}
           className="focus:!border-[var(--auth-primary)] focus:!ring-[var(--auth-primary)]"
         />
-
-        {/* Role selector */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            I am a
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            {(["student", "facilitator"] as Role[]).map((role) => (
-              <button
-                key={role}
-                type="button"
-                disabled={isLoading}
-                onClick={() =>
-                  setFormData((prev) => ({ ...prev, role }))
-                }
-                className={`
-                  rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors
-                  ${
-                    formData.role === role
-                      ? "border-red-700 bg-red-50 text-red-700"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-              >
-                {role === "student" ? "🎓 Student" : "🧑‍🏫 Facilitator"}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Campus selector */}
         <Select

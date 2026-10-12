@@ -1,3 +1,4 @@
+import { getPublishedAssessmentDefinitions } from '../lib/assessmentDefinitions';
 import { useEffect, useState, useCallback } from "react";
 import {
   appointmentService,
@@ -7,7 +8,6 @@ import {
 } from "@spartan-g/shared-services";
 import type {
   AppointmentDocument,
-  AssessmentDefinitionDocument,
   NotificationDocument,
   Role,
 } from "@spartan-g/shared-types";
@@ -213,28 +213,7 @@ async function loadAppointments(
 }
 
 async function loadAssessments(userId: string, role: Role): Promise<AssessmentProgress> {
-  // Published Phase 3B assessment definitions (same query as StudentAssessmentsPage).
-  const { getDocs, query, orderBy, collection, where } = await import("firebase/firestore");
-  const { getFirestoreDb } = await import(
-    "@spartan-g/shared-services/src/firebase/firestore"
-  );
-
-  const db = getFirestoreDb();
-  const snapshot = await getDocs(
-    query(
-      collection(db, "assessments"),
-      where("isPublished", "==", true),
-      orderBy("title", "asc"),
-    ),
-  );
-
-  const published: (AssessmentDefinitionDocument & { id: string })[] = [];
-  snapshot.forEach((doc) => {
-    const d = doc.data();
-    if (d.courseId && typeof d.courseId === "string") {
-      published.push({ id: doc.id, ...d } as unknown as AssessmentDefinitionDocument & { id: string });
-    }
-  });
+  const published = await getPublishedAssessmentDefinitions();
 
   const publishedIds = new Set(published.map((p) => p.id));
 

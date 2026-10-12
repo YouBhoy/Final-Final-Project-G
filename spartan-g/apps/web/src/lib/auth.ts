@@ -24,6 +24,9 @@ export async function registerUser(
   role: Role = "student",
   campus?: Campus
 ): Promise<AuthSession> {
+  if (role !== "student") {
+    throw new Error("Public registration is available to students only. Contact an administrator for a staff account.");
+  }
   if (!campus) {
     throw new Error("Campus is required for registration");
   }

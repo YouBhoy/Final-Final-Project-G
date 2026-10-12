@@ -1,3 +1,4 @@
+import { getPublishedAssessmentDefinitions } from '../../lib/assessmentDefinitions';
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Badge } from "../../components/ui/Badge";
@@ -24,29 +25,8 @@ export function FacilitatorAssessmentsPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch all assessment definitions from the assessments collection
-        // Facilitators can read all documents per the Firestore rules
-        const { getDocs, query, orderBy, collection } = await import("firebase/firestore");
-        const { getFirestoreDb } = await import(
-          "@spartan-g/shared-services/src/firebase/firestore"
-        );
-
-        const db = getFirestoreDb();
-        const q = query(collection(db, "assessments"), orderBy("title", "asc"));
-        const snapshot = await getDocs(q);
-
-        if (!cancelled) {
-          const items: AssessmentWithId[] = [];
-          snapshot.docs.forEach((doc) => {
-            const data = doc.data();
-            // Only include Phase 3B assessment definitions (have courseId)
-            if (data.courseId && typeof data.courseId === "string") {
-              const { id: _docId, ...rest } = data as unknown as AssessmentDefinitionDocument & { id: string };
-              items.push({ id: doc.id, ...rest } as AssessmentWithId);
-            }
-          });
-          setAssessments(items);
-        }
+        const items = await getPublishedAssessmentDefinitions();
+        if (!cancelled) setAssessments(items);
       } catch (err) {
         if (!cancelled) {
           setError(

@@ -71,8 +71,12 @@ export const facilitatorNavItems: NavItem[] = [
 const auditIcon =
   "M9 12h3.75m-3.75 3H12m0-3h3.75M9 18h3.75M3.75 6.75h16.5A2.25 2.25 0 0122.5 9v8.25a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 17.25V9a2.25 2.25 0 012.25-2.25zM6 9.75V6.75m12 3V6.75";
 
+const statisticsIcon =
+  "M3 3v18h18M7 16v-4m5 4V8m5 8V5";
+
 export const adminNavItems: NavItem[] = [
   { to: "/admin/dashboard", label: "Dashboard", iconPath: dashboardIcon },
+  { to: "/admin/statistics", label: "Statistics", iconPath: statisticsIcon },
   { to: "/admin/users", label: "Users", iconPath: userIcon },
   { to: "/admin/campuses", label: "Campuses", iconPath: templateIcon },
   { to: "/admin/resources", label: "Resources", iconPath: resourceIcon },

@@ -14,7 +14,6 @@ import {
   getFirestoreDb,
   doc,
   setDoc,
-  runTransaction,
 } from '../firebase/firestore';
 import { appointmentRepository } from '../repositories/appointment.repository';
 import { workHoursRepository } from '../repositories/work-hours.repository';
@@ -107,96 +106,14 @@ class AppointmentService {
     return result.data.appointmentId;
   }
 
-  /**
-   * Accept an appointment with transactional consistency.
-   * Creates link + conversation if needed.
-   */
-  async acceptAppointment(appointmentId: string, facilitatorId: string, actorRole: Role) {
-    if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) {
-      throw new PermissionError();
-    }
-
-    const db = getFirestoreDb();
-    const appointmentRef = doc(db, COLLECTIONS.APPOINTMENTS, appointmentId);
-
-    try {
-      const result = await runTransaction(db, async (transaction) => {
-        const appointmentDoc = await transaction.get(appointmentRef);
-        if (!appointmentDoc.exists()) {
-          throw new Error('Appointment not found');
-        }
-
-        const appointment = appointmentDoc.data() as AppointmentDocument;
-        if (appointment.facilitatorId !== facilitatorId) {
-          throw new Error('Not authorized');
-        }
-        if (appointment.status !== 'requested') {
-          throw new Error('Appointment is not in requested status');
-        }
-
-        // Read the related records before performing any writes in the transaction.
-        const linkId = `${facilitatorId}_${appointment.studentId}`;
-        const linkRef = doc(db, COLLECTIONS.FACILITATOR_STUDENT_LINKS, linkId);
-        const linkDoc = await transaction.get(linkRef);
-
-        const convId = [facilitatorId, appointment.studentId].sort().join('_');
-        const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, convId);
-        const conversationDoc = await transaction.get(conversationRef);
-
-        // 1. Update appointment status
-        transaction.update(appointmentRef, {
-          status: 'accepted',
-          acceptedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        // 2. Create or update facilitator_student_link
-        if (!linkDoc.exists()) {
-          transaction.set(linkRef, {
-            facilitatorId,
-            studentId: appointment.studentId,
-            status: 'accepted',
-            requestedAt: serverTimestamp(),
-            respondedAt: serverTimestamp(),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        } else if (linkDoc.data()?.status !== 'accepted') {
-          transaction.update(linkRef, {
-            status: 'accepted',
-            respondedAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        }
-
-        // 3. Ensure conversation exists with required messaging fields.
-        if (!conversationDoc.exists()) {
-          transaction.set(conversationRef, {
-            participantIds: [facilitatorId, appointment.studentId],
-            lastMessageAt: serverTimestamp(),
-            lastMessagePreview: '',
-            unreadCount: {},
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        }
-
-        return appointment.studentId;
-      });
-
-      // Notify the student
-      await this.createNotification({
-        userId: result,
-        title: 'Appointment Accepted',
-        body: 'Your appointment has been accepted by the facilitator.',
-        type: 'appointment',
-        relatedId: appointmentId,
-      });
-
-      return { appointmentId };
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to accept appointment');
-    }
+  /** Acceptance grants a relationship through a server-authorized transaction. */
+  async acceptAppointment(appointmentId: string, _facilitatorId: string, actorRole: Role) {
+    if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) throw new PermissionError();
+    const callable = httpsCallable<{ appointmentId: string }, { appointmentId: string }>(
+      getFunctions(getFirebaseApp()), 'acceptAppointment',
+    );
+    const result = await callable({ appointmentId });
+    return result.data;
   }
 
   /**

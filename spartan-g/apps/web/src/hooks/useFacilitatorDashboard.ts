@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
-  riskAlertService,
   appointmentService,
   messagingService,
   userService,
 } from "@spartan-g/shared-services";
 import type { NotificationDocument, Role } from "@spartan-g/shared-types";
 import { useAuth } from "./useAuth";
+import { getAssignedRiskAlerts } from "../lib/facilitatorAccess";
 
 /** Open risk alerts aggregated by severity (critical folds into high). */
 export interface RiskSummary {
@@ -63,7 +63,7 @@ const EMPTY_DATA: FacilitatorDashboardData = {
 /**
  * Aggregates live data for the facilitator dashboard from the existing shared
  * services. No mock data, no hardcoded IDs:
- *  - risk alerts      (riskAlertService.getOpenAlerts)
+ *  - risk alerts      (getAssignedRiskAlerts)
  *  - appointments     (appointmentService.getAppointments / getUpcoming)
  *  - conversations    (messagingService — real-time subscription)
  *  - user names       (userService)
@@ -104,7 +104,7 @@ export function useFacilitatorDashboard() {
       setError(null);
 
       const [riskResult, appointmentsResult, notificationsResult] = await Promise.allSettled([
-        loadRiskSummary(user.uid, role),
+        loadRiskSummary(user.uid),
         loadAppointments(user.uid, role, resolveUserName),
         loadNotifications(user.uid),
       ]);
@@ -190,8 +190,8 @@ export function useFacilitatorDashboard() {
   return { data, loading, error, reload };
 }
 
-async function loadRiskSummary(facilitatorId: string, role: Role): Promise<RiskSummary> {
-  const alerts = await riskAlertService.getOpenAlerts(facilitatorId, role);
+async function loadRiskSummary(facilitatorId: string): Promise<RiskSummary> {
+  const alerts = await getAssignedRiskAlerts(facilitatorId, true);
   return {
     high: alerts.filter((a) => a.severity === "high" || a.severity === "critical").length,
     medium: alerts.filter((a) => a.severity === "medium").length,

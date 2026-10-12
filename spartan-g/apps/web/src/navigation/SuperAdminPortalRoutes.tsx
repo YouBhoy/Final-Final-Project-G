@@ -29,6 +29,16 @@ export function SuperAdminPortalRoutes() {
           }
         />
         <Route path="users" element={<AdminUsersPage />} />
+        <Route
+          path="statistics"
+          element={
+            <PlaceholderPage
+              title="Statistics"
+              description="Assessment participation, completion rates, and wellbeing trends across campuses."
+              iconPath="M3 3v18h18M7 16v-4m5 4V8m5 8V5"
+            />
+          }
+        />
         <Route path="users/:uid" element={<AdminUserDetailPage />} />
         <Route path="campuses" element={<AdminCampusesPage />} />
         <Route path="resources" element={<AdminResourcesPage />} />

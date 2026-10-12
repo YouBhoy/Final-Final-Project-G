@@ -40,22 +40,46 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
+    function isAssignedFacilitator(studentId) {
+      let link = get(/databases/$(database)/documents/facilitator_student_links/$(request.auth.uid + '_' + studentId));
+      return isFacilitator()
+        && link.data.facilitatorId == request.auth.uid
+        && link.data.studentId == studentId
+        && link.data.status == 'accepted';
+    }
+
+    function canReadStudent(studentId) {
+      return isSuperAdmin() || isAssignedFacilitator(studentId);
+    }
+
+    function studentIdentityUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['studentId', 'assessmentId', 'attemptNumber', 'templateId', 'courseId', 'isPublished']);
+    }
+
+    function validLink(linkId, data) {
+      return data.keys().hasAll(['studentId', 'facilitatorId', 'status', 'requestedAt'])
+        && data.keys().hasOnly(['studentId', 'facilitatorId', 'status', 'requestedAt', 'respondedAt', 'notes', 'createdAt', 'updatedAt'])
+        && data.studentId is string && data.facilitatorId is string
+        && linkId == data.facilitatorId + '_' + data.studentId
+        && data.status in ['pending', 'accepted', 'rejected']
+        && get(/databases/$(database)/documents/users/$(data.studentId)).data.role == 'student'
+        && get(/databases/$(database)/documents/users/$(data.facilitatorId)).data.role == 'facilitator'
+        && get(/databases/$(database)/documents/users/$(data.facilitatorId)).data.isActive == true;
+    }
+
     // ─── Users ─────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isOwner(userId)
-        || isFacilitatorOrAdmin()
+        || isSuperAdmin()
+        || (resource.data.role == 'student' && isAssignedFacilitator(userId))
         || (isStudent() && resource.data.role == 'facilitator' && resource.data.isActive == true);
-      // Registration may only create the caller's OWN document, and only as
-      // a student or facilitator. (The previous rule allowed ANY client to
-      // create a users/{uid} doc with role == 'super_admin' — a privilege
-      // escalation that would have made every other rule meaningless.)
-      // Super Admin accounts are provisioned server-side (Admin SDK /
-      // scripts/promote-superadmin.mjs) or by an existing super admin.
+      // Public signup is student-only. Staff accounts must be provisioned
+      // by a trusted backend or an existing active super admin.
       allow create: if isAuthenticated()
         && (
           (request.auth.uid == userId
-            && request.resource.data.role in ['student', 'facilitator']
-            && request.resource.data.isActive == true)
+            && validStudentRegistration(userId))
           || isSuperAdmin()
         );
       // Students cannot edit their own account/profile fields (campus, displayName,
@@ -73,10 +97,25 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    function validStudentRegistration(userId) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'campus', 'isActive', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'campus', 'isActive', 'createdAt', 'updatedAt'])
+        && data.uid == userId
+        && data.role == 'student'
+        && data.isActive == true
+        && data.email is string
+        && data.displayName is string
+        && data.campus is string
+        && data.campus.size() > 0
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
     // ─── Profiles ──────────────────────────────────────────────
     match /profiles/{userId} {
       allow read: if isOwner(userId)
-        || isFacilitatorOrAdmin()
+        || canReadStudent(userId)
         || (isStudent() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'facilitator' && get(/databases/$(database)/documents/users/$(userId)).data.isActive == true);
       // Students are read-only on their own profile. They may only create the
       // initial {uid, campus} document at registration; everything after that is
@@ -128,12 +167,14 @@ service cloud.firestore {
     // ─── Enrollments ───────────────────────────────────────────
     match /enrollments/{enrollmentId} {
       allow read: if isActiveUser()
-        && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
+        && (resource.data.studentId == request.auth.uid || canReadStudent(resource.data.studentId));
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid;
-      allow update: if isFacilitatorOrAdmin()
-        || (isStudent() && resource.data.studentId == request.auth.uid);
-      allow delete: if isFacilitatorOrAdmin();
+      allow update: if isSuperAdmin()
+        || (studentIdentityUnchanged()
+          && (isAssignedFacilitator(resource.data.studentId)
+            || (isStudent() && resource.data.studentId == request.auth.uid)));
+      allow delete: if canReadStudent(resource.data.studentId);
     }
 
     // ─── Assignments ───────────────────────────────────────────
@@ -145,14 +186,15 @@ service cloud.firestore {
     // ─── Submissions ───────────────────────────────────────────
     match /submissions/{submissionId} {
       allow read: if isActiveUser()
-        && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
+        && (resource.data.studentId == request.auth.uid || canReadStudent(resource.data.studentId));
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid;
-      allow update: if isFacilitatorOrAdmin()
-        || (isStudent()
+      allow update: if isSuperAdmin()
+        || (studentIdentityUnchanged() && isAssignedFacilitator(resource.data.studentId))
+        || (studentIdentityUnchanged() && isStudent()
           && resource.data.studentId == request.auth.uid
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'feedback']));
-      allow delete: if isFacilitatorOrAdmin();
+      allow delete: if canReadStudent(resource.data.studentId);
     }
 
     // ─── Notifications ─────────────────────────────────────────
@@ -207,16 +249,23 @@ service cloud.firestore {
 
     // ─── Risk Alerts (facilitator feature) ─────────────────────
     match /risk_alerts/{alertId} {
-      allow read: if isFacilitatorOrAdmin()
+      allow read: if isSuperAdmin()
+        || (resource.data.facilitatorId == request.auth.uid && isAssignedFacilitator(resource.data.studentId))
         || (isStudent() && resource.data.studentId == request.auth.uid);
-      allow create, update: if isFacilitatorOrAdmin();
+      allow create: if isSuperAdmin()
+        || (request.resource.data.facilitatorId == request.auth.uid && isAssignedFacilitator(request.resource.data.studentId));
+      allow update: if isSuperAdmin()
+        || (resource.data.facilitatorId == request.auth.uid && isAssignedFacilitator(resource.data.studentId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['open', 'acknowledged', 'resolved']);
       allow delete: if isSuperAdmin();
     }
 
     // ─── Appointments ──────────────────────────────────────────
     match /appointments/{appointmentId} {
       // Students can read their own appointments plus active appointment records for availability checks.
-      allow read: if isFacilitatorOrAdmin()
+      allow read: if isSuperAdmin()
+        || (isFacilitator() && resource.data.facilitatorId == request.auth.uid)
         || (isStudent()
           && (
             resource.data.studentId == request.auth.uid
@@ -227,7 +276,8 @@ service cloud.firestore {
       allow update: if !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes'])
         && (
-          (isFacilitatorOrAdmin()
+          ((isSuperAdmin() || (isFacilitator() && resource.data.facilitatorId == request.auth.uid))
+            && (request.resource.data.status != 'accepted' || resource.data.status == 'accepted')
             && (resource.data.status in ['requested', 'accepted']
               || !(request.resource.data.status in ['requested', 'accepted'])))
           || (isStudent()
@@ -242,14 +292,23 @@ service cloud.firestore {
 
     // ─── Facilitator-Student Links ─────────────────────────────
     match /facilitator_student_links/{linkId} {
-      allow read: if isFacilitatorOrAdmin()
+      allow read: if isSuperAdmin()
+        || (isFacilitator() && resource.data.facilitatorId == request.auth.uid)
         || (isStudent() && resource.data.studentId == request.auth.uid);
-      allow create: if isFacilitatorOrAdmin()
-        || (isStudent()
-          && request.resource.data.studentId == request.auth.uid);
-      allow update: if isFacilitatorOrAdmin()
-        || (isStudent() && resource.data.studentId == request.auth.uid
-          && resource.data.status == 'pending');
+      allow create: if validLink(linkId, request.resource.data)
+        && (isSuperAdmin()
+          || (isStudent() && request.resource.data.studentId == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.requestedAt == request.time
+            && !request.resource.data.keys().hasAny(['respondedAt'])));
+      allow update: if validLink(linkId, request.resource.data)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId', 'facilitatorId', 'requestedAt', 'createdAt'])
+        && (isSuperAdmin()
+          || (isFacilitator() && resource.data.facilitatorId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'rejected']
+            && request.resource.data.respondedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'updatedAt'])));
       allow delete: if isSuperAdmin();
     }
 
@@ -357,36 +416,40 @@ service cloud.firestore {
     match /assessments/{assessmentId} {
       allow read: if isActiveUser()
         && (
-          resource.data.studentId == request.auth.uid
-          || resource.data.isPublished == true
-          || isFacilitatorOrAdmin()
+          resource.data.get('studentId', '') == request.auth.uid
+          || (!resource.data.keys().hasAny(['studentId']) && resource.data.get('isPublished', false) == true)
+          || isSuperAdmin()
+          || (resource.data.keys().hasAny(['studentId']) && isAssignedFacilitator(resource.data.studentId))
         );
       allow create: if isStudent()
-        && request.resource.data.studentId == request.auth.uid;
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['id', 'templateId', 'studentId', 'status', 'submittedAt', 'responseCount', 'createdAt', 'updatedAt']);
       allow create: if isSuperAdmin();
-      allow update: if isFacilitatorOrAdmin()
-        || (isStudent()
+      allow update: if isSuperAdmin()
+        || (studentIdentityUnchanged() && isAssignedFacilitator(resource.data.studentId))
+        || (studentIdentityUnchanged() && isStudent()
           && resource.data.studentId == request.auth.uid
           && resource.data.status == 'in_progress');
-      allow delete: if isFacilitatorOrAdmin();
+      allow delete: if isSuperAdmin() || isAssignedFacilitator(resource.data.studentId);
     }
 
     // ─── Assessment Responses (Phase 3A) ───────────────────────
     match /assessment_responses/{responseId} {
       allow read: if isActiveUser()
-        && (resource.data.studentId == request.auth.uid || isFacilitatorOrAdmin());
+        && (resource.data.studentId == request.auth.uid || canReadStudent(resource.data.studentId));
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid;
-      allow update: if isStudent()
+      allow update: if studentIdentityUnchanged() && isStudent()
         && resource.data.studentId == request.auth.uid;
-      allow delete: if isFacilitatorOrAdmin();
+      allow delete: if canReadStudent(resource.data.studentId);
     }
 
     // ─── Assessment AI Summaries (facilitator-only, server-written) ──
     // Written exclusively by the generateAssessmentSummary Cloud Function
     // (Admin SDK bypasses rules), so clients can never create or edit one.
     match /assessment_ai_summaries/{summaryId} {
-      allow read: if isFacilitatorOrAdmin();
+      allow read: if isSuperAdmin()
+        || isAssignedFacilitator(get(/databases/$(database)/documents/assessment_attempts/$(summaryId)).data.studentId);
       allow write: if false;
     }
 
@@ -395,7 +458,7 @@ service cloud.firestore {
     // create, change or remove one; facilitators and students are read-only
     // (students read their own).
     match /assessment_overrides/{overrideId} {
-      allow read: if isFacilitatorOrAdmin()
+      allow read: if canReadStudent(resource.data.studentId)
         || (isStudent() && resource.data.studentId == request.auth.uid);
       allow create, update: if isSuperAdmin() && validAttemptOverride(overrideId, request.resource.data);
       allow delete: if isSuperAdmin();
@@ -443,7 +506,7 @@ service cloud.firestore {
 
     // ─── Assessment Attempts (Phase 3B) ────────────────────────
     match /assessment_attempts/{attemptId} {
-      allow read: if isFacilitatorOrAdmin()
+      allow read: if canReadStudent(resource.data.studentId)
         || (isStudent() && resource.data.studentId == request.auth.uid);
       // Server-side attempt limit. The id must be {assessmentId}_{studentId}_{n} with
       // attemptNumber == n, n must be 1 or follow a submitted/graded attempt n-1, and
@@ -454,13 +517,14 @@ service cloud.firestore {
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.status == 'in_progress'
         && attemptWithinLimit(attemptId, request.resource.data);
-      allow update: if isFacilitatorOrAdmin()
-        || (isStudent()
+      allow update: if isSuperAdmin()
+        || (studentIdentityUnchanged() && isAssignedFacilitator(resource.data.studentId))
+        || (studentIdentityUnchanged() && isStudent()
           && resource.data.studentId == request.auth.uid
           && resource.data.status == 'in_progress'
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'feedback'])
           && (request.resource.data.status == 'in_progress' || request.resource.data.status == 'submitted'));
-      allow delete: if isFacilitatorOrAdmin();
+      allow delete: if canReadStudent(resource.data.studentId);
     }
   }
 }

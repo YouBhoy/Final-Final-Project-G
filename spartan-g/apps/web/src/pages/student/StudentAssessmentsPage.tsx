@@ -1,3 +1,4 @@
+import { getPublishedAssessmentDefinitions } from '../../lib/assessmentDefinitions';
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -34,29 +35,8 @@ export function StudentAssessmentsPage() {
         setLoading(true);
         setError(null);
 
-        const { getDocs, query, orderBy, collection, where } = await import("firebase/firestore");
-        const { getFirestoreDb } = await import(
-          "@spartan-g/shared-services/src/firebase/firestore"
-        );
-
-        const db = getFirestoreDb();
-        const q = query(
-          collection(db, "assessments"),
-          where("isPublished", "==", true),
-          orderBy("title", "asc"),
-        );
-        const snapshot = await getDocs(q);
-
-        if (!cancelled) {
-          const items: AssessmentWithId[] = [];
-          snapshot.docs.forEach((doc) => {
-            const data = doc.data();
-            if (data.courseId && typeof data.courseId === "string") {
-              items.push({ id: doc.id, ...data } as unknown as AssessmentWithId);
-            }
-          });
-          setAssessments(items);
-        }
+        const items = await getPublishedAssessmentDefinitions();
+        if (!cancelled) setAssessments(items);
       } catch (err) {
         if (!cancelled) {
           setError(

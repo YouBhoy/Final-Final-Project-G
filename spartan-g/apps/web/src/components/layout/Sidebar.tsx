@@ -7,6 +7,8 @@ export interface NavItem {
   label: string;
   /** Heroicons-style SVG path data, drawn at 24x24 with stroke-width 1.5. */
   iconPath: string;
+  /** Optional group used to separate sections in the horizontal navigation. */
+  group?: string;
   /**
    * Extra path prefixes that should keep this item highlighted, e.g. the assessment
    * wizard lives at "/student/assessment/:id" but belongs under "Assessments".
