@@ -1,5 +1,4 @@
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getFirebaseApp } from '../firebase/app';
+import { bookAppointmentClient, acceptAppointmentClient } from './appointment-booking.client';
 import {
   PERMISSIONS,
   Role,
@@ -90,30 +89,16 @@ class AppointmentService {
     return appointmentRepository.getUpcomingByFacilitator(facilitatorId);
   }
 
-  /** Booking is authorized and checked atomically by the backend. */
+  /** Spark-compatible booking: reservations and rules enforce atomic conflict checks. */
   async requestAppointment(payload: RequestAppointmentPayload, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) throw new PermissionError();
-    const callable = httpsCallable<Record<string, unknown>, { appointmentId: string }>(
-      getFunctions(getFirebaseApp()), 'requestAppointment',
-    );
-    const result = await callable({
-      facilitatorId: payload.facilitatorId,
-      scheduledAtMs: payload.scheduledAt.getTime(),
-      durationMinutes: payload.durationMinutes,
-      ...(payload.notes !== undefined ? { notes: payload.notes } : {}),
-      ...(payload.notifyBeforeMinutes !== undefined ? { notifyBeforeMinutes: payload.notifyBeforeMinutes } : {}),
-    });
-    return result.data.appointmentId;
+    return bookAppointmentClient(payload);
   }
 
-  /** Acceptance grants a relationship through a server-authorized transaction. */
+  /** Acceptance grants the booked relationship in a rule-validated transaction. */
   async acceptAppointment(appointmentId: string, _facilitatorId: string, actorRole: Role) {
     if (!hasPermission(actorRole, PERMISSIONS.MANAGE_APPOINTMENTS)) throw new PermissionError();
-    const callable = httpsCallable<{ appointmentId: string }, { appointmentId: string }>(
-      getFunctions(getFirebaseApp()), 'acceptAppointment',
-    );
-    const result = await callable({ appointmentId });
-    return result.data;
+    return acceptAppointmentClient(appointmentId);
   }
 
   /**
@@ -162,7 +147,7 @@ class AppointmentService {
     return appointmentId;
   }
 
-  /** Rescheduling uses the same serialized backend overlap check as booking. */
+  /** Rescheduling reserves the new time atomically under the same rules as booking. */
   async rescheduleAppointment(
     appointmentId: string,
     studentId: string,
@@ -171,12 +156,7 @@ class AppointmentService {
     actorRole: Role,
   ) {
     if (!hasPermission(actorRole, PERMISSIONS.BOOK_APPOINTMENTS)) throw new PermissionError();
-    const callable = httpsCallable<Record<string, unknown>, { appointmentId: string }>(
-      getFunctions(getFirebaseApp()), 'rescheduleAppointment',
-    );
-    const result = await callable({ appointmentId, scheduledAtMs: newScheduledAt.getTime(),
-      durationMinutes: newDurationMinutes });
-    return result.data.appointmentId;
+    return bookAppointmentClient({ appointmentId, studentId, scheduledAt: newScheduledAt, durationMinutes: newDurationMinutes });
   }
 
   async completeAppointment(

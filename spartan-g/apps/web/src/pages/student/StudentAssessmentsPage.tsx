@@ -1,4 +1,4 @@
-import { getPublishedAssessmentDefinitions } from '../../lib/assessmentDefinitions';
+import { getPublishedAssessmentDefinitions, type PublishedAssessment } from '../../lib/assessmentDefinitions';
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -7,9 +7,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Spinner } from "../../components/ui/Spinner";
-import type { AssessmentDefinitionDocument } from "@spartan-g/shared-types";
-
-type AssessmentWithId = AssessmentDefinitionDocument & { id: string };
+type AssessmentWithId = PublishedAssessment;
 
 // The stored courseId is an internal key (e.g. "mental-health-screening"); show a readable label instead.
 function categoryLabel(courseId: string) {
@@ -91,7 +89,7 @@ export function StudentAssessmentsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {assessments.map((a) => {
-            const questionCount = a.questions?.length ?? 0;
+            const questionCount = a.questionCount;
             return (
               <Card key={a.id} className="flex flex-col">
                 <div className="flex-1 px-6 py-5">

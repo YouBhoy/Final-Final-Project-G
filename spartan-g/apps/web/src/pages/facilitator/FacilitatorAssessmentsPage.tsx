@@ -1,13 +1,11 @@
-import { getPublishedAssessmentDefinitions } from '../../lib/assessmentDefinitions';
+import { getPublishedAssessmentDefinitions, type PublishedAssessment } from '../../lib/assessmentDefinitions';
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Spinner } from "../../components/ui/Spinner";
-import type { AssessmentDefinitionDocument } from "@spartan-g/shared-types";
-
-type AssessmentWithId = AssessmentDefinitionDocument & { id: string };
+type AssessmentWithId = PublishedAssessment;
 
 export function FacilitatorAssessmentsPage() {
   const { user } = useAuth();
@@ -118,7 +116,7 @@ export function FacilitatorAssessmentsPage() {
                       <Badge variant="neutral">{a.courseId}</Badge>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {Array.isArray(a.questions) ? a.questions.length : 0}
+                      {a.questionCount}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {a.maxAttempts}

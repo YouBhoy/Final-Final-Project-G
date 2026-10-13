@@ -191,6 +191,20 @@ test('malformed relationships and conversations cannot grant access; acceptance 
   assert.equal((await db.doc(`appointments/${ids.studentA}`).get()).data().status, 'requested');
 });
 
+test('Spark catalog is readable by active accounts and rejects anonymous, inactive, and client writes', async () => {
+  const ids = await setup();
+  await db.doc(`assessment_catalog/${ids.admin}`).set({ title: 'Screening', isPublished: true });
+  for (const uid of [ids.studentA, ids.facA, ids.admin]) {
+    check(await list(uid, 'assessment_catalog', [['isPublished', true]]), 200);
+    check(await write(uid, `assessment_catalog/${ids.admin}`, { title: 'Tampered', isPublished: true }), 403);
+  }
+  check(await list(ids.disabled, 'assessment_catalog', [['isPublished', true]]), 403);
+  const response = await fetch(`${base}/assessment_catalog/${ids.admin}`);
+  assert.equal(response.status, 403);
+  await db.doc(`assessment_catalog/${ids.admin}`).update({ isPublished: false });
+  check(await read(ids.studentA, `assessment_catalog/${ids.admin}`), 403);
+});
+
 test('publication never makes a private student assessment public; definition lists project only safe fields', async () => {
   const ids = await setup();
   await db.doc(`assessments/${ids.studentA}`).update({ isPublished: true, courseId: 'screening' });

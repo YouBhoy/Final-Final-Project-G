@@ -59,7 +59,7 @@ service cloud.firestore {
 
     function validLink(linkId, data) {
       return data.keys().hasAll(['studentId', 'facilitatorId', 'status', 'requestedAt'])
-        && data.keys().hasOnly(['studentId', 'facilitatorId', 'status', 'requestedAt', 'respondedAt', 'notes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['studentId', 'facilitatorId', 'status', 'requestedAt', 'respondedAt', 'notes', 'createdAt', 'updatedAt', 'appointmentId'])
         && data.studentId is string && data.facilitatorId is string
         && linkId == data.facilitatorId + '_' + data.studentId
         && data.status in ['pending', 'accepted', 'rejected']
@@ -69,6 +69,12 @@ service cloud.firestore {
     }
 
     // ─── Users ─────────────────────────────────────────────────
+    // Spark-compatible listing: trusted maintenance publishes display metadata only.
+    match /assessment_catalog/{assessmentId} {
+      allow read: if isActiveUser() && resource.data.isPublished == true;
+      allow write: if false;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId)
         || isSuperAdmin()
@@ -262,6 +268,84 @@ service cloud.firestore {
     }
 
     // ─── Appointments ──────────────────────────────────────────
+    function bookingTimeValid(data) {
+      let manilaNow = request.time + duration.value(8, 'h');
+      let sunday = manilaNow.date() + duration.value(7 - (manilaNow.dayOfWeek() % 7), 'd') - duration.value(8, 'h');
+      return data.scheduledAt is timestamp && data.durationMinutes == 60
+        && data.scheduledAt.toMillis() % 1800000 == 0
+        && data.scheduledAt > request.time && data.scheduledAt < sunday
+        && data.status == 'requested' && data.updatedAt == request.time;
+    }
+
+    function reserved(kind, participant, slot, appointmentId) {
+      let reservation = getAfter(/databases/$(database)/documents/appointment_reservations/$(kind + '_' + participant + '_' + string(slot))).data;
+      return reservation.appointmentId == appointmentId && reservation.kind == kind
+        && reservation.participantId == participant && reservation.slot == slot;
+    }
+
+    function bookingReserved(data, appointmentId) {
+      let first = int(data.scheduledAt.toMillis() / 1800000);
+      let facilitator = get(/databases/$(database)/documents/users/$(data.facilitatorId)).data;
+      return get(/databases/$(database)/documents/appointment_booking_config/spark).data.version == 1
+        && facilitator.role == 'facilitator' && facilitator.isActive == true
+        && reserved('f', data.facilitatorId, first, appointmentId)
+        && reserved('f', data.facilitatorId, first + 1, appointmentId)
+        && reserved('s', data.studentId, first, appointmentId)
+        && reserved('s', data.studentId, first + 1, appointmentId);
+    }
+
+    function bookingLinkValid(appointmentId, data) {
+      let link = getAfter(/databases/$(database)/documents/facilitator_student_links/$(data.facilitatorId + '_' + data.studentId)).data;
+      let student = get(/databases/$(database)/documents/users/$(data.studentId)).data;
+      return student.role == 'student' && student.isActive == true
+        && link.facilitatorId == data.facilitatorId && link.studentId == data.studentId
+        && link.status == 'accepted' && link.appointmentId == appointmentId
+        && link.respondedAt == request.time;
+    }
+
+    function acceptingBooking(data) {
+      let before = get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data;
+      let after = getAfter(/databases/$(database)/documents/appointments/$(data.appointmentId)).data;
+      return (isSuperAdmin() || (isFacilitator() && before.facilitatorId == request.auth.uid))
+        && before.facilitatorId == data.facilitatorId && before.studentId == data.studentId
+        && before.status == 'requested' && after.status == 'accepted'
+        && after.facilitatorId == before.facilitatorId && after.studentId == before.studentId
+        && data.status == 'accepted' && data.respondedAt == request.time;
+    }
+
+    match /appointment_booking_config/{configId} {
+      allow read: if isActiveUser();
+      allow write: if false;
+    }
+
+    match /appointment_reservations/{reservationId} {
+      // Availability metadata only. Private appointment notes are never copied here.
+      allow read: if isActiveUser();
+      function validReservation() {
+        let data = request.resource.data;
+        let appointment = getAfter(/databases/$(database)/documents/appointments/$(data.appointmentId)).data;
+        let first = int(appointment.scheduledAt.toMillis() / 1800000);
+        return data.keys().hasOnly(['kind', 'participantId', 'slot', 'appointmentId'])
+          && data.kind in ['f', 's'] && data.slot is int
+          && reservationId == data.kind + '_' + data.participantId + '_' + string(data.slot)
+          && appointment.studentId == request.auth.uid && appointment.status == 'requested'
+          && appointment.durationMinutes == 60 && appointment.scheduledAt.toMillis() % 1800000 == 0
+          && data.slot in [first, first + 1]
+          && data.participantId == (data.kind == 'f' ? appointment.facilitatorId : appointment.studentId);
+      }
+      function reservationReleased() {
+        let oldPath = /databases/$(database)/documents/appointments/$(resource.data.appointmentId);
+        return resource.data.appointmentId == request.resource.data.appointmentId
+          || !existsAfter(oldPath)
+          || !(getAfter(oldPath).data.status in ['requested', 'accepted'])
+          || getAfter(oldPath).data.scheduledAt.toMillis() >= (resource.data.slot + 1) * 1800000
+          || getAfter(oldPath).data.scheduledAt.toMillis() + getAfter(oldPath).data.durationMinutes * 60000 <= resource.data.slot * 1800000;
+      }
+      allow create: if isStudent() && validReservation();
+      allow update: if isStudent() && validReservation() && reservationReleased();
+      allow delete: if false;
+    }
+
     match /appointments/{appointmentId} {
       // Students can read their own appointments plus active appointment records for availability checks.
       allow read: if isSuperAdmin()
@@ -271,8 +355,22 @@ service cloud.firestore {
             resource.data.studentId == request.auth.uid
             || (resource.data.status in ['requested', 'accepted'] && resource.data.facilitatorId is string)
           ));
-      // Booking and rescheduling must pass the backend overlap transaction.
-      allow create: if false;
+      allow create: if isStudent() && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.keys().hasAll(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes', 'status', 'createdAt', 'updatedAt', 'notifyBeforeMinutes'])
+        && request.resource.data.keys().hasOnly(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes', 'status', 'createdAt', 'updatedAt', 'notifyBeforeMinutes', 'notes'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.notifyBeforeMinutes is int && request.resource.data.notifyBeforeMinutes >= 0
+        && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 10000
+        && bookingTimeValid(request.resource.data) && bookingReserved(request.resource.data, appointmentId);
+      allow update: if isStudent() && resource.data.studentId == request.auth.uid
+        && resource.data.status == 'reschedule_requested'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['scheduledAt', 'durationMinutes', 'status', 'updatedAt', 'rescheduleReason', 'rescheduleRequestedAt'])
+        && bookingTimeValid(request.resource.data) && bookingReserved(request.resource.data, appointmentId);
+      allow update: if (isSuperAdmin() || (isFacilitator() && resource.data.facilitatorId == request.auth.uid))
+        && resource.data.status == 'requested' && request.resource.data.status == 'accepted'
+        && request.resource.data.acceptedAt == request.time && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'updatedAt'])
+        && bookingLinkValid(appointmentId, request.resource.data);
       allow update: if !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes'])
         && (
@@ -292,7 +390,7 @@ service cloud.firestore {
 
     // ─── Facilitator-Student Links ─────────────────────────────
     match /facilitator_student_links/{linkId} {
-      allow read: if isSuperAdmin()
+      allow read: if isSuperAdmin() || (isActiveUser() && resource == null)
         || (isFacilitator() && resource.data.facilitatorId == request.auth.uid)
         || (isStudent() && resource.data.studentId == request.auth.uid);
       allow create: if validLink(linkId, request.resource.data)
@@ -300,7 +398,8 @@ service cloud.firestore {
           || (isStudent() && request.resource.data.studentId == request.auth.uid
             && request.resource.data.status == 'pending'
             && request.resource.data.requestedAt == request.time
-            && !request.resource.data.keys().hasAny(['respondedAt'])));
+            && !request.resource.data.keys().hasAny(['respondedAt', 'appointmentId']))
+          || acceptingBooking(request.resource.data));
       allow update: if validLink(linkId, request.resource.data)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId', 'facilitatorId', 'requestedAt', 'createdAt'])
         && (isSuperAdmin()
@@ -308,7 +407,9 @@ service cloud.firestore {
             && resource.data.status == 'pending'
             && request.resource.data.status in ['accepted', 'rejected']
             && request.resource.data.respondedAt == request.time
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'updatedAt'])));
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'updatedAt']))
+          || (acceptingBooking(request.resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'updatedAt', 'appointmentId'])));
       allow delete: if isSuperAdmin();
     }
 
@@ -332,8 +433,8 @@ service cloud.firestore {
           'unreadCount',
           'updatedAt',
         ]);
-      allow create: if isActiveUser()
-        && request.auth.uid in request.resource.data.participantIds;
+      allow create: if isSuperAdmin() || (isActiveUser()
+        && request.auth.uid in request.resource.data.participantIds);
       allow delete: if isSuperAdmin();
     }
 

@@ -577,6 +577,7 @@ export function StudentAppointmentsPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">New Time</label>
             <input
               type="time"
+              step={1800}
               value={newTime}
               onChange={e => setNewTime(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-sm"

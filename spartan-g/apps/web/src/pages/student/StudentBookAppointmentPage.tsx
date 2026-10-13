@@ -81,9 +81,10 @@ export function StudentBookAppointmentPage() {
 
   /** Earliest and latest start time (minutes) the student may pick on a given day. */
   const startRange = (schedule: WorkSchedule, key: string) => {
-    const earliest = key === todayKey
+    const earliestRaw = key === todayKey
       ? Math.max(toMinutes(schedule.startTime), nextSlotMinutes(nowMs))
       : toMinutes(schedule.startTime);
+    const earliest = Math.ceil(earliestRaw / 30) * 30;
     return { earliest, latest: toMinutes(schedule.endTime) - APPOINTMENT_MINUTES };
   };
 
@@ -195,7 +196,7 @@ export function StudentBookAppointmentPage() {
 
   const windowKeys = new Set(bookingWindow.dateKeys);
   const timeMin = dayRange ? toTime(dayRange.earliest) : undefined;
-  const timeMax = workHoursForDay ? workHoursForDay.endTime : undefined;
+  const timeMax = dayRange ? toTime(Math.floor(dayRange.latest / 30) * 30) : undefined;
   const selectedMinutes = toMinutes(selectedTime || '00:00');
   const timeTooEarly = !!dayRange && isToday && selectedMinutes < dayRange.earliest;
 
@@ -289,6 +290,7 @@ export function StudentBookAppointmentPage() {
               <div className="flex items-center gap-3">
                 <input
                   type="time"
+                  step={1800}
                   value={selectedTime}
                   onChange={e => setSelectedTime(e.target.value)}
                   min={timeMin}
