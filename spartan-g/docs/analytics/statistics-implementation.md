@@ -1,18 +1,47 @@
-# Statistics implementation and testing
+﻿# Statistics implementation and testing
 
-The website's `/admin/statistics` route now contains campus participation, engagement trends and an assessment score overview. The Statistics link is in the admin's left sidebar. The mobile branch is unchanged.
+The website's `/admin/statistics` route contains Participation, Trends and Assessment Scores tabs. Reports now use rule-protected Firestore reads and calculations built into the website. Statistics does not require Cloud Functions, Gemini or a Blaze upgrade. Existing Spark database and Hosting quotas still apply.
 
 ## Using the page
 
-Use the **Participation**, **Trends** and **Assessment Scores** tabs to explore one analytical view at a time. Each tab keeps its own campus, period, assessment filters and report while you switch between views. Only visited tabs load reports; switching back restores the existing report without another request. Changing accounts discards all reports and filter state.
+Each tab retains its own campus, period, assessment filters and report while switching views. Changing accounts discards panel state and the shared data cache. Participation and Scores default to this month; Trends defaults to the last three calendar months through today. Presets load immediately. Custom dates require **Apply dates to this tab**. Dates use Asia/Manila, with inclusive end dates and partial buckets clearly marked.
 
-Participation and Assessment Scores default to this month. Trends defaults to the last three calendar months through today with monthly buckets. Select a period preset to load it immediately for that tab. Exact date inputs appear only for **Custom dates**; select **Apply dates to this tab** after editing them. Campus and assessment selectors update the current tab immediately. **Refresh this tab** reloads its applied filters. All reporting dates use Asia/Manila. Current periods stop at generation time and incomplete buckets are marked Partial.
+**Refresh this tab** fetches a fresh source snapshot and rebuilds that report. Ordinary filter changes and opening another tab reuse a shared snapshot for up to five minutes. The caption shows **Data fetched** time, rather than implying cached data was just retrieved. Other already-open tab reports retain their own displayed snapshot until refreshed or their filters change.
 
-The assessment filter changes assessment metrics only. Trends has its own activity and interval selectors. Instrument and scoring-version controls in Assessment Scores separate PHQ-9, GAD-7 and the three doubled DASS-21 subscales. A compact campus comparison lets you select one distribution at a time, rather than displaying a long stack of campus charts. Small-group suppression still applies to both the comparison and the selected distribution. Assessment completion and data limitations are expandable details.
+Assessment filters affect assessment metrics only. Trends has activity/interval selectors. Scores separates instruments and versions, with a compact campus comparison and one selected histogram. Completion details and data limitations are expandable.
 
-## Local demo without hosting or billing
+## Data access and privacy
 
-Requirements: Node, the existing npm dependencies, Firebase CLI and Java 21 or newer on PATH. Ports 8080, 9099, 9199, 5001 and 5180 must be available.
+The website uses the regular Firebase client SDK. Every read passes through the deployed Firestore security rules. The loader checks the signed-in user's server profile before reading collections and again before returning a report; only active `super_admin` accounts may use it. Changing accounts, losing access or a failed refresh discards its source cache. Superseded panel requests are ignored.
+
+The client SDK receives full permitted documents, including confidential assessment answers and message documents. The Statistics loader immediately retains only calculation fields in its own in-memory snapshot; names, emails, message bodies and freeform notes are removed. It does not write raw inputs or reports to localStorage, IndexedDB, logs or the database. The SDK's normal in-memory document cache can still contain fetched documents. This architecture allows authorized admins to inspect underlying data through browser tools; display suppression is not an aggregate-only access boundary.
+
+Counts and score summaries displayed by the page contain no student identifiers or raw answers. Groups below five students have no displayed sample size/statistics. Any small nonzero histogram bin causes the entire histogram to be withheld. These controls reduce display disclosure, without guaranteeing anonymity or preventing an authorized admin from inspecting source records.
+
+The initial implementation scans at most 1,001 documents per source to detect a 1,000-record capacity limit. If any collection exceeds that limit, reporting stops with an explicit error; it never displays truncated totals. Reusing in-memory input avoids refetching all sources for each filter/tab. Profile rechecks still require small reads. Larger datasets need indexed activity summaries or narrower source queries before expanding this limit.
+
+## Main-project deployment
+
+Firebase Hosting serves the website at <https://spartan-g-a2d80.web.app>. Production builds verify the main project ID, disable emulator connections and exclude the development seeder route.
+
+The former `getAdminStatistics` callable has been removed from the source exports. Its deployment was previously blocked on Spark; the website no longer calls it. Other features that use their own Cloud Functions are outside this Statistics change and retain their existing deployment requirements.
+
+The local canonical Firestore rules add active-super-admin conversation reads. For the main project, the rules snapshot was downloaded using the supported Firebase initialization flow into an ignored isolated folder. `scripts/prepare-statistics-rules.mjs` applies only that same conversation-read change to the live snapshot. The release preserves existing appointment, signup, facilitator and other write/read behavior. It does not silently publish the broader security rules in the working tree; their coordinated rollout remains a separate task.
+
+Prepare the narrow release after downloading the live snapshot to `.firebase/statistics-rules/firestore.rules`, then test and deploy it:
+
+```powershell
+node scripts/prepare-statistics-rules.mjs
+firebase emulators:exec --only firestore --project demo-spartan-booking --config .firebase/statistics-rules/statistics-release.json "node --test firebase/functions/test/statisticsClientAccess.test.mjs"
+firebase deploy --only firestore:rules --project spartan-g-a2d80 --config .firebase/statistics-rules/statistics-release.json
+firebase deploy --only hosting --project spartan-g-a2d80
+```
+
+Do not reuse an old downloaded snapshot over newer production changes. The original snapshot is retained locally as a rollback reference. No live student documents, Storage rules, other functions or billing settings need modification for this release.
+
+## Local demo
+
+Requires Node, the existing npm dependencies, Firebase CLI and Java 21+ on PATH. Ports 8080, 9099, 9199 and 5180 must be available.
 
 From `spartan-g`:
 
@@ -20,74 +49,36 @@ From `spartan-g`:
 npm.cmd run dev:statistics
 ```
 
-This starts isolated Firebase emulators for **demo-spartan-statistics**, seeds synthetic campus activity, and serves a separate website at <http://127.0.0.1:5180/admin/statistics>. It overrides Firebase configuration only for that process; it does not edit your `.env` or contact the live database. The seeder refuses to run without localhost Auth/Firestore emulators and the exact demo project ID.
+This runs only Auth, Firestore and Storage emulators, seeds synthetic activity for **demo-spartan-statistics**, and serves <http://127.0.0.1:5180/admin/statistics>. No Functions emulator is needed. The seeder requires localhost Auth/Firestore emulators and the exact demo project ID. Configuration overrides apply only to that process; your `.env` and live database are untouched. Stop with Ctrl+C.
 
-Local demo login:
+Local demo credentials: `admin@statistics-demo.example` / `StatisticsDemo123!`.
 
-- Email: `admin@statistics-demo.example`
-- Password: `StatisticsDemo123!`
+Try Lipa for an available histogram, Alangilan for withheld small bins, and Pablo Borbon for a suppressed group. Switch tabs and verify independent periods, choose custom dates, change instrument/campus focus, then refresh. Test an empty period, keyboard tab navigation with arrows/Home/End, and narrow-screen rendering.
 
-These are emulator-only credentials. Stop the demo with Ctrl+C. The regular `start-system.bat` continues using your existing project and settings.
+## Calculation rules
 
-Try All campuses, then Lipa, Alangilan and Pablo Borbon. Lipa demonstrates an available histogram; Alangilan demonstrates small-bin withholding; Pablo Borbon demonstrates a suppressed score group. In Participation, change the campus and activity period. Open Trends and verify its independent three-month period; change its activity and interval. Return to Participation and verify its previous filters are retained. In Assessment Scores, switch instrument and select campuses in the comparison list. Changing its submission period must not change either other tab. Change a tab to a month without activity to test its empty state. Use arrow keys and Home/End in the tab bar, and open at a narrow viewport to test stacked controls and horizontal table scrolling.
+The shared browser-safe implementation is `packages/shared-types/src/utils/statistics.ts`.
 
-## Hosted backend
+- Participation is a distinct-student union across requests, eligible sends and submissions. Retakes remain events but do not inflate unique counts.
+- Registered-student rates include accounts registered by the observed period end, even if currently inactive. Missing registration/campus history can make rates estimated or unavailable.
+- Completion follows each definition's start cohort; earlier starts cannot inflate its rate.
+- Messages require a student sender, a two-person student/facilitator conversation and a currently accepted canonical link dated before the message. Failed, sending, deleted and system messages are excluded.
+- Scores validate complete instrument answers against numeric 0-3 definition options, reject duplicates/unknown IDs/invalid values, and recompute totals. Stored client risk fields are ignored. DASS-21 subscales are doubled.
+- Latest valid attempts are selected per student/instrument/version before campus filtering, with deterministic document-ID tie breaking. Invalid later attempts may fall back to an earlier valid result, with coverage reporting.
+- Only verified definitions should declare `analyticsScoringVersion: "standard-v1"`. Unversioned definitions stay separate and use their current question sets; historical comparability is unverified.
+- Legacy template submissions remain separate because cross-model deduplication is unavailable.
 
-The page calls `getAdminStatistics` in `us-central1`. Both the route and backend check admin access; the backend requires a currently active `super_admin` and rechecks before delivery. It returns aggregate values rather than student identities, answers or message content. Browser queries to download all raw records are not used.
-
-The main Firebase project `spartan-g-a2d80` still requires Blaze for Cloud Functions. A deployment readiness check again failed at the required Artifact Registry API because billing has not been enabled. Until the endpoint is deployed, the main-project website displays an unavailable-service message rather than fabricated zero statistics. The local demo works independently. No billing upgrade has been performed.
-
-Firebase Hosting now targets the existing `spartan-g-a2d80` site and serves `apps/web/dist` with SPA route rewrites. Its predeploy step validates the main-project configuration and builds with emulator connections disabled. Development assessment seeding is restricted to local development admin sessions and omitted from the production route table. Hosting the website alone does not enable the report endpoint.
-
-The website was published to <https://spartan-g-a2d80.web.app>. Both `/` and `/admin/statistics` returned HTTP 200; the Statistics route served the built SPA and the deployed JavaScript matched the local production asset by SHA-256. The Statistics backend was **not deployed**: its readiness check remains blocked by the Blaze requirement. Live statistics therefore remain unavailable until backend deployment is completed. Main-project Firestore/Storage rules, other functions, database records and billing settings were not released or changed as part of this website/statistics deployment.
-
-To build and publish the website using the configured Firebase account:
+## Verification
 
 ```powershell
-npm.cmd run build:web:production
-firebase deploy --only hosting --project spartan-g-a2d80
-```
-
-When hosting is ready, build and deploy the endpoint using the normal authorized deployment workflow:
-
-```powershell
-npm.cmd --prefix firebase/functions run build
-firebase deploy --only functions:getAdminStatistics --project spartan-g-a2d80
-```
-
-## Calculation and disclosure rules
-
-- Participating students are the union of appointment requesters, eligible message senders and assessment submitters. Retakes and repeated requests do not inflate distinct-student totals.
-- Registered-student rates use accounts registered by the observed period end, including currently inactive accounts. Rates are unavailable if dates/cohort attribution are incomplete and are labeled estimated where historical campus membership is unavailable.
-- Assessment completion follows students who started a matching definition within the period, not all submissions within the period. Per-definition cohort rows accompany the overall at-least-one-completion measure.
-- Messages require a real student sender, a two-person student/facilitator conversation and a canonical currently accepted link dated before the message. Failed, sending, system and deleted messages are excluded. Revoked historical access cannot be reconstructed.
-- Scores require expected question IDs and numeric 0–3 definition options. Missing, duplicate, unknown, blank, noninteger or out-of-range answers cannot become default-zero scores. Different complete instruments can contribute independently. Stored risk fields are ignored.
-- The latest valid attempt per student/instrument/version wins, with document-ID tie breaking. An invalid later attempt can fall back to a valid earlier one, with coverage reporting.
-- Definitions explicitly declaring `analyticsScoringVersion: "standard-v1"` share the supported scoring version. Do not set this on arbitrary questionnaires; verify question content and scoring compatibility first. Existing unversioned definitions remain separated by definition and are labeled as using the current question set. Immutable historical definition snapshots remain future work.
-- Groups with fewer than five students return no exact sample size or score summaries. If any nonzero histogram bin has fewer than five students, all bins are withheld to reduce subtraction disclosure. This does not guarantee anonymity across filters or other participation metrics.
-- Legacy template instances remain a separate coverage count, rather than being added to course-attempt totals without reliable cross-model deduplication.
-- Report reads are limited to 10,000 records per source collection. Reports exceeding capacity fail explicitly. This initial version scans bounded source metadata; larger deployments should replace scans with indexed, versioned event aggregates.
-
-No diagnostic labels, treatment recommendations, individual drill-down, score ranking or AI service are part of this page.
-
-## Automated checks
-
-From `spartan-g`, run:
-
-```powershell
-npm.cmd --prefix firebase/functions run build
 npm.cmd --prefix firebase/functions run test:statistics
-firebase emulators:exec --only firestore --project demo-spartan-booking --config firebase.booking-test.json "node --test firebase/functions/test/statisticsAccess.test.mjs"
+npm.cmd --prefix firebase/functions run test:statistics-client
+firebase emulators:exec --only firestore --project demo-spartan-booking --config .firebase/statistics-rules/statistics-release.json "node --test firebase/functions/test/statisticsClientAccess.test.mjs"
 npm.cmd run typecheck --workspace=@spartan-g/web
-npm.cmd run build:web
+npm.cmd run typecheck --workspace=@spartan-g/shared-types
+npm.cmd run build:web:production
 ```
 
-Calculation tests use synthetic fixtures. Access tests refuse to run without a localhost Firestore emulator, test the actual endpoint implementation and callable authorization, and verify that report responses omit private fields. No live student data is used.
+The calculation tests transpile the actual shared source; client tests use the actual browser loader. Access tests use the actual browser Firestore SDK against the minimal release rules in a localhost emulator, with synthetic records only. They verify admin score/messaging calculations, denied global conversation lists for students/facilitators/inactive admins/anonymous users, retained participant access and no new write privileges.
 
-## Verification recorded
-
-- 19 calculation tests and 4 backend/access tests passed.
-- Functions compilation and the production website build passed. Vite still reports the existing large-bundle warning.
-- After the tabbed-layout revision, the website typecheck and production build passed again. Server-rendered view checks using the demo report verified separate participation/trend content, a single selected score histogram, small-group/bin withholding and expandable coverage details. These checks do not simulate browser interaction.
-- The running demo was checked through Auth emulator login and actual HTTP callable requests: 21 participating/submitting students overall, with campus totals of 10, 8 and 3. Lipa's histogram was available, Alangilan's small bins were withheld, and Pablo Borbon's score group was suppressed. Responses contained no student IDs; an anonymous request returned HTTP 401.
-- Browser automation was unavailable in this session. Visual layout, keyboard navigation and narrow-screen rendering still need the manual checks described above; they are not claimed as verified.
+29 tests passed: 19 calculation, 7 cache/access-handling and 3 browser SDK/rules tests. Website and shared-types typechecks passed. Browser automation is unavailable in this session, so visual layout and keyboard interaction remain manual checks.

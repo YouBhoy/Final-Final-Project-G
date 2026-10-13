@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStatistics, validateFilters, dateBoundary, validatedScore, SCALES } from '../lib/statisticsAggregation.js';
+import { buildStatistics, validateFilters, dateBoundary, validatedScore, SCALES } from './helpers/statisticsModules.mjs';
 
 const filters = { startDate: '2026-10-01', endDate: '2026-10-31', campus: '', assessmentId: '', interval: 'weekly' };
 const now = new Date('2026-11-02T00:00:00Z');

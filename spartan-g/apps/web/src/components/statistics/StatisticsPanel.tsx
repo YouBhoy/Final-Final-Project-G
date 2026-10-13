@@ -41,10 +41,13 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
   const [version, setVersion] = useState('');
   const [focusedCampus, setFocusedCampus] = useState('');
   const sequence = useRef(0);
+  const lastRefresh = useRef(refresh);
   useEffect(() => {
     const request = ++sequence.current;
     setReport(null); setError(null); setLoading(true);
-    loadStatistics(filters).then(result => {
+    const forceRefresh = refresh !== lastRefresh.current;
+    lastRefresh.current = refresh;
+    loadStatistics(filters, { forceRefresh }).then(result => {
       if (request === sequence.current) { setReport(result); setCatalogue({ campuses: result.campuses, assessments: result.assessments }); }
     }).catch(cause => {
       if (request === sequence.current) setError(statisticsError(cause));
@@ -112,7 +115,7 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
     {report && <>
       <div className="flex flex-wrap justify-between gap-2 text-xs text-gray-500">
         <span>{report.filters.startDate} through {report.filters.endDate} · {report.filters.campus ? campusOptions.find(([key]) => key === report.filters.campus)?.[1] : 'All campuses'} · Asia/Manila</span>
-        <span>Updated {new Date(report.generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</span>
+        <span>Data fetched {new Date(report.sourceLoadedAt ?? report.generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</span>
       </div>
       {view !== 'scores' && report.totals.participants === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No activity recorded for this campus and period.</p>}
       {view === 'participation' && <ParticipationView report={report} />}

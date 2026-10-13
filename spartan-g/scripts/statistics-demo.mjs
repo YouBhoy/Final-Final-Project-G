@@ -3,7 +3,6 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createServer } from 'vite';
-import { SCALES } from '../firebase/functions/lib/statisticsAggregation.js';
 
 const projectId = 'demo-spartan-statistics';
 for (const name of ['FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST']) {
@@ -21,7 +20,7 @@ const batch = db.batch();
 batch.set(db.doc(`users/${admin.uid}`), { uid: admin.uid, email: admin.email, displayName: admin.displayName, role: 'super_admin', isActive: true, campus: 'lipa', createdAt: registered });
 const campuses = [{ key: 'lipa', label: 'Lipa Campus', students: 10 }, { key: 'alangilan', label: 'Alangilan', students: 8 }, { key: 'pablo_borbon', label: 'Pablo Borbon', students: 3 }, { key: 'arasof_nasugbu', label: 'ARASOF-Nasugbu', students: 0 }, { key: 'jplpc_malvar', label: 'JPLPC-Malvar', students: 0 }];
 const definitionId = 'demo-standard-assessment';
-const questionIds = [...new Set(SCALES.flatMap(scale => scale.ids))];
+const questionIds = [['phq', 9], ['gad', 7], ['dass', 21]].flatMap(([prefix, count]) => Array.from({ length: count }, (_, index) => `${prefix}${index + 1}`));
 batch.set(db.doc(`assessments/${definitionId}`), { title: 'Demo student assessment', courseId: 'demo-guidance', analyticsScoringVersion: 'standard-v1', isPublished: false, questions: questionIds.map((id, order) => ({ id, order, type: 'multiple_choice', options: ['0', '1', '2', '3'].map(id => ({ id, label: id })) })) });
 for (const [order, campus] of campuses.entries()) {
   batch.set(db.doc(`campuses/${campus.key}`), { key: campus.key, label: campus.label, location: 'Synthetic demo', isActive: true, sortOrder: order });

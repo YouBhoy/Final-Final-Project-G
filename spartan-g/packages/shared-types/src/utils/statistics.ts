@@ -1,4 +1,4 @@
-/** Pure reporting code. No database access and no individual records in output. */
+/** Browser-safe reporting code. No database access and no individual records in output. */
 export type Data = Record<string, any> & { id: string };
 export interface ReportFilters { startDate: string; endDate: string; campus: string; assessmentId: string; interval: 'weekly' | 'monthly' }
 export interface ReportInput { users: Data[]; campuses: Data[]; appointments: Data[]; messages: Data[]; conversations: Data[]; links: Data[]; attempts: Data[]; definitions: Data[]; legacyInstances: Data[] }

@@ -21,6 +21,7 @@ export interface ParticipationSummary {
 }
 export interface StatisticsReport {
   generatedAt: string;
+  sourceLoadedAt?: string;
   filters: StatisticsFilters;
   campuses: { key: string; label: string }[];
   assessments: { id: string; title: string }[];

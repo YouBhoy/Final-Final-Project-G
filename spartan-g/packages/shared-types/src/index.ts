@@ -13,3 +13,4 @@ export * from './utils/scoring';
 export * from './utils/risk-evaluation';
 export * from './utils/booking-window';
 export * from './utils/attempt-chain';
+export * from './utils/statistics';

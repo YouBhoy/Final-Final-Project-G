@@ -6,7 +6,7 @@ Route: `/admin/statistics`
 
 Navigation: Statistics in the admin's left sidebar, below Dashboard
 
-Status: initial website implementation complete. See [implementation and testing](statistics-implementation.md) for the local demo, validation rules and hosted-backend dependency. Legacy template counts remain separate, and historical scoring/campus snapshots remain data limitations.
+Status: website implementation uses protected Firestore reads and browser calculations on the Spark plan. See [implementation and testing](statistics-implementation.md) for the local demo, validation rules and narrow Firestore permission release. Legacy template counts remain separate, and historical scoring/campus snapshots remain data limitations.
 
 ## Purpose and agreed scope
 
@@ -179,13 +179,13 @@ The existing scoring functions accept incomplete or out-of-range numeric answers
 
 ## Privacy and authorization
 
-- Access is limited to active super administrators, including the backend report endpoint. A hidden sidebar link is not authorization.
-- Return aggregate counts and statistical summaries to the browser. Generate score aggregates on a trusted backend so the Statistics page does not download every student's raw answers or message body.
+- The Statistics route and loader require an active super administrator. Every source read uses the client SDK and must be allowed by deployed Firestore rules; a hidden sidebar link is not authorization.
+- Calculate reports in the website from authorized Firestore records. The browser receives complete permitted documents; the loader retains only calculation fields in its own memory snapshot and displays aggregates. Authorized admins can inspect underlying data, so this version does not provide aggregate-only browser access.
 - Do not include names, emails, raw text answers, message content, student IDs or AI narratives in report responses, logs or exports.
 - Suppress campus/instrument score summaries when fewer than 5 distinct students contribute. This is a proposed configurable project setting, not a claimed legal or clinical standard.
 - Suppress small nonzero score bins as well; do not reveal their exact values through tooltips, downloads, totals or simple subtraction from other bins. Small-group suppression is a disclosure-reduction measure, not a guarantee of anonymity.
 - Keep participation counts separate from confidential score distributions. Do not allow charts to drill down to identified students.
-- Collect only the data necessary for these metrics, and keep any report cache private, versioned and sensitive to filter/permission changes.
+- Keep source snapshots in account-bound memory for at most five minutes, clear them on auth changes/errors, and recheck the current server profile for every load. Refresh fetches fresh sources. Never persist raw snapshots in browser storage or log them.
 - College-wide conclusions are unsupported: assessment participation is voluntary/selected and may not represent all students in a campus.
 
 ## Loading, empty, error and coverage states
@@ -197,23 +197,23 @@ The existing scoring functions accept incomplete or out-of-range numeric answers
 - Display missing campus/date/version data and score exclusions in a coverage section.
 - Preserve the last successful report only if clearly marked stale after a failed refresh. Do not silently keep old data under new filter labels.
 - Debounce/cancel superseded requests and ignore late results after a filter/account change.
-- Distinguish report-service unavailable, permission denied and no data. The existing Firebase project has no deployed report backend; this dependency must be surfaced honestly.
+- Distinguish network failure, permission denied, read quota/capacity limits and no data. This page has no Cloud Functions dependency; bounded reads must fail explicitly instead of presenting partial totals.
 
 ## Implementation sequence
 
 1. Finalize metric definitions, reporting periods, campus attribution and scoring-version conventions using this specification.
 2. Implement pure aggregation/validation functions with synthetic fixtures. No live student data is needed for development tests.
-3. Implement an admin-authorized report endpoint and minimal event metadata/snapshots where gaps prevent reliable metrics. An isolated local development backend is acceptable; hosted Firebase Functions require the deployment/billing setup already deferred by the team.
+3. Load authorized records through Firestore rules and calculate in the website. Reuse the pure tested implementation and a short account-bound memory cache to reduce repeated reads. Retain timestamp/campus coverage notes; add event snapshots in a later data-quality update.
 4. Replace the `/admin/statistics` placeholder with shared filters and the campus participation view.
 5. Add engagement trend charts with bucket-aware counting and meaningful period comparisons.
 6. Add validated assessment score distributions, summary statistics, coverage and disclosure controls.
-7. Verify the admin-only route/endpoint, responsive layout, keyboard access and real test-environment data before release.
+7. Verify the admin-only route/loader, source permissions, responsive layout, keyboard access and real test-environment data before release.
 
-Do not bypass the deferred backend by shipping unrestricted raw-response queries or a Gemini key into the Statistics page. This page does not require Gemini or an AI summary service. Forecasting, treatment suggestions, automated clinical interpretation, student rankings and external portal authentication integration are outside this implementation scope.
+Use authenticated, rule-protected source queries and active-admin checks in the loader. No Gemini key, AI service, Cloud Functions deployment or billing upgrade is needed for these calculations. Forecasting, treatment suggestions, automated clinical interpretation, student rankings and external portal authentication integration are outside this implementation scope.
 
 ## Acceptance criteria
 
-- Statistics is reachable from the admin's left sidebar and cannot be accessed by student/facilitator sessions or unauthorized direct API requests.
+- Statistics is reachable from the admin's left sidebar; student/facilitator/inactive/anonymous sessions are rejected by its loader. Firestore reads obey deployed permissions, and the added global conversation-read permission is limited to active super admins.
 - Each view applies its own campus/date controls consistently and preserves them while switching tabs; assessment-only filters are visibly scoped. Changing a view's reporting period does not change either other view.
 - Unique students are counted once in period totals despite multiple appointments/messages/retakes. Weekly unique counts are not incorrectly summed into a period total.
 - Activity timestamps and bucket boundaries respect Asia/Manila, including local midnight, period-end and week-boundary cases.
@@ -223,6 +223,6 @@ Do not bypass the deferred backend by shipping unrestricted raw-response queries
 - Campus/instrument score summaries and bins honor the proposed minimum group size without exposing exact suppressed values.
 - Reports contain no personal identifiers, answer text or message content, and missing data is visible in coverage reporting.
 - Empty/error/stale results are distinguishable, and filter changes do not display an old response under a new label.
-- Synthetic metric/authorization tests, website typecheck and production build pass. Actual browser/report-endpoint testing is documented separately from fixture tests.
+- Synthetic metric/authorization tests, website typecheck and production build pass. Browser SDK/rules testing is documented separately from visual browser checks.
 
 Related reference: [Assessment analytics opportunities](assessment-analytics-opportunities.md). That earlier document inventories available data; this specification defines the Statistics page's agreed nonclinical purpose and initial implementation.

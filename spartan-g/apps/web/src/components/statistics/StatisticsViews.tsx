@@ -19,6 +19,29 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
     <p className="mt-2 text-xs leading-relaxed text-gray-500">{detail}</p>
   </Card>;
 }
+const chartColors = ['#b91c1c', '#0f766e', '#334155', '#d97706', '#7c3aed', '#2563eb', '#be123c', '#15803d'];
+function Donut({ rows, label }: { rows: { label: string; value: number }[]; label: string }) {
+  const visible = rows.filter(row => row.value > 0);
+  const total = visible.reduce((sum, row) => sum + row.value, 0);
+  if (!total) return <p className="text-sm text-gray-500">No chart data for this selection.</p>;
+  let offset = 0;
+  const stops = visible.map((row, index) => {
+    const start = offset / total * 100;
+    offset += row.value;
+    return `${chartColors[index % chartColors.length]} ${start}% ${offset / total * 100}%`;
+  }).join(', ');
+  return <div className="flex flex-wrap items-center gap-6" role="img" aria-label={label}>
+    <div className="h-40 w-40 shrink-0 rounded-full" style={{ background: `conic-gradient(${stops})` }}>
+      <div className="m-8 flex h-24 w-24 items-center justify-center rounded-full bg-white text-center text-xs font-semibold text-gray-500 shadow-inner">{total.toLocaleString()}<br />total</div>
+    </div>
+    <ul className="min-w-[12rem] flex-1 space-y-2 text-xs">
+      {visible.map((row, index) => <li key={row.label} className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2 text-gray-600"><span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColors[index % chartColors.length] }} />{row.label}</span>
+        <span className="font-semibold tabular-nums text-gray-800">{row.value.toLocaleString()} · {Math.round(row.value / total * 100)}%</span>
+      </li>)}
+    </ul>
+  </div>;
+}
 /** Values remain visible for keyboard and screen-reader users. */
 function Bars({ rows, color = 'bg-red-600', unit }: { rows: { label: string; value: number; note?: string }[]; color?: string; unit: string }) {
   const max = Math.max(1, ...rows.map(row => row.value));
@@ -54,7 +77,10 @@ export function ParticipationView({ report }: { report: StatisticsReport }) {
         </div>
       </div>
       <div className="mt-6 grid gap-7 lg:grid-cols-2">
-        <Bars unit="Participating students by campus" rows={report.participation.map(row => ({ label: campusLabel(row.campus, row.label), value: row.participants }))} />
+        <div>
+          <h4 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Participation share</h4>
+          <Donut label="Participating students by campus" rows={report.participation.map(row => ({ label: campusLabel(row.campus, row.label), value: row.participants }))} />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">Campus activity counts and registered-student participation rates</caption>
@@ -73,6 +99,13 @@ export function ParticipationView({ report }: { report: StatisticsReport }) {
       <summary className="cursor-pointer text-sm font-semibold text-gray-800">Assessment completion details <span className="ml-2 font-normal text-gray-500">{totals.completedStarters} of {totals.starters} starters completed at least one matching attempt</span></summary>
       <p className="mt-3 text-xs text-gray-500">Each definition follows its own start cohort. Earlier starts do not inflate completion rates; unfinished attempts do not establish abandonment.</p>
       {report.assessmentCohorts.length === 0 ? <p className="mt-3 text-sm text-gray-500">No matching assessment starts in this period.</p> : <div className="mt-4 space-y-3">
+        <div className="mb-5 max-w-xl">
+          <h4 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Completion share</h4>
+          <Donut label="Assessment completion share" rows={[
+            { label: 'Completed', value: totals.completedStarters },
+            { label: 'Not yet submitted', value: totals.incompleteStarters },
+          ]} />
+        </div>
         {report.assessmentCohorts.map(row => <div key={row.assessmentId} className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-3 text-sm">
           <span className="font-medium text-gray-700">{row.title}</span>
           <span className="text-gray-500">{row.completed} / {row.starters} completed · {format(row.rate, '%')} · {row.remaining} not yet submitted</span>
@@ -133,7 +166,10 @@ export function ScoresView({ report, instrument, version, focusedCampus, onVersi
             {[['Students', format(focused.sample)], ['Median', format(focused.median)], ['Q1–Q3', `${format(focused.q1)}–${format(focused.q3)}`], ['Mean', format(focused.mean)]].map(([label, value]) => <div key={label}><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 text-xl font-semibold text-gray-900">{value}</dd></div>)}
           </dl>
           <p className="my-5 text-xs text-gray-500">Numeric range 0–{focused.max}{focused.max === 42 ? ' · doubled DASS-21 subscale sum' : ''}</p>
-          {focused.bins.some(bin => bin.count === null) ? <p className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">Distribution withheld because one or more nonzero bins have fewer than 5 students. All bins are hidden to reduce disclosure through subtraction.</p> : <Bars color="bg-teal-600" unit="Students per numeric score range" rows={focused.bins.map(bin => ({ label: bin.label, value: bin.count ?? 0 }))} />}
+          {focused.bins.some(bin => bin.count === null) ? <p className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">Distribution withheld because one or more nonzero bins have fewer than 5 students. All bins are hidden to reduce disclosure through subtraction.</p> : <div className="space-y-5">
+            <Donut label={`${instrument} score distribution for ${focused.label}`} rows={focused.bins.map(bin => ({ label: bin.label, value: bin.count ?? 0 }))} />
+            <Bars color="bg-teal-600" unit="Students per numeric score range" rows={focused.bins.map(bin => ({ label: bin.label, value: bin.count ?? 0 }))} />
+          </div>}
         </>}
       </div>
     </div>}

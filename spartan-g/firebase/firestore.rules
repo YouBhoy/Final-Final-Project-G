@@ -317,7 +317,7 @@ service cloud.firestore {
       // Reads may only look at resource.data (request.resource is null on reads).
       // `resource == null` lets the get-then-create transactions (appointment
       // acceptance, ensureConversation) probe a conversation that doesn't exist yet.
-      allow read: if isActiveUser()
+      allow read: if isSuperAdmin() || isActiveUser()
         && (resource == null || request.auth.uid in resource.data.participantIds);
       // Participants may only touch last-message metadata and unread counts;
       // participantIds can never be changed by a client update.
