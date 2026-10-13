@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { AuthSession, AuthStatus, LoginFormData, RegisterFormData } from "@spartan-g/shared-types";
+import { clearPrivacySession } from '../lib/privacySession';
 import {
   registerUser,
   loginUser,
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(authUser);
         setStatus("authenticated");
       } else {
+        clearPrivacySession();
         setUser(null);
         setStatus("unauthenticated");
       }
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (data: RegisterFormData) => {
+    clearPrivacySession();
     setStatus("loading");
     setError(null);
     try {
@@ -69,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (data: LoginFormData) => {
+    clearPrivacySession();
     setStatus("loading");
     setError(null);
     try {
@@ -83,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    clearPrivacySession();
     setStatus("loading");
     setError(null);
     try {

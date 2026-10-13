@@ -79,6 +79,25 @@ async function setup({ assigned = true } = {}) {
   return ids;
 }
 
+test('privacy policy is readable by active accounts but only admins can publish validated revisions', async () => {
+  const ids = await setup();
+  const path = 'platform_settings/privacy_policy';
+  await db.doc(path).delete();
+  const policy = { title: 'Privacy Policy', body: 'First paragraph.\n\nSecond paragraph.', version: 1, updatedBy: ids.admin };
+  check(await write(ids.studentA, path, { ...policy, updatedBy: ids.studentA }, ['updatedAt']), 403);
+  check(await write(ids.facA, path, { ...policy, updatedBy: ids.facA }, ['updatedAt']), 403);
+  check(await write(ids.admin, path, policy, ['updatedAt']), 200);
+  for (const uid of [ids.studentA, ids.facA, ids.admin]) check(await read(uid, path), 200);
+  check(await read(ids.disabled, path), 403);
+  assert.equal((await fetch(`${base}/${path}`)).status, 403);
+  check(await write(ids.admin, path, { ...policy, body: 'New policy', version: 2 }, ['updatedAt']), 200);
+  check(await write(ids.admin, path, { ...policy, version: 2 }, ['updatedAt']), 403);
+  for (const change of [{ body: '  \n ' }, { title: '   ' }, { body: 'x'.repeat(20001) },
+    { title: 'x'.repeat(121) }, { updatedBy: ids.studentA }, { secret: 'extra field' }]) {
+    check(await write(ids.admin, path, { ...policy, version: 3, ...change }, ['updatedAt']), 403);
+  }
+});
+
 test('students can request only their own pending canonical relationship; no self-approval', async () => {
   const ids = await setup({ assigned: false });
   const path = `facilitator_student_links/${ids.facA}_${ids.studentA}`;

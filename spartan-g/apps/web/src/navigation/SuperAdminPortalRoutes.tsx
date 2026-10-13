@@ -8,6 +8,7 @@ import { AdminResourcesPage } from "../pages/admin/AdminResourcesPage";
 import { AdminAuditLogsPage } from "../pages/admin/AdminAuditLogsPage";
 import { AdminProfilePage } from "../pages/admin/AdminProfilePage";
 import { AdminStatisticsPage } from "../pages/admin/AdminStatisticsPage";
+import { AdminPrivacyPage } from '../pages/admin/AdminPrivacyPage';
 import { adminNavItems } from "./navConfigs";
 
 /** Super Admin is web-only — no mobile counterpart. */
@@ -31,6 +32,7 @@ export function SuperAdminPortalRoutes() {
         />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="statistics" element={<AdminStatisticsPage />} />
+        <Route path="privacy" element={<AdminPrivacyPage />} />
         <Route path="users/:uid" element={<AdminUserDetailPage />} />
         <Route path="campuses" element={<AdminCampusesPage />} />
         <Route path="resources" element={<AdminResourcesPage />} />

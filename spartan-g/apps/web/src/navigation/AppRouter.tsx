@@ -8,6 +8,11 @@ import { TemplateAssessmentPage } from "../pages/assessment/TemplateAssessmentPa
 import { StudentAssessmentsPage } from "../pages/student/StudentAssessmentsPage";
 import { SeederPage } from "../pages/dev/SeederPage";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
+import { PrivacyConsentGate } from '../components/auth/PrivacyConsentGate';
+import { PortalLayout } from '../components/layout/PortalLayout';
+import { StudentDashboardPage } from '../pages/student/StudentDashboardPage';
+import { FacilitatorDashboardPage } from '../pages/facilitator/FacilitatorDashboardPage';
+import { studentNavItems, facilitatorNavItems } from './navConfigs';
 import { StudentPortalRoutes } from "./StudentPortalRoutes";
 import { FacilitatorPortalRoutes } from "./FacilitatorPortalRoutes";
 import { SuperAdminPortalRoutes } from "./SuperAdminPortalRoutes";
@@ -47,6 +52,21 @@ function LoadingScreen() {
   );
 }
 
+function PrivacyDashboardBackground() {
+  const { user } = useAuth();
+  if (user?.role === 'student') return (
+    <PortalLayout portalName="Student Portal" portalTagline="Track your wellbeing journey" navItems={studentNavItems} navPlacement="top">
+      <StudentDashboardPage />
+    </PortalLayout>
+  );
+  if (user?.role === 'facilitator') return (
+    <PortalLayout portalName="Facilitator Portal" portalTagline="Support your students' wellbeing" navItems={facilitatorNavItems}>
+      <FacilitatorDashboardPage />
+    </PortalLayout>
+  );
+  return null;
+}
+
 function AuthGate({ children }: { children: ReactNode }) {
   const { status } = useAuth();
 
@@ -54,7 +74,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
-  return <>{children}</>;
+  return <PrivacyConsentGate background={<PrivacyDashboardBackground />}>{children}</PrivacyConsentGate>;
 }
 
 function AppRoutes() {

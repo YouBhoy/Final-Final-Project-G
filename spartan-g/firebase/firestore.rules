@@ -75,6 +75,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /platform_settings/{settingId} {
+      allow read: if settingId == 'privacy_policy' && isActiveUser();
+      function validPolicy() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['title', 'body', 'version', 'updatedBy', 'updatedAt'])
+          && data.keys().hasOnly(['title', 'body', 'version', 'updatedBy', 'updatedAt'])
+          && data.title is string && data.title.size() > 0 && data.title.size() <= 120
+          && data.body is string && data.body.size() > 0 && data.body.size() <= 20000
+          && data.title.matches('[\\s\\S]*\\S[\\s\\S]*') && data.body.matches('[\\s\\S]*\\S[\\s\\S]*')
+          && data.version is int && data.updatedBy == request.auth.uid && data.updatedAt == request.time;
+      }
+      allow create: if settingId == 'privacy_policy' && isSuperAdmin() && validPolicy() && request.resource.data.version == 1;
+      allow update: if settingId == 'privacy_policy' && isSuperAdmin() && validPolicy() && request.resource.data.version == resource.data.version + 1;
+      allow delete: if false;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId)
         || isSuperAdmin()

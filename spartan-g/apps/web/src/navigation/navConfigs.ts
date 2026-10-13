@@ -83,4 +83,5 @@ export const adminNavItems: NavItem[] = [
   { to: "/admin/audit-logs", label: "Audit Log", iconPath: auditIcon },
   { to: "/admin/profile", label: "Profile", iconPath: profileIcon },
   { to: "/admin/settings", label: "Settings", iconPath: settingsIcon },
+  { to: "/admin/privacy", label: "Privacy Policy", iconPath: assessmentIcon },
 ];
