@@ -229,8 +229,10 @@ service cloud.firestore {
     // ─── Device Tokens (FCM) ───────────────────────────────────
     match /device_tokens/{tokenId} {
       allow read: if isOwner(resource.data.uid) || isSuperAdmin();
-      allow create, update: if isAuthenticated()
+      allow create: if isActiveUser()
         && request.resource.data.uid == request.auth.uid;
+      allow update: if isActiveUser() && isOwner(resource.data.uid)
+        && request.resource.data.uid == resource.data.uid;
       allow delete: if isOwner(resource.data.uid) || isSuperAdmin();
     }
 
@@ -464,7 +466,15 @@ service cloud.firestore {
           || exists(/databases/$(database)/documents/conversations/$(resource.data.conversationId))
             && get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participantIds.hasAny([request.auth.uid]));
       allow create: if isActiveUser()
-        && request.resource.data.senderId == request.auth.uid;
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.conversationId is string
+        && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId))
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participantIds
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 4000
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
       allow update: if isActiveUser()
         && exists(/databases/$(database)/documents/conversations/$(resource.data.conversationId))
         && get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participantIds.hasAny([request.auth.uid])
@@ -487,7 +497,8 @@ service cloud.firestore {
       allow create: if isFacilitator()
         && request.resource.data.facilitatorId == request.auth.uid;
       allow update: if isFacilitator()
-        && resource.data.facilitatorId == request.auth.uid;
+        && resource.data.facilitatorId == request.auth.uid
+        && request.resource.data.facilitatorId == resource.data.facilitatorId;
       allow delete: if isFacilitator()
         && resource.data.facilitatorId == request.auth.uid;
     }

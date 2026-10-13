@@ -25,7 +25,12 @@ service firebase.storage {
     }
 
     function isOwner(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
+      return isActiveUser() && request.auth.uid == uid;
+    }
+
+    function isConversationParticipant(conversationId) {
+      return isActiveUser()
+        && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data.participantIds;
     }
 
     function isValidImage() {
@@ -65,9 +70,9 @@ service firebase.storage {
 
     // Message attachments
     match /messages/{conversationId}/{fileName} {
-      allow read: if isActiveUser();
-      allow write: if isActiveUser() && isValidDocument();
-      allow delete: if isFacilitatorOrAdmin();
+      allow read: if isSuperAdmin() || isConversationParticipant(conversationId);
+      allow write: if isConversationParticipant(conversationId) && isValidDocument();
+      allow delete: if isSuperAdmin() || (isFacilitatorOrAdmin() && isConversationParticipant(conversationId));
     }
 
     // Shared resource-library files — Super Admin uploads/replaces/removes,

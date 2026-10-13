@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13 Asia/Manila",
+  "environment": "Local loopback emulators, fixed demo-spartan-booking project, synthetic records only",
+  "deployed": false,
+  "results": [
+    { "command": "npm.cmd run build", "cwd": "spartan-g/firebase/functions", "status": "Pass", "exitCode": 0 },
+    { "command": "firebase.cmd emulators:exec --project demo-spartan-booking --config firebase.security-test.json --only firestore,storage \"node --test firebase/functions/test/securityRules.test.mjs firebase/functions/test/registrationRules.test.mjs firebase/functions/test/facilitatorAccess.test.mjs firebase/functions/test/sparkAppointments.test.mjs\"", "cwd": "spartan-g", "status": "Pass", "exitCode": 0, "tests": 34, "passed": 34, "failed": 0 },
+    { "command": "firebase.cmd emulators:exec --project demo-spartan-booking --config firebase.security-test.json --only firestore,storage \"node --test firebase/functions/test/securityRules.test.mjs firebase/functions/test/studentProfile.test.mjs firebase/functions/test/attemptChain.test.mjs firebase/functions/test/assessmentOverride.test.mjs firebase/functions/test/statisticsClientAccess.test.mjs\"", "cwd": "spartan-g", "status": "Pass", "exitCode": 0, "tests": 55, "passed": 55, "failed": 0, "openGapReproductions": 5 },
+    { "command": "node --test scripts/assessment-catalog.test.mjs packages/shared-types/src/utils/risk-evaluation.test.mjs packages/shared-types/src/utils/appointment-scheduling.test.mjs apps/web/test/privacyConsent.test.mjs", "cwd": "spartan-g", "status": "Pass", "tests": 29, "passed": 29, "failed": 0 },
+    { "command": "node --test test/assessmentSummary.test.mjs test/statistics.test.mjs test/statisticsClient.test.mjs test/registrationClients.test.mjs test/bookingWindow.test.mjs", "cwd": "spartan-g/firebase/functions", "status": "Pass", "exitCode": 0, "tests": 38, "passed": 38, "failed": 0 },
+    { "command": "node --test test/securityHeaders.test.mjs", "cwd": "spartan-g/firebase/functions", "status": "Pass", "exitCode": 0, "tests": 1, "passed": 1, "failed": 0 },
+    { "command": "npm.cmd run build:web", "cwd": "spartan-g", "status": "Pass", "exitCode": 0 },
+    { "command": "npm.cmd run typecheck", "cwd": "spartan-g", "status": "Fail", "note": "16 errors in unchanged mobile paths and TS6306/TS6310 in unchanged shared-ui config; web/shared-services/shared-types checks passed. Final enclosing shell exit reflected later passing tests." },
+    { "command": "node --test test/assessmentSummary.test.mjs test/studentProfile.test.mjs test/statistics.test.mjs test/statisticsClient.test.mjs test/registrationClients.test.mjs test/bookingWindow.test.mjs test/attemptChain.test.mjs", "cwd": "spartan-g/firebase/functions", "status": "Fail initially; guarded suites subsequently passed inside emulator", "exitCode": 1, "passed": 45, "failed": 2 },
+    { "command": "npm.cmd audit --json --ignore-scripts", "cwd": "spartan-g and spartan-g/firebase/functions", "status": "Not validated", "exitCode": 1, "note": "Both fresh requests failed to reach advisory endpoint; historical snapshots are not current clean audits." },
+    { "command": "node security_audit/remediation/collect-evidence.mjs", "cwd": ".", "status": "Pass after historical BOM parsing fix", "exitCode": 0 },
+    { "command": "git diff --check", "cwd": ".", "status": "Pass", "exitCode": 0 }
+  ],
+  "limitations": ["Run totals overlap; not unique test counts", "Open-gap reproductions passing means vulnerability present", "No live header, key validity, IAM, credential rotation, production data change or deployment verification", "No raw emulator process environment or credential values saved"]
+}
