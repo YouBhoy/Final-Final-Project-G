@@ -1,5 +1,5 @@
 import { useAiSummary } from './useAiSummary';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
-import { useAuthStore, userRepository, assessmentService, isSummaryAiAvailable, AI_UNAVAILABLE_MESSAGE, SUMMARY_RISK_UNAVAILABLE_MESSAGE } from '@spartan-g/shared-services';
+import { useAuthStore, facilitatorStudentsService, facilitatorStudentsErrorMessage, isSummaryAiAvailable, SUMMARY_RISK_UNAVAILABLE_MESSAGE } from '@spartan-g/shared-services';
+import { AssessmentOverviewCard } from './AssessmentOverviewCard';
+import { assessmentDisplay, assessmentDate } from './assessment-overview';
 import {
   calculatePHQ9Score,
   calculateGAD7Score,
@@ -68,19 +70,12 @@ function getHiddenEmail(): string {
 }
 
 function formatDate(timestamp: Timestamp | undefined): string {
-  if (!timestamp) return '—';
-  const date = (timestamp as any).toDate ? (timestamp as any).toDate() : new Date(timestamp as unknown as string);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return assessmentDate(timestamp);
 }
 
 function answersToRecord(attempt: AssessmentAttemptDocument & { id: string }): Record<string, string> {
-  return attempt.answers.reduce<Record<string, string>>((acc, a) => {
+  return (Array.isArray(attempt.answers) ? attempt.answers : []).reduce<Record<string, string>>((acc, a) => {
+    if (!a || typeof a.questionId !== 'string' || typeof a.value !== 'string') return acc;
     acc[a.questionId] = a.value;
     return acc;
   }, {});
@@ -111,11 +106,7 @@ function getSeverityBg(severity: string): string {
 }
 
 function isStudentCritical(attempt: AssessmentAttemptDocument & { id: string }): boolean {
-  const answers = answersToRecord(attempt);
-  const phq = calculatePHQ9Score(answers);
-  const gad = calculateGAD7Score(answers);
-  const dass = calculateDASS21Score(answers);
-  return phq.isCritical || gad.isCritical || dass.isCritical;
+  return assessmentDisplay(attempt).isCritical;
 }
 
 // ─── Score Card Component ─────────────────────────────────────
@@ -183,26 +174,16 @@ function ScoreCard({ title, score, maxScore, severity, isCritical, subRows }: Sc
 
 const geminiKeyPresent = isSummaryAiAvailable();
 
-function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores }) {
+function AiSummaryCard({ attempt, scores, assessmentTitle }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores; assessmentTitle?: string | null }) {
   const { summary, isLoading, hasError, errorMessage, riskUnavailable, loadSummary } = useAiSummary(attempt, scores);
+
+  if (!geminiKeyPresent) return <AssessmentOverviewCard attempt={attempt} title={assessmentTitle} />;
 
   if (riskUnavailable) {
     return (
       <View style={styles.aiSummaryCard}>
         <View style={styles.aiSummaryHeader}><Text style={styles.aiSummaryTitle}>Risk summary unavailable</Text></View>
         <Text style={styles.aiSummaryErrorText}>{SUMMARY_RISK_UNAVAILABLE_MESSAGE}</Text>
-      </View>
-    );
-  }
-
-  if (!geminiKeyPresent) {
-    return (
-      <View style={styles.aiSummaryCard}>
-        <View style={styles.aiSummaryHeader}>
-          <Text style={styles.aiSummaryIcon}>🤖</Text>
-          <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
-        </View>
-        <Text style={styles.aiSummaryErrorText}>{AI_UNAVAILABLE_MESSAGE}</Text>
       </View>
     );
   }
@@ -257,16 +238,18 @@ function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument
 
 interface AttemptScorePanelProps {
   attempt: AssessmentAttemptDocument & { id: string };
+  assessmentTitle?: string | null;
 }
 
-export function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
+export function AttemptScorePanel({ attempt, assessmentTitle }: AttemptScorePanelProps) {
   const answers = answersToRecord(attempt);
+  const available = assessmentDisplay(attempt);
 
   const phqResult = calculatePHQ9Score(answers);
   const gadResult = calculateGAD7Score(answers);
   const dassResult = calculateDASS21Score(answers);
 
-  const isAnyCritical = phqResult.isCritical || gadResult.isCritical || dassResult.isCritical;
+  const isAnyCritical = available.isCritical;
 
   const aiScores: AiSummaryScores = {
     phqScore: phqResult.score,
@@ -293,31 +276,31 @@ export function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
         </View>
       )}
 
-      <AiSummaryCard attempt={attempt} scores={aiScores} />
+      <AiSummaryCard attempt={attempt} scores={aiScores} assessmentTitle={assessmentTitle} />
 
       <View style={styles.attemptMeta}>
-        <Text style={styles.attemptMetaText}>Attempt #{attempt.attemptNumber}</Text>
+        <Text style={styles.attemptMetaText}>Attempt #{attempt.attemptNumber ?? 'unavailable'}</Text>
         <Text style={styles.attemptMetaText}>Submitted: {formatDate(attempt.submittedAt)}</Text>
       </View>
 
       <View style={styles.scoresGrid}>
-        <ScoreCard
+        {available.phq && <ScoreCard
           title="PHQ-9 — Patient Health Questionnaire"
           score={phqResult.score}
           maxScore={27}
           severity={phqResult.severity}
           isCritical={phqResult.isCritical}
-        />
+        />}
 
-        <ScoreCard
+        {available.gad && <ScoreCard
           title="GAD-7 — Generalized Anxiety Disorder"
           score={gadResult.score}
           maxScore={21}
           severity={gadResult.severity}
           isCritical={gadResult.isCritical}
-        />
+        />}
 
-        <ScoreCard
+        {available.dass && <ScoreCard
           title="DASS-21 — Depression, Anxiety & Stress Scale"
           score={0}
           maxScore={0}
@@ -346,7 +329,7 @@ export function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
               isCritical: dassResult.stress.isCritical,
             },
           ]}
-        />
+        />}
       </View>
     </View>
   );
@@ -358,6 +341,12 @@ export function FacilitatorStudentsScreen() {
   const route = useRoute<RouteProp<FacilitatorMobileStackParamList, 'FacilitatorStudentsList'>>();
   const navigation = useNavigation<any>();
   const session = useAuthStore((s) => s.session);
+  const authStatus = useAuthStore(s => s.status);
+  const [dataOwner, setDataOwner] = useState<typeof session>(null);
+  const [reload, setReload] = useState(0);
+  const [listNotice, setListNotice] = useState<string | null>(null);
+  const [assessmentTitles, setAssessmentTitles] = useState<Record<string, string | null>>({});
+  const scoreRequest = useRef(0);
   const preselectedStudentId = route.params?.studentId;
 
   const [students, setStudents] = useState<StudentUser[]>([]);
@@ -365,7 +354,7 @@ export function FacilitatorStudentsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Pseudonymization: risk status per student (id -> isCritical)
-  const [riskMap, setRiskMap] = useState<Record<string, boolean>>({});
+  const [riskMap, setRiskMap] = useState<Record<string, boolean | null>>({});
   const [riskLoading, setRiskLoading] = useState(true);
 
   // Score view state
@@ -375,123 +364,75 @@ export function FacilitatorStudentsScreen() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsError, setAttemptsError] = useState<string | null>(null);
 
-  // Separate function to load scores for a student (defined before the effects that use it)
   const loadScoresForStudent = useCallback(async (studentId: string) => {
-    setAttemptsLoading(true);
-    setAttemptsError(null);
+    const request = ++scoreRequest.current;
+    const current = () => request === scoreRequest.current && useAuthStore.getState().session === session && useAuthStore.getState().status === 'authenticated';
+    setAttempts([]); setAssessmentTitles({}); setAttemptsLoading(true); setAttemptsError(null);
     try {
-      const result = await assessmentService.getAttemptsByStudent(studentId);
-      setAttempts(result);
+      const result = await facilitatorStudentsService.getStudentHistory(studentId);
+      if (!current()) return;
+      setAttempts(result.attempts);
+      setAssessmentTitles(Object.fromEntries(Object.entries(result.metadata).map(([id, value]) => [id, value.title])));
     } catch (err) {
-      setAttemptsError(err instanceof Error ? err.message : 'Failed to load assessment scores');
-    } finally {
-      setAttemptsLoading(false);
-    }
-  }, []);
+      if (current()) setAttemptsError(facilitatorStudentsErrorMessage(err));
+    } finally { if (current()) setAttemptsLoading(false); }
+  }, [session]);
 
-  // Load students on mount
   useEffect(() => {
-    if (!session) return;
-
     let cancelled = false;
-
+    scoreRequest.current++; setDataOwner(null); setStudents([]); setRiskMap({}); setAttempts([]); setSelectedStudent(null); setListNotice(null);
     async function loadStudents() {
       try {
-        setLoading(true);
-        setError(null);
-
-        const result = await userRepository.getAllStudents();
-
-        if (!cancelled) {
-          const items: StudentUser[] = result.map((u) => ({
-            id: u.id,
-            email: u.email,
-            displayName: u.displayName,
-            role: u.role,
-            isActive: u.isActive,
-          }));
-          setStudents(items);
-
-          // If a studentId was passed in params, auto-select and load scores
-          if (preselectedStudentId) {
-            const matched = items.find((s) => s.id === preselectedStudentId);
-            if (matched) {
-              setSelectedStudent(matched);
-              loadScoresForStudent(matched.id);
-            }
-          }
+        setLoading(true); setError(null);
+        if (authStatus !== 'authenticated' || !session || !['facilitator', 'super_admin'].includes(session.role)) throw new Error('Staff permission required');
+        const result = await facilitatorStudentsService.listStudents();
+        if (cancelled) return;
+        setStudents(result.students);
+        setListNotice(result.unavailableCount ? 'Some accepted links could not be displayed. A linked account may be inactive, unavailable or denied. No wider student search was made.' : null);
+        if (preselectedStudentId) {
+          const matched = result.students.find(student => student.id === preselectedStudentId);
+          if (!matched) { setError('This student is not in your verified assigned-student list. No wider search was made.'); return; }
+          setSelectedStudent(matched); setViewMode('scores'); void loadScoresForStudent(matched.id);
         }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load students');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+      } catch (err) { if (!cancelled) setError(facilitatorStudentsErrorMessage(err)); }
+      finally { if (!cancelled) { setDataOwner(session); setLoading(false); } }
     }
+    void loadStudents();
+    return () => { cancelled = true; scoreRequest.current++; };
+  }, [session, authStatus, preselectedStudentId, loadScoresForStudent, reload]);
 
-    loadStudents();
-    return () => { cancelled = true; };
-  }, [session, preselectedStudentId, loadScoresForStudent]);
-
-  // Evaluate risk status for all students
   useEffect(() => {
-    if (students.length === 0) {
-      setRiskLoading(false);
-      return;
-    }
-
     let cancelled = false;
-
+    if (students.length === 0 || authStatus !== 'authenticated') { setRiskLoading(false); return; }
+    setRiskLoading(true);
     async function evaluateRisk() {
-      setRiskLoading(true);
-      const map: Record<string, boolean> = {};
-
-      await Promise.all(
-        students.map(async (student) => {
-          try {
-            const studentAttempts = await assessmentService.getAttemptsByStudent(student.id);
-            if (!cancelled) {
-              if (studentAttempts.length > 0) {
-                // Use latest attempt to determine criticality
-                map[student.id] = isStudentCritical(studentAttempts[0]);
-              } else {
-                map[student.id] = false;
-              }
-            }
-          } catch {
-            if (!cancelled) {
-              map[student.id] = false;
-            }
-          }
-        }),
-      );
-
-      if (!cancelled) {
-        setRiskMap(map);
-        setRiskLoading(false);
+      const map: Record<string, boolean | null> = {};
+      for (const student of students) {
+        try {
+          const history = await facilitatorStudentsService.getStudentHistory(student.id);
+          if (cancelled) return;
+          map[student.id] = history.attempts.length ? isStudentCritical(history.attempts[0]) : false;
+        } catch { if (cancelled) return; map[student.id] = null; }
       }
+      if (!cancelled) { setRiskMap(map); setRiskLoading(false); }
     }
-
-    evaluateRisk();
+    void evaluateRisk();
     return () => { cancelled = true; };
-  }, [students]);
+  }, [students, session, authStatus]);
 
   const studentsWithRisk = useMemo((): StudentWithRisk[] => {
     return students.map((s) => ({
       ...s,
       hasAttempts: riskMap[s.id] !== undefined,
-      isCritical: riskMap[s.id] ?? false,
+      isCritical: riskMap[s.id] === true,
       attemptsLoading: riskLoading,
     }));
   }, [students, riskMap, riskLoading]);
 
   const selectedStudentIsCritical = useMemo((): boolean => {
     if (!selectedStudent) return false;
-    return riskMap[selectedStudent.id] ?? false;
-  }, [selectedStudent, riskMap]);
+    return !attemptsError && riskMap[selectedStudent.id] === true;
+  }, [selectedStudent, riskMap, attemptsError]);
 
   const handleViewScores = useCallback(async (student: StudentUser) => {
     setSelectedStudent(student);
@@ -500,6 +441,7 @@ export function FacilitatorStudentsScreen() {
   }, [loadScoresForStudent]);
 
   const handleBackToList = useCallback(() => {
+    scoreRequest.current++;
     setViewMode('list');
     setSelectedStudent(null);
     setAttempts([]);
@@ -507,7 +449,8 @@ export function FacilitatorStudentsScreen() {
   }, []);
 
   // ─── Loading ─────────────────────────────────────────────
-  if (loading) {
+  if (authStatus !== 'authenticated' || !session || !['facilitator', 'super_admin'].includes(session.role)) return <View style={styles.centerContainer}><Text>Sign in with an authorized staff account to view assigned students.</Text></View>;
+  if (dataOwner !== session || loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={lightColors.primary} />
@@ -523,7 +466,8 @@ export function FacilitatorStudentsScreen() {
         <View style={styles.errorIcon}>
           <Text style={styles.errorIconText}>!</Text>
         </View>
-        <Text style={styles.errorMessage}>Failed to load students: {error}</Text>
+        <Text style={styles.errorMessage}>{error}</Text>
+        <TouchableOpacity onPress={() => setReload(value => value + 1)}><Text>Retry assigned students</Text></TouchableOpacity>
       </View>
     );
   }
@@ -567,14 +511,14 @@ export function FacilitatorStudentsScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No assessment data</Text>
             <Text style={styles.emptyDescription}>
-              This student has not submitted any assessments yet.
+              No submitted or graded assessments are available to display for this student.
             </Text>
           </View>
         ) : (
           <View style={styles.attemptsList}>
             {attempts.map((attempt) => (
               <View key={attempt.id} style={styles.attemptCard}>
-                <AttemptScorePanel attempt={attempt} />
+                <AttemptScorePanel attempt={attempt} assessmentTitle={assessmentTitles[attempt.assessmentId]} />
               </View>
             ))}
           </View>
@@ -586,6 +530,7 @@ export function FacilitatorStudentsScreen() {
   // ─── List View ───────────────────────────────────────────
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {listNotice && <View style={styles.errorBanner}><Text style={styles.errorBannerText}>{listNotice}</Text></View>}
       {/* Pseudonymization notice */}
       <View style={styles.privacyNotice}>
         <Text style={styles.privacyNoticeText}>
@@ -603,9 +548,9 @@ export function FacilitatorStudentsScreen() {
 
       {students.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No active students</Text>
+          <Text style={styles.emptyTitle}>No assigned active students</Text>
           <Text style={styles.emptyDescription}>
-            There are no active students enrolled in the system.
+            No accessible active students have an accepted assignment with you. Assignments are established by the existing appointment-acceptance workflow; ask an administrator to review a missing relationship.
           </Text>
         </View>
       ) : (
@@ -640,6 +585,7 @@ export function FacilitatorStudentsScreen() {
                 <View style={styles.statusCell}>
                   <View style={styles.activeBadge}>
                     <Text style={styles.activeBadgeText}>Active</Text>
+                    {riskMap[student.id] === null && <Text>Assessment access unavailable</Text>}
                   </View>
                 </View>
                 <View style={styles.actionCell}>

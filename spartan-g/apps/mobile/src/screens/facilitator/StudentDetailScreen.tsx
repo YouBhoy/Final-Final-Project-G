@@ -17,10 +17,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
 import {
   useAuthStore,
-  assessmentService,
   assessmentOverrideService,
+  facilitatorStudentsService,
+  facilitatorStudentsErrorMessage,
   isSummaryAiAvailable,
-  AI_UNAVAILABLE_MESSAGE,
   SUMMARY_RISK_UNAVAILABLE_MESSAGE,
 } from '@spartan-g/shared-services';
 import type { AssessmentAttemptDocument } from '@spartan-g/shared-types';
@@ -32,6 +32,8 @@ import {
 import type { Timestamp } from 'firebase/firestore';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
+import { AssessmentOverviewCard } from './AssessmentOverviewCard';
+import { assessmentDisplay, assessmentDate } from './assessment-overview';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -43,19 +45,12 @@ type Props = NativeStackScreenProps<FacilitatorMobileStackParamList, 'StudentDet
 // ─── Helpers ──────────────────────────────────────────────────
 
 function formatDate(timestamp: Timestamp | undefined): string {
-  if (!timestamp) return '—';
-  const date = (timestamp as any).toDate ? (timestamp as any).toDate() : new Date(timestamp as unknown as string);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return assessmentDate(timestamp);
 }
 
 function answersToRecord(attempt: AssessmentAttemptDocument & { id: string }): Record<string, string> {
-  return attempt.answers.reduce<Record<string, string>>((acc, a) => {
+  return (Array.isArray(attempt.answers) ? attempt.answers : []).reduce<Record<string, string>>((acc, a) => {
+    if (!a || typeof a.questionId !== 'string' || typeof a.value !== 'string') return acc;
     acc[a.questionId] = a.value;
     return acc;
   }, {});
@@ -78,11 +73,7 @@ function getSeverityBg(severity: string): string {
 }
 
 function isAttemptCritical(attempt: AssessmentAttemptDocument & { id: string }): boolean {
-  const answers = answersToRecord(attempt);
-  const phq = calculatePHQ9Score(answers);
-  const gad = calculateGAD7Score(answers);
-  const dass = calculateDASS21Score(answers);
-  return phq.isCritical || gad.isCritical || dass.isCritical;
+  return assessmentDisplay(attempt).isCritical;
 }
 
 // ─── Types ────────────────────────────────────────────────────
@@ -167,26 +158,16 @@ function ScoreCard({ title, score, maxScore, severity, isCritical, subRows }: Sc
 
 const geminiKeyPresent = isSummaryAiAvailable();
 
-function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores }) {
+function AiSummaryCard({ attempt, scores, assessmentTitle }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores; assessmentTitle?: string | null }) {
   const { summary, isLoading, hasError, errorMessage, riskUnavailable, loadSummary } = useAiSummary(attempt, scores);
+
+  if (!geminiKeyPresent) return <AssessmentOverviewCard attempt={attempt} title={assessmentTitle} />;
 
   if (riskUnavailable) {
     return (
       <View style={styles.aiSummaryCard}>
         <View style={styles.aiSummaryHeader}><Text style={styles.aiSummaryTitle}>Risk summary unavailable</Text></View>
         <Text style={styles.aiSummaryErrorText}>{SUMMARY_RISK_UNAVAILABLE_MESSAGE}</Text>
-      </View>
-    );
-  }
-
-  if (!geminiKeyPresent) {
-    return (
-      <View style={styles.aiSummaryCard}>
-        <View style={styles.aiSummaryHeader}>
-          <Text style={styles.aiSummaryIcon}>🤖</Text>
-          <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
-        </View>
-        <Text style={styles.aiSummaryErrorText}>{AI_UNAVAILABLE_MESSAGE}</Text>
       </View>
     );
   }
@@ -241,6 +222,7 @@ function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument
 
 interface AttemptDropdownRowProps {
   attempt: AssessmentAttemptDocument & { id: string };
+  assessmentTitle?: string | null;
   isExpanded: boolean;
   isResultExpanded: boolean;
   isSummaryExpanded: boolean;
@@ -251,6 +233,7 @@ interface AttemptDropdownRowProps {
 
 function AttemptDropdownRow({
   attempt,
+  assessmentTitle,
   isExpanded,
   isResultExpanded,
   isSummaryExpanded,
@@ -262,7 +245,8 @@ function AttemptDropdownRow({
   const phqResult = calculatePHQ9Score(answers);
   const gadResult = calculateGAD7Score(answers);
   const dassResult = calculateDASS21Score(answers);
-  const isAnyCritical = phqResult.isCritical || gadResult.isCritical || dassResult.isCritical;
+  const available = assessmentDisplay(attempt);
+  const isAnyCritical = available.isCritical;
 
   const aiScores: AiSummaryScores = {
     phqScore: phqResult.score,
@@ -329,21 +313,21 @@ function AttemptDropdownRow({
             {isResultExpanded && (
               <View style={styles.level2Content}>
                 <View style={styles.scoresGrid}>
-                  <ScoreCard
+                  {available.phq && <ScoreCard
                     title="PHQ-9 — Patient Health Questionnaire"
                     score={phqResult.score}
                     maxScore={27}
                     severity={phqResult.severity}
                     isCritical={phqResult.isCritical}
-                  />
-                  <ScoreCard
+                  />}
+                  {available.gad && <ScoreCard
                     title="GAD-7 — Generalized Anxiety Disorder"
                     score={gadResult.score}
                     maxScore={21}
                     severity={gadResult.severity}
                     isCritical={gadResult.isCritical}
-                  />
-                  <ScoreCard
+                  />}
+                  {available.dass && <ScoreCard
                     title="DASS-21 — Depression, Anxiety & Stress Scale"
                     score={0}
                     maxScore={0}
@@ -372,7 +356,8 @@ function AttemptDropdownRow({
                         isCritical: dassResult.stress.isCritical,
                       },
                     ]}
-                  />
+                  />}
+                  {!available.phq && !available.gad && !available.dass && <Text>Instrument scores unavailable: complete, valid answers were not recorded.</Text>}
                 </View>
               </View>
             )}
@@ -387,7 +372,7 @@ function AttemptDropdownRow({
             >
               <View style={styles.level2HeaderLeft}>
                 <Feather name="cpu" size={16} color={lightColors.primary} />
-                <Text style={styles.level2HeaderText}>AI-Generated Summary</Text>
+                <Text style={styles.level2HeaderText}>{geminiKeyPresent ? 'AI-Generated Summary' : 'Assessment overview'}</Text>
               </View>
               <View style={[styles.chevronContainer, isSummaryExpanded && styles.chevronRotated]}>
                 <Feather name="chevron-down" size={18} color={lightColors.textMuted} />
@@ -396,7 +381,7 @@ function AttemptDropdownRow({
 
             {isSummaryExpanded && (
               <View style={styles.level2Content}>
-                <AiSummaryCard attempt={attempt} scores={aiScores} />
+                <AiSummaryCard attempt={attempt} scores={aiScores} assessmentTitle={assessmentTitle} />
               </View>
             )}
           </View>
@@ -411,6 +396,12 @@ function AttemptDropdownRow({
 export function StudentDetailScreen({ route, navigation }: Props) {
   const { assessmentId, studentId } = route.params;
   const session = useAuthStore((s) => s.session);
+  const authStatus = useAuthStore(s => s.status);
+  const [dataOwner, setDataOwner] = useState<typeof session>(null);
+  const context = studentId + '\0' + assessmentId;
+  const [loadedContext, setLoadedContext] = useState('');
+  const [settingsAvailable, setSettingsAvailable] = useState(false);
+  const [settingsWarning, setSettingsWarning] = useState<string | null>(null);
 
   // ─── Override section state ────────────────────────────────
   const [studentName, setStudentName] = useState('Student');
@@ -438,63 +429,39 @@ export function StudentDetailScreen({ route, navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load all data on mount
   useEffect(() => {
     let cancelled = false;
-
+    const current = () => !cancelled && useAuthStore.getState().session === session && useAuthStore.getState().status === 'authenticated';
     async function load() {
+      setIsLoading(true); setError(null); setDataOwner(null); setAttempts([]); setSettingsAvailable(false); setSettingsWarning(null); setScoresError(null); setScoresLoading(true);
+      setExpandedAttempts(new Set()); setExpandedResults(new Set()); setExpandedSummaries(new Set());
       try {
-        setIsLoading(true);
-        setError(null);
-
-        // ── Override data ──
-        const assessment = await assessmentService.getAssessmentDefinition(assessmentId);
-        if (assessment && !cancelled) {
-          setAssessmentTitle(assessment.title);
-          setDefaultMaxAttempts(assessment.maxAttempts);
-          setOverrideValue(assessment.maxAttempts);
-        }
-
-        const count = await assessmentService.getAttemptCount(assessmentId, studentId);
-        if (!cancelled) setAttemptCount(count);
-
-        const existingOverride = await assessmentOverrideService.getOverride(assessmentId, studentId);
-        if (existingOverride && !cancelled) {
-          setOverrideValue(existingOverride.maxAttemptsOverride);
-          setReason(existingOverride.reason ?? '');
-        }
-
-        // ── Scores data ──
-        const studentAttempts = await assessmentService.getAttemptsByStudent(studentId);
-        if (!cancelled) {
-          // Sort most recent first
-          const sorted = [...studentAttempts].sort((a, b) => {
-            const dateA = (a.submittedAt as any)?.toDate?.() ?? new Date(a.submittedAt as unknown as string);
-            const dateB = (b.submittedAt as any)?.toDate?.() ?? new Date(b.submittedAt as unknown as string);
-            return dateB.getTime() - dateA.getTime();
-          });
-          setAttempts(sorted);
-          if (sorted.length > 0) {
-            setStudentName(`Student ${studentId.slice(-4)}`);
-            // Auto-expand the most recent attempt's Level-1 row
-            setExpandedAttempts(new Set([sorted[0].id]));
-          }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load data');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-          setScoresLoading(false);
-        }
-      }
+        if (!session || authStatus !== 'authenticated') throw new Error('Staff permission required');
+        const history = await facilitatorStudentsService.getStudentHistory(studentId, assessmentId);
+        if (!current()) return;
+        setAttempts(history.attempts); setAttemptCount(history.attempts.length);
+        setStudentName('Student ' + studentId.slice(-4));
+        const metadata = history.metadata[assessmentId];
+        setAssessmentTitle(metadata?.title || 'Assessment name unavailable');
+        if (history.attempts.length) setExpandedAttempts(new Set([history.attempts[0].id]));
+        if (metadata?.maxAttempts) {
+          setDefaultMaxAttempts(metadata.maxAttempts); setOverrideValue(metadata.maxAttempts); setReason('');
+          try {
+            const override = await assessmentOverrideService.getOverride(assessmentId, studentId);
+            if (!current()) return;
+            if (override) {
+              if (override.studentId !== studentId || override.assessmentId !== assessmentId) throw new Error('Unverified override identity');
+              setOverrideValue(override.maxAttemptsOverride); setReason(override.reason ?? '');
+            }
+            setSettingsAvailable(true);
+          } catch { if (current()) setSettingsWarning('Attempt-limit settings are unavailable. Authorized assessment history remains available below.'); }
+        } else setSettingsWarning('Assessment settings are unavailable. Authorized assessment history remains available below.');
+      } catch (err) { if (current()) setError(facilitatorStudentsErrorMessage(err)); }
+      finally { if (current()) { setLoadedContext(context); setDataOwner(session); setIsLoading(false); setScoresLoading(false); } }
     }
-
-    load();
+    void load();
     return () => { cancelled = true; };
-  }, [assessmentId, studentId]);
+  }, [assessmentId, studentId, session, authStatus, context]);
 
   // ─── Dropdown toggle handlers with LayoutAnimation ─────────
 
@@ -547,7 +514,9 @@ export function StudentDetailScreen({ route, navigation }: Props) {
   }, [attemptCount]);
 
   const handleSave = useCallback(async () => {
-    if (!session) return;
+    if (!session || session.role !== 'super_admin' || dataOwner !== session || loadedContext !== context || !settingsAvailable) {
+      Alert.alert('Read-only', 'Attempt-limit changes require an authorized administrator and verified settings.'); return;
+    }
 
     if (overrideValue < attemptCount) {
       Alert.alert(
@@ -576,10 +545,11 @@ export function StudentDetailScreen({ route, navigation }: Props) {
     } finally {
       setIsSaving(false);
     }
-  }, [session, overrideValue, attemptCount, assessmentId, studentId, reason]);
+  }, [session, overrideValue, attemptCount, assessmentId, studentId, reason, dataOwner, loadedContext, context, settingsAvailable]);
 
   // ─── Loading ───────────────────────────────────────────────
-  if (isLoading) {
+  if (authStatus !== 'authenticated' || !session || !['facilitator', 'super_admin'].includes(session.role)) return <View style={styles.centerContainer}><Text>Sign in with an authorized staff account to view student details.</Text></View>;
+  if (dataOwner !== session || loadedContext !== context || isLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={lightColors.primary} />
@@ -628,6 +598,7 @@ export function StudentDetailScreen({ route, navigation }: Props) {
         <Text style={styles.sectionTitle}>Adjust Attempts</Text>
       </View>
 
+      {settingsAvailable && session.role === 'super_admin' ? <>
       {/* Current stats card */}
       <View style={styles.statsCard}>
         <View style={styles.statRow}>
@@ -732,6 +703,8 @@ export function StudentDetailScreen({ route, navigation }: Props) {
         </Text>
       </View>
 
+      </> : <View style={styles.infoCard}><Text style={styles.infoText}>{settingsWarning || 'Attempt-limit changes are administrator-only. Student assessment history is available below.'}</Text></View>}
+
       {/* ════════════════════════════════════════════════════════ */}
       {/* SECTION 2: Assessment Results                           */}
       {/* ════════════════════════════════════════════════════════ */}
@@ -754,7 +727,7 @@ export function StudentDetailScreen({ route, navigation }: Props) {
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No assessment data</Text>
           <Text style={styles.emptyDescription}>
-            This student has not submitted any assessments yet.
+            No submitted or graded attempts for this assessment are available to display.
           </Text>
         </View>
       ) : (
@@ -763,6 +736,7 @@ export function StudentDetailScreen({ route, navigation }: Props) {
             <AttemptDropdownRow
               key={attempt.id}
               attempt={attempt}
+              assessmentTitle={assessmentTitle}
               isExpanded={expandedAttempts.has(attempt.id)}
               isResultExpanded={expandedResults.has(attempt.id)}
               isSummaryExpanded={expandedSummaries.has(attempt.id)}
