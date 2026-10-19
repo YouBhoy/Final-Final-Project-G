@@ -6,30 +6,30 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   Modal,
   ScrollView,
   StyleSheet,
   Dimensions,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
+  useWindowDimensions,
   Platform,
   Animated,
 } from 'react-native';
 import type { GestureResponderEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { lightColors, palette } from '@spartan-g/shared-ui';
-import { useAuthStore, assistantGeminiClient, isAssistantAiAvailable, AI_UNAVAILABLE_MESSAGE } from '@spartan-g/shared-services';
-import type { AssistantChatMessage } from '@spartan-g/shared-services';
+import { useAuthStore, systemAssistantService, SYSTEM_ASSISTANT_GREETING, SYSTEM_ASSISTANT_SIGN_IN, SYSTEM_ASSISTANT_MAX_INPUT } from '@spartan-g/shared-services';
 import { navigationRef } from '../../../navigation/navigationRef';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const BUBBLE_SIZE = 60;
 const MARGIN = 20;
-const CHAT_WIDTH = Math.min(340, SCREEN_WIDTH - 32);
 const CHAT_HEIGHT = Math.min(460, SCREEN_HEIGHT - 48);
-/** Approx. vertical inset of the floating card from the screen top (for iOS keyboard offset). */
-const CHAT_CARD_TOP_OFFSET = 90;
 const INITIAL_LEFT = SCREEN_WIDTH - BUBBLE_SIZE - MARGIN;
 const INITIAL_TOP = SCREEN_HEIGHT - BUBBLE_SIZE - MARGIN - 110;
 
@@ -39,8 +39,12 @@ interface ChatBubbleMsg {
 }
 
 export function AssistantBubble() {
-  const assistantAvailable = isAssistantAiAvailable();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const chatWidth = Math.min(340, Math.max(0, width - 32));
   const session = useAuthStore((s) => s.session);
+  const authStatus = useAuthStore((s) => s.status);
+  const owner = authStatus === 'authenticated' && session?.role === 'student' ? session.uid : null;
   const [open, setOpen] = useState(false);
   const position = useRef(
     new Animated.ValueXY({ x: INITIAL_LEFT, y: INITIAL_TOP }),
@@ -49,24 +53,36 @@ export function AssistantBubble() {
   const [messages, setMessages] = useState<ChatBubbleMsg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [remaining, setRemaining] = useState<number | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
+  const [chatOwner, setChatOwner] = useState(owner);
 
   const startPosRef = useRef({ x: 0, y: 0 });
   const startValueRef = useRef({ x: 0, y: 0 });
   const lastPosRef = useRef({ x: INITIAL_LEFT, y: INITIAL_TOP });
   const dragAccumRef = useRef(0);
   const scrollRef = useRef<ScrollView | null>(null);
-  const historyRef = useRef<AssistantChatMessage[]>([]);
+  const inputFocusedRef = useRef(false);
+  const mountedRef = useRef(true);
+  const requestRef = useRef(0);
+  const sendingRef = useRef(false);
+  const visibleMessages = chatOwner === owner ? messages : [];
 
   useEffect(() => {
-    if (!assistantAvailable || !open || !session) return;
-    assistantGeminiClient
-      .getRemaining(session.uid)
-      .then((n) => setRemaining(n))
-      .catch(() => setRemaining(null));
-  }, [assistantAvailable, open, session]);
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; requestRef.current += 1; };
+  }, []);
+
+  useEffect(() => {
+    // Session-memory only. Never display an outgoing student's history or a late reply to another user.
+    requestRef.current += 1;
+    sendingRef.current = false;
+    setMessages([]);
+    setInput('');
+    setBanner(null);
+    setLoading(false);
+    setChatOwner(owner);
+  }, [owner]);
 
   useFocusEffect(() => {
     try {
@@ -132,57 +148,46 @@ export function AssistantBubble() {
   const scrollToEnd = useCallback(() => {
     scrollRef.current?.scrollToEnd?.({ animated: true });
   }, []);
-const send = useCallback(async () => {
-    if (!assistantAvailable) {
-      setBanner(AI_UNAVAILABLE_MESSAGE);
+  const closeChat = useCallback(() => {
+    inputFocusedRef.current = false;
+    Keyboard.dismiss();
+    setOpen(false);
+  }, []);
+  const send = useCallback(async () => {
+    const currentAuth = useAuthStore.getState();
+    if (!owner || currentAuth.status !== 'authenticated' || currentAuth.session?.uid !== owner || currentAuth.session.role !== 'student') {
+      setBanner(SYSTEM_ASSISTANT_SIGN_IN);
       return;
     }
     const trimmed = input.trim();
-    if (!trimmed || !session || loading) return;
-    if (remaining !== null && remaining <= 0) {
-      setBanner("Let's continue this tomorrow! You've reached today's message limit.");
-      return;
-    }
+    if (!trimmed || sendingRef.current) return;
+    sendingRef.current = true;
+    const request = ++requestRef.current;
+    const currentTurn = () => {
+      const auth = useAuthStore.getState();
+      return mountedRef.current && requestRef.current === request
+        && auth.status === 'authenticated' && auth.session?.uid === owner && auth.session.role === 'student';
+    };
 
     setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
     setInput('');
     setLoading(true);
     setBanner(null);
-    historyRef.current = [...historyRef.current, { role: 'user' as const, text: trimmed }];
 
     try {
-      const result = await assistantGeminiClient.chatWithAssistant(
-        trimmed,
-        session.uid,
-        historyRef.current,
-      );
-
-      if (result.status === 'ok') {
-        historyRef.current = [
-          ...historyRef.current,
-          { role: 'model' as const, text: result.text },
-        ];
-        setMessages((prev) => [...prev, { role: 'assistant', text: result.text }]);
-        if (typeof result.remaining === 'number') setRemaining(result.remaining);
-      } else if (result.status === 'daily_limit') {
-        setRemaining(0);
-        setBanner("Let's continue this tomorrow! You've reached today's message limit.");
-      } else if (result.status === 'unconfigured') {
-        setBanner('The assistant is not available right now. Please try again later.');
-      } else {
-        setBanner('Something went wrong while I was thinking. Please try again.');
-      }
+      const result = await systemAssistantService.reply(trimmed);
+      if (currentTurn()) setMessages((prev) => [...prev, { role: 'assistant', text: result.text }]);
     } catch {
-      setBanner('Something went wrong while I was thinking. Please try again.');
+      if (currentTurn()) setBanner("I couldn't check that right now. Please try again.");
     } finally {
-      setLoading(false);
+      if (currentTurn()) { sendingRef.current = false; setLoading(false); }
     }
-  }, [assistantAvailable, input, session, loading, remaining]);
+  }, [input, owner]);
 
   useEffect(() => {
     if (messages.length > 0) scrollToEnd();
   }, [messages, scrollToEnd]);
-return (
+  return (
     <>
       {!hidden && (
         <>
@@ -214,39 +219,44 @@ return (
       )}
 
       {!hidden && (
-        <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
-            <View style={[styles.chatCard, { width: CHAT_WIDTH, height: CHAT_HEIGHT }]}>
+        <Modal visible={open} transparent animationType="fade" onRequestClose={closeChat}>
+          <View style={styles.modalOverlay}>
+            <Pressable testID="sparty-backdrop" style={StyleSheet.absoluteFillObject}
+              accessibilityRole="button" accessibilityLabel="Close Sparty" onPress={closeChat} />
+            <KeyboardAvoidingView style={styles.modalContent} pointerEvents="box-none"
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              <View style={[styles.chatViewport, {
+                paddingTop: Math.max(16, insets.top), paddingBottom: Math.max(16, insets.bottom),
+              }]} pointerEvents="box-none">
+            <View testID="sparty-chat-card" style={[styles.chatCard, { width: chatWidth, height: CHAT_HEIGHT }]}>
               <View style={styles.chatHeader}>
                 <Image
                   source={require('../../../../assets/floating-assistant-icon.png')}
                   style={styles.chatAvatar}
                 />
                 <Text style={styles.chatTitle}>Sparty</Text>
-                <Text style={styles.chatClose} onPress={() => setOpen(false)}>
+                <Text style={styles.chatClose} onPress={closeChat}>
                   ✕
                 </Text>
               </View>
 
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? CHAT_CARD_TOP_OFFSET : 0}
-                style={styles.chatAvoidArea}
-              >
+              <View style={styles.chatAvoidArea}>
               <ScrollView
                 style={styles.chatBody}
                 ref={(r) => {
                   scrollRef.current = r;
                 }}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                onLayout={() => { if (inputFocusedRef.current) scrollToEnd(); }}
+                onContentSizeChange={() => { if (inputFocusedRef.current) scrollToEnd(); }}
               >
-                {messages.length === 0 && (
+                {visibleMessages.length === 0 && (
                   <Text style={styles.chatEmpty}>
-                    {assistantAvailable
-                      ? "Hi! I'm here to help. Ask me about your appointments, assessments, unread messages, or your garden — or just chat."
-                      : AI_UNAVAILABLE_MESSAGE}
+                    {owner ? SYSTEM_ASSISTANT_GREETING : SYSTEM_ASSISTANT_SIGN_IN}
                   </Text>
                 )}
-                {messages.map((m, i) => (
+                {visibleMessages.map((m, i) => (
                   <View
                     key={i}
                     style={m.role === 'user' ? styles.userBubble : styles.assistantRow}
@@ -264,7 +274,7 @@ return (
                     </View>
                   </View>
                 ))}
-                {loading && (
+                {chatOwner === owner && loading && (
                   <View style={styles.assistantRow}>
                     <Image
                       source={require('../../../../assets/floating-assistant-icon.png')}
@@ -277,7 +287,7 @@ return (
                 )}
               </ScrollView>
 
-              {banner && (
+              {chatOwner === owner && banner && (
                 <View style={styles.chatBanner}>
                   <Text style={styles.chatBannerText}>{banner}</Text>
                 </View>
@@ -285,28 +295,32 @@ return (
 
               <View style={styles.chatInputRow}>
                 <TextInput
-                  editable={assistantAvailable}
+                  // Deterministic system help only; no Gemini request or personal chat write.
+                  editable
                   style={styles.chatInput}
-                  value={input}
+                  value={chatOwner === owner ? input : ''}
                   onChangeText={setInput}
+                  onFocus={() => { inputFocusedRef.current = true; scrollToEnd(); }}
+                  onBlur={() => { inputFocusedRef.current = false; }}
                   placeholder="Ask me anything…"
                   placeholderTextColor={lightColors.textMuted}
                   multiline
+                  maxLength={SYSTEM_ASSISTANT_MAX_INPUT}
+                  accessibilityLabel="Message Sparty"
                 />
                 <TouchableOpacity style={styles.sendButton} onPress={send} activeOpacity={0.7}
-                  disabled={!assistantAvailable} accessibilityState={{ disabled: !assistantAvailable }}>
+                  accessibilityRole="button" accessibilityLabel="Send message to Sparty"
+                  disabled={!owner || loading || !input.trim()} accessibilityState={{ disabled: !owner || loading || !input.trim() }}>
                   <Feather name="send" size={20} color={palette.white} />
                 </TouchableOpacity>
               </View>
 
-              {remaining !== null && (
-                <Text style={styles.chatCounter}>
-                  {remaining} message{remaining === 1 ? '' : 's'} left today
-                </Text>
-              )}
-              </KeyboardAvoidingView>
+              <Text style={styles.chatCounter}>System help · Generative AI is off</Text>
+              </View>
             </View>
-          </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
         </Modal>
       )}
     </>
@@ -341,10 +355,21 @@ const styles = StyleSheet.create({
     borderRadius: 27,
   },
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.35)',
   },
+  modalContent: {
+    flex: 1,
+  },
+  chatViewport: {
+    flex: 1,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
   chatCard: {
+    flexShrink: 1,
+    maxHeight: '100%',
+    minHeight: 0,
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
@@ -356,8 +381,10 @@ const styles = StyleSheet.create({
   },
   chatAvoidArea: {
     flex: 1,
+    minHeight: 0,
   },
   chatHeader: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -379,6 +406,7 @@ const styles = StyleSheet.create({
   chatClose: { fontSize: 18, color: '#FFFFFF', paddingHorizontal: 4 },
   chatBody: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 8,
   },
@@ -420,6 +448,7 @@ const styles = StyleSheet.create({
   },
   assistantText: { color: '#0F172A', fontSize: 13 },
   chatBanner: {
+    flexShrink: 0,
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -428,6 +457,7 @@ const styles = StyleSheet.create({
   },
   chatBannerText: { color: '#D97706', fontSize: 12 },
   chatInputRow: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 10,
@@ -456,6 +486,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   chatCounter: {
+    flexShrink: 0,
     alignSelf: 'center',
     fontSize: 11,
     color: '#94A3B8',

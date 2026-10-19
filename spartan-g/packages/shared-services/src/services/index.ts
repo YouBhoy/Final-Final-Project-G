@@ -19,6 +19,8 @@ export { assessmentResponseService, type SaveResponsePayload } from './assessmen
 export { pushNotificationService } from './push-notification.service';
 export { geminiService } from './gemini';
 export { assistantGeminiClient } from './gemini';
+export { systemAssistantService } from './system-assistant.service';
+export { SYSTEM_ASSISTANT_GREETING, SYSTEM_ASSISTANT_SIGN_IN, SYSTEM_ASSISTANT_MAX_INPUT } from './system-assistant';
 export type { AssistantChatMessage } from './gemini';
 export { isSummaryAiAvailable, isAssistantAiAvailable, AI_UNAVAILABLE_MESSAGE } from '../config/ai-capabilities';
 export { isSummaryRiskAvailable, SUMMARY_RISK_UNAVAILABLE_MESSAGE } from './firebase-ai-summary-policy';
