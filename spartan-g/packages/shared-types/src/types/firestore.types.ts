@@ -111,6 +111,9 @@ export interface ConversationDocument extends FirestoreDocument {
   participantIds: string[];
   lastMessageAt: Timestamp;
   lastMessagePreview: string;
+  lastMessageId?: string;
+  lastMessageSenderId?: string;
+  lastMessageType?: 'text' | 'attachment';
   /** Per-participant unread message count, keyed by user UID. */
   unreadCount?: Record<string, number>;
 }
@@ -119,8 +122,11 @@ export interface MessageDocument extends FirestoreDocument {
   conversationId: string;
   senderId: string;
   body: string;
-  attachmentUrl?: string;
-  isRead: boolean;
+  attachmentUrl?: string | null;
+  /** Per-user receipts; older messages may not have this field. */
+  readBy?: string[];
+  /** Legacy field retained for older messages; current writers use readBy. */
+  isRead?: boolean;
 }
 
 export interface WorkHoursScheduleDocument extends FirestoreDocument {

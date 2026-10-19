@@ -13,6 +13,7 @@ react {
     reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
     hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
+    enableBundleCompression = (findProperty('android.enableBundleCompression') ?: false).toBoolean()
 
     // Use Expo CLI to bundle the app, this ensures the Metro config
     // works correctly with Expo projects.
@@ -78,7 +79,17 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  * give correct results when using with locales other than en-US. Note that
  * this variant is about 6MiB larger per architecture than default.
  */
-def jscFlavor = 'org.webkit:android-jsc:+'
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+// Only the local signing process supplies these values; nothing is stored in source.
+def releaseSigningEnvironment = [
+    storeFile: providers.environmentVariable('SPARTAN_RELEASE_STORE_FILE').orNull,
+    keyAlias: providers.environmentVariable('SPARTAN_RELEASE_KEY_ALIAS').orNull,
+    storePassword: providers.environmentVariable('SPARTAN_RELEASE_STORE_PASSWORD').orNull,
+    keyPassword: providers.environmentVariable('SPARTAN_RELEASE_KEY_PASSWORD').orNull,
+]
+// Public certificate identity, not private key material.
+def expectedReleaseCertificateSha256 = 'd0ae97095e6dc78dfe83f1f60c02e9eb40b67b28810a592be8b6a0a368e4433f'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -101,15 +112,20 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            storeType 'PKCS12'
+            if (releaseSigningEnvironment.storeFile) storeFile file(releaseSigningEnvironment.storeFile)
+            if (releaseSigningEnvironment.keyAlias) keyAlias releaseSigningEnvironment.keyAlias
+            if (releaseSigningEnvironment.storePassword) storePassword releaseSigningEnvironment.storePassword
+            if (releaseSigningEnvironment.keyPassword) keyPassword releaseSigningEnvironment.keyPassword
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
@@ -123,6 +139,68 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+// This verification task never compiles, packages or installs an APK.
+def verifyReleaseSigning = tasks.register('verifyReleaseSigning') {
+    group = 'verification'
+    description = 'Verify external release credentials and the dedicated public certificate.'
+    notCompatibleWithConfigurationCache('Release credentials must remain in the local signing process.')
+    doLast {
+        def missing = releaseSigningEnvironment.findAll { name, value -> !value?.trim() }.keySet()
+        if (!missing.isEmpty()) {
+            throw new GradleException('Dedicated release signing credentials are missing. Use the protected local signing workflow; debug signing is not a fallback.')
+        }
+        def releaseStore = new File(releaseSigningEnvironment.storeFile)
+        def sourceCheckout = new File(rootDir, '../../..').canonicalFile.toPath()
+        if (!releaseStore.isAbsolute() || !releaseStore.isFile()
+                || releaseStore.canonicalFile.toPath().startsWith(sourceCheckout)) {
+            throw new GradleException('Dedicated release keystore must be an existing absolute path outside the source checkout.')
+        }
+        char[] storeSecret = releaseSigningEnvironment.storePassword.toCharArray()
+        char[] entrySecret = releaseSigningEnvironment.keyPassword.toCharArray()
+        try {
+            def keyStore = java.security.KeyStore.getInstance('PKCS12')
+            releaseStore.withInputStream { stream -> keyStore.load(stream, storeSecret) }
+            def alias = releaseSigningEnvironment.keyAlias
+            def certificate = keyStore.getCertificate(alias)
+            if (!(certificate instanceof java.security.cert.X509Certificate) || !keyStore.isKeyEntry(alias)) {
+                throw new GradleException('Dedicated release signing entry is invalid.')
+            }
+            certificate.checkValidity()
+            def fingerprint = java.security.MessageDigest.getInstance('SHA-256').digest(certificate.encoded).encodeHex().toString()
+            if (fingerprint != expectedReleaseCertificateSha256) {
+                throw new GradleException('Dedicated release certificate does not match the approved public fingerprint; debug and replacement keys are rejected.')
+            }
+            def privateKey = keyStore.getKey(alias, entrySecret)
+            if (!(privateKey instanceof java.security.interfaces.RSAPrivateKey)
+                    || privateKey.modulus.bitLength() < 3072) {
+                throw new GradleException('Dedicated release signing key is invalid.')
+            }
+            byte[] challenge = new byte[32]
+            new java.security.SecureRandom().nextBytes(challenge)
+            def proof = java.security.Signature.getInstance('SHA256withRSA')
+            proof.initSign(privateKey)
+            proof.update(challenge)
+            def signature = proof.sign()
+            proof.initVerify(certificate.publicKey)
+            proof.update(challenge)
+            if (!proof.verify(signature)) throw new GradleException('Dedicated release signing proof failed.')
+            logger.lifecycle('Dedicated release signing verified (public certificate SHA-256: ' + fingerprint + ').')
+        } catch (GradleException error) {
+            throw error
+        } catch (Exception ignored) {
+            throw new GradleException('Unable to unlock or verify the dedicated release key. Check protected credentials; secret values are omitted.')
+        } finally {
+            java.util.Arrays.fill(storeSecret, (char) 0)
+            java.util.Arrays.fill(entrySecret, (char) 0)
+        }
+    }
+}
+tasks.configureEach { task ->
+    if (task.name in ['preReleaseBuild', 'validateSigningRelease']) {
+        task.dependsOn(verifyReleaseSigning)
     }
 }
 
@@ -150,21 +228,24 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
+    // App Check only; native Auth/Firestore and existing networking remain unchanged.
+    implementation("com.google.firebase:firebase-appcheck-playintegrity:19.4.1")
+
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
 
     if (isGifEnabled) {
         // For animated gif support
-        implementation("com.facebook.fresco:animated-gif:${reactAndroidLibs.versions.fresco.get()}")
+        implementation("com.facebook.fresco:animated-gif:${expoLibs.versions.fresco.get()}")
     }
 
     if (isWebpEnabled) {
         // For webp support
-        implementation("com.facebook.fresco:webpsupport:${reactAndroidLibs.versions.fresco.get()}")
+        implementation("com.facebook.fresco:webpsupport:${expoLibs.versions.fresco.get()}")
         if (isWebpAnimatedEnabled) {
             // Animated webp support
-            implementation("com.facebook.fresco:animated-webp:${reactAndroidLibs.versions.fresco.get()}")
+            implementation("com.facebook.fresco:animated-webp:${expoLibs.versions.fresco.get()}")
         }
     }
 

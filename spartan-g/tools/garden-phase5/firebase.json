@@ -1,0 +1,13 @@
+{
+  "functions": [{ "source": "functions-local", "codebase": "garden-local" }],
+  "firestore": { "rules": "candidate.rules" },
+  "emulators": {
+    "auth": { "host": "127.0.0.1", "port": 19099 },
+    "firestore": { "host": "127.0.0.1", "port": 18089, "websocketPort": 19150 },
+    "functions": { "host": "127.0.0.1", "port": 15001 },
+    "hub": { "host": "127.0.0.1", "port": 19440 },
+    "logging": { "host": "127.0.0.1", "port": 19450 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}

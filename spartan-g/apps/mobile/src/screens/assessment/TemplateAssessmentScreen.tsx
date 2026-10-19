@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { GardenRewardStatus } from '../../garden/GardenRewardStatus';
 import {
   View,
   Text,
@@ -260,6 +261,7 @@ export function TemplateAssessmentScreen({ route, navigation }: Props) {
         <Text style={styles.successMessage}>
           You've successfully completed your assessment.
         </Text>
+        <GardenRewardStatus />
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>Back to Assessments</Text>
         </TouchableOpacity>

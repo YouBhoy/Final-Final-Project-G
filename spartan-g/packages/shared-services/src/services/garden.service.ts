@@ -1,4 +1,5 @@
 import { gardenRepository } from '../repositories/garden.repository';
+import { clientGardenRewardsAvailable } from '../config/garden-capabilities';
 
 class GardenService {
   /**
@@ -24,6 +25,7 @@ class GardenService {
    * Awards XP and seeds, manages streak, and handles level-up.
    */
   async recordCheckIn(studentId: string): Promise<void> {
+    if (!clientGardenRewardsAvailable) return;
     try {
       // Ensure garden doc exists
       let garden = await gardenRepository.getGarden(studentId);
@@ -90,7 +92,8 @@ class GardenService {
    *          'already'  — already watered today (no extra XP)
    *          'failed'   — an error occurred / no garden doc
    */
-  async waterGarden(studentId: string): Promise<'rewarded' | 'already' | 'failed'> {
+  async waterGarden(studentId: string): Promise<'rewarded' | 'already' | 'failed' | 'unavailable'> {
+    if (!clientGardenRewardsAvailable) return 'unavailable';
     try {
       let garden = await gardenRepository.getGarden(studentId);
       if (!garden) {

@@ -8,6 +8,7 @@ import {
 } from '@spartan-g/shared-services';
 import { env } from '@spartan-g/shared-services/src/config/env';
 import { getOpenConversationId } from '../navigation/navigationRef';
+import { localEmulators } from '@spartan-g/shared-services/src/config/local-emulators';
 
 /**
  * The high-importance Android notification channel used for every push this
@@ -97,7 +98,7 @@ export const expoMessagingAdapter: MessagingAdapter = {
   async registerForPushNotifications(
     _deploymentTarget: DeploymentTarget,
   ): Promise<PushRegistrationResult | null> {
-    if (!Device.isDevice) return null;
+    if (localEmulators.enabled || !Device.isDevice) return null;
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;

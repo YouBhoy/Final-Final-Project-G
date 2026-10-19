@@ -167,4 +167,6 @@ export const darkColors = {
   moderateText: '#FDBA74',
 } as const;
 
-export type ColorScheme = typeof lightColors;
+export type ColorScheme = {
+  readonly [Key in keyof typeof lightColors]: string;
+};

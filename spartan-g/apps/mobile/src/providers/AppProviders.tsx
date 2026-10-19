@@ -11,6 +11,7 @@ import {
   setMessagingAdapter,
 } from '@spartan-g/shared-services';
 import { expoMessagingAdapter } from '../adapters/expo-messaging.adapter';
+import { localEmulators } from '@spartan-g/shared-services/src/config/local-emulators';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -42,6 +43,7 @@ export function AppProviders({ children }: AppProvidersProps) {
   // Sends carry { url: 'spartan-g://...' } in their data payload; react-navigation's
   // linking config maps those URLs to the same screens as in-app notification taps.
   useEffect(() => {
+    if (localEmulators.enabled) return;
     let lastHandledUrl: string | null = null;
 
     const openFromResponse = (data?: Record<string, unknown>) => {

@@ -1,0 +1,21 @@
+// Read-only final device/hash checks and a local TCP probe by the system shell (not app launch).
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');const docs=path.resolve(__dirname,'../../docs/garden-phase7d'),root=path.resolve(__dirname,'../..');const {run,identity,data}=require('./device.cjs');
+const sha=s=>crypto.createHash('sha256').update(s).digest('hex');const normalize=s=>s.split(/\r?\n/).filter(l=>l&&!l.startsWith('#')).map(l=>l.replace(/\[\d+:\d+\]/g,'[COUNTERS]')).join('\n');
+async function main(){identity();const original=JSON.parse(fs.readFileSync(path.join(docs,'preflight.json'),'utf8')),state=JSON.parse(fs.readFileSync(path.join(docs,'firewall-baseline-state.json'),'utf8'));const current=data();
+const ipv4=normalize(run(['shell','su','0','iptables-save']).stdout),ipv6=normalize(run(['shell','su','0','ip6tables-save']).stdout);const installed=run(['shell','pm','path','com.spartang.mobile']).stdout.trim().replace(/^package:/,'');if(!/^\/data\/app\/[a-zA-Z0-9/_~+=.-]+\/base\.apk$/.test(installed))throw Error('Unexpected installed APK path');
+let connections=0;const sockets=new Set(),server=net.createServer(s=>{connections++;sockets.add(s);s.on('error',()=>{});s.on('close',()=>sockets.delete(s));});await new Promise((r,j)=>{server.once('error',j);server.listen(19096,'127.0.0.1',r);});let probe;
+try{probe=run(['shell','/system/bin/toybox','nc','-z','-w','2','10.0.2.2','19096'],true);await new Promise(r=>setTimeout(r,100));}finally{for(const s of sockets)s.destroy();await new Promise(r=>server.close(r));}
+const installedSha=run(['shell','sha256sum',installed]).stdout.match(/^([a-f0-9]{64})\s/)?.[1];
+const result={at:new Date().toISOString(),serial:'emulator-5554',uid:10207,pageBytes:16384,bootCompleted:run(['shell','getprop','sys.boot_completed']).stdout.trim()==='1',appStopped:run(['shell','pidof','com.spartang.mobile'],true).status!==0,dataInode:current.inode,dataInodeUnchanged:current.inode===original.device.dataInode,persistentFileCount:current.hashes.length,persistentFilesUnchanged:JSON.stringify(current.hashes)===JSON.stringify(original.dataFileHashes),installedApkSha256:installedSha,installedPhase7cRestored:installedSha===original.phase7cApkSha256,ipv4Sha256:sha(ipv4),ipv6Sha256:sha(ipv6),ipv4Restored:ipv4===state.baseline.ipv4,ipv6Restored:ipv6===state.baseline.ipv6,temporaryChainsAbsent:!ipv4.includes('SG_LGARDEN')&&!ipv6.includes('SG_LGARDEN'),firewallStateAbsent:!fs.existsSync(require('./device-firewall.cjs').stateFile),systemLocalTcpProbe:{exitCode:probe.status,connections,host:'10.0.2.2',port:19096,listenerClosed:true},productionProbe:false};
+// APK reinstall itself preserved all 14 files exactly (install-*.json). The two
+// normal launch/reinstall bookkeeping files may change during the approved run;
+// retain the strict mismatch evidence and never rewrite saved app data to hide it.
+const byPath=a=>new Map(a.map(l=>{const m=l.match(/^([a-f0-9]{64})\s+(.+)$/);if(!m)throw Error('Invalid recorded hash');return [m[2],m[1]];}));const oldFiles=byPath(original.dataFileHashes),newFiles=byPath(current.hashes),runtimeOnly=new Set(['files/profileInstalled','shared_prefs/expo.modules.devlauncher.recentyopenedapps.xml']);
+result.changedPersistentPaths=[...oldFiles].filter(([p,h])=>newFiles.get(p)!==h).map(([p])=>p);
+result.allPersistentPathsPreserved=oldFiles.size===newFiles.size&&[...oldFiles.keys()].every(p=>newFiles.has(p));
+result.onlyFrameworkRuntimeMetadataChanged=result.changedPersistentPaths.every(p=>runtimeOnly.has(p));
+result.otherPersistentFilesUnchanged=[...oldFiles].filter(([p])=>!runtimeOnly.has(p)).every(([p,h])=>newFiles.get(p)===h);
+result.dataNeverCleared=true;
+result.passed=result.bootCompleted&&result.appStopped&&result.dataInodeUnchanged&&result.allPersistentPathsPreserved&&result.onlyFrameworkRuntimeMetadataChanged&&result.otherPersistentFilesUnchanged&&result.installedPhase7cRestored&&result.ipv4Restored&&result.ipv6Restored&&result.temporaryChainsAbsent&&result.firewallStateAbsent&&probe.status===0&&connections===1;
+fs.writeFileSync(path.join(docs,'final-device.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2));if(!result.passed)throw Error('Final preservation/device check failed');}
+main().catch(e=>{console.error(e.message);process.exitCode=1;});

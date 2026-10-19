@@ -1,0 +1,7 @@
+// Stop only the two verified Phase 7D process trees; never an unrelated development server.
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');const docs=path.resolve(__dirname,'../../docs/garden-phase7d');
+const state=JSON.parse(fs.readFileSync(path.join(docs,'metro-state.json'),'utf8'));
+if(state.owner!=='phase7d'||![state.parentPid,state.childPid].every(p=>Number.isSafeInteger(p)&&p>0))throw Error('Invalid owned Metro state');
+const result={at:new Date().toISOString(),pids:[]};
+for(const [pid,marker]of [[state.childPid,'garden-phase7d\\metro-entry.cjs'],[state.parentPid,'garden-phase7d/metro.cjs']]){const raw=cp.execFileSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress`],{windowsHide:true,encoding:'utf8'}).trim();if(!raw){result.pids.push({pid,alreadyStopped:true});continue;}const p=JSON.parse(raw.replace(/^\uFEFF/,''));if(!String(p.CommandLine).replaceAll('\\','/').includes(marker.replaceAll('\\','/')))throw Error('Owned process command changed');const r=cp.spawnSync('taskkill.exe',['/PID',String(pid),'/T','/F'],{windowsHide:true,encoding:'utf8'});result.pids.push({pid,code:r.status});if(r.status!==0)throw Error('Owned Metro stop failed');}
+fs.writeFileSync(path.join(docs,'metro-stop-'+Date.now()+'.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));

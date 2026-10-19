@@ -1,3 +1,4 @@
+import { useAiSummary } from './useAiSummary';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -10,7 +11,7 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { FacilitatorMobileStackParamList } from '@spartan-g/shared-types';
-import { useAuthStore, userRepository, assessmentService, geminiService } from '@spartan-g/shared-services';
+import { useAuthStore, userRepository, assessmentService, isSummaryAiAvailable, AI_UNAVAILABLE_MESSAGE, SUMMARY_RISK_UNAVAILABLE_MESSAGE } from '@spartan-g/shared-services';
 import {
   calculatePHQ9Score,
   calculateGAD7Score,
@@ -180,64 +181,31 @@ function ScoreCard({ title, score, maxScore, severity, isCritical, subRows }: Sc
 
 // ─── AI Summary Card Component ────────────────────────────────
 
-/** Check at runtime whether the Gemini API key is available in the environment. */
-function isGeminiKeyConfigured(): boolean {
-  try {
-    return !!process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  } catch {
-    return false;
-  }
-}
-
-const geminiKeyPresent = isGeminiKeyConfigured();
+const geminiKeyPresent = isSummaryAiAvailable();
 
 function AiSummaryCard({ attempt, scores }: { attempt: AssessmentAttemptDocument & { id: string }; scores: AiSummaryScores }) {
-  const [summary, setSummary] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { summary, isLoading, hasError, errorMessage, riskUnavailable, loadSummary } = useAiSummary(attempt, scores);
 
-  const loadSummary = useCallback(async (skipCache: boolean = false) => {
-    setIsLoading(true);
-    setHasError(false);
-    setErrorMessage(null);
-    try {
-      let text: string | null = null;
+  if (riskUnavailable) {
+    return (
+      <View style={styles.aiSummaryCard}>
+        <View style={styles.aiSummaryHeader}><Text style={styles.aiSummaryTitle}>Risk summary unavailable</Text></View>
+        <Text style={styles.aiSummaryErrorText}>{SUMMARY_RISK_UNAVAILABLE_MESSAGE}</Text>
+      </View>
+    );
+  }
 
-      if (!skipCache) {
-        text = await geminiService.getCachedSummary(attempt.id);
-      }
-
-      if (!text) {
-        text = await geminiService.generateSummary(scores);
-        if (text) {
-          // Cache for future views
-          geminiService.cacheSummary(attempt.id, text).catch(() => {});
-        }
-      }
-      if (text) {
-        setSummary(text);
-      } else {
-        setHasError(true);
-        setErrorMessage(
-          !geminiKeyPresent
-            ? 'AI summary unavailable — API key not configured.'
-            : 'Failed to generate summary. The AI service did not return a response.',
-        );
-      }
-    } catch (err) {
-      setHasError(true);
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setErrorMessage(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [attempt.id, scores]);
-
-  // Always regenerate fresh on mount — skip cache to avoid stale truncated summaries
-  useEffect(() => {
-    loadSummary(true);
-  }, [loadSummary]);
+  if (!geminiKeyPresent) {
+    return (
+      <View style={styles.aiSummaryCard}>
+        <View style={styles.aiSummaryHeader}>
+          <Text style={styles.aiSummaryIcon}>🤖</Text>
+          <Text style={styles.aiSummaryTitle}>AI-Generated Summary</Text>
+        </View>
+        <Text style={styles.aiSummaryErrorText}>{AI_UNAVAILABLE_MESSAGE}</Text>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (

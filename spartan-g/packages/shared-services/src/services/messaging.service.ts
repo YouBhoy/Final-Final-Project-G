@@ -3,10 +3,10 @@ import {
   Role,
   MessageDocument,
   ConversationDocument,
-  MessageType,
   hasPermission,
   PermissionError,
 } from '@spartan-g/shared-types';
+import type { PartialWithFieldValue, WithFieldValue } from 'firebase/firestore';
 import {
   serverTimestamp,
   where,
@@ -89,7 +89,7 @@ class MessagingService {
     }
 
     const db = getFirestoreDb();
-    const messageType: MessageType = attachmentUrl ? 'attachment' : 'text';
+    const messageType = attachmentUrl ? 'attachment' : 'text';
     const normalizedBody = this.validateMessageBody(body);
     let otherParticipants: string[] = [];
 
@@ -123,11 +123,11 @@ class MessagingService {
           readBy: [senderId], // Sender has read their own message
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        } as MessageDocument);
+        } satisfies WithFieldValue<Omit<MessageDocument, 'id'>>);
 
         // Update conversation with last message metadata
-        const updateData: Partial<ConversationDocument> = {
-          lastMessageAt: serverTimestamp() as unknown as Timestamp,
+        const updateData: PartialWithFieldValue<Omit<ConversationDocument, 'id'>> = {
+          lastMessageAt: serverTimestamp(),
           lastMessagePreview: normalizedBody.slice(0, 100),
           lastMessageId: messageRef.id,
           lastMessageSenderId: senderId,
@@ -447,7 +447,7 @@ class MessagingService {
       if (!message.readBy?.includes(userId)) {
         await messageRepository.update(messageId, {
           readBy: [...(message.readBy || []), userId],
-        } as Partial<MessageDocument>);
+        });
       }
     } catch (error: any) {
       console.error('[MessagingService] Failed to mark message as read:', {

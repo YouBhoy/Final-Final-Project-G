@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { GardenRewardStatus } from '../../garden/GardenRewardStatus';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { assessmentService, assessmentOverrideService } from '@spartan-g/shared-services';
-import type { AssessmentDocument, WizardState, AssessmentAnswer } from '@spartan-g/shared-types';
+import type { AssessmentDefinitionDocument, WizardState, AssessmentAnswer } from '@spartan-g/shared-types';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useAuthStore } from '@spartan-g/shared-services';
 import { lightColors } from '@spartan-g/shared-ui';
@@ -18,7 +19,7 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
   const session = useAuthStore((s) => s.session);
 
   // Data state
-  const [assessment, setAssessment] = useState<AssessmentDocument & { id: string } | null>(null);
+  const [assessment, setAssessment] = useState<AssessmentDefinitionDocument & { id: string } | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -306,6 +307,7 @@ export function AssessmentWizardScreen({ route, navigation }: Props) {
         <Text style={styles.successMessage}>
           You've successfully completed your assessment.
         </Text>
+        <GardenRewardStatus />
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>Return</Text>
         </TouchableOpacity>

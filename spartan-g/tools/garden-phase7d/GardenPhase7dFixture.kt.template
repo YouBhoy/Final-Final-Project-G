@@ -1,0 +1,41 @@
+package com.spartang.mobile.garden
+
+import android.os.Build
+import com.facebook.react.bridge.ReactApplicationContext
+import com.spartang.mobile.BuildConfig
+import java.security.KeyStore
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
+import okhttp3.CertificatePinner
+import okhttp3.OkHttpClient
+
+/** TEMPORARY approved debug/emulator fixture. No default/global TLS or networking changes. */
+internal class GardenPhase7dFixture(context: ReactApplicationContext) : GardenPhase7dTlsAdapter {
+  override val origin = "https://10.0.2.2:19098"
+  private val trustManager: X509TrustManager
+  private val tls: SSLContext
+  private val pin = "__FIXTURE_PIN__"
+
+  init {
+    check(BuildConfig.DEBUG && Build.HARDWARE == "ranchu" && Build.MODEL == "sdk_gphone16k_x86_64"
+      && Build.SUPPORTED_ABIS.firstOrNull() == "x86_64") { "Garden fixture is unavailable." }
+    val certificate = context.assets.open("garden-phase7d-cert.pem").use {
+      CertificateFactory.getInstance("X.509").generateCertificate(it) as X509Certificate
+    }
+    certificate.checkValidity()
+    check(CertificatePinner.pin(certificate) == pin) { "Garden fixture is unavailable." }
+    val store = KeyStore.getInstance(KeyStore.getDefaultType()).apply { load(null); setCertificateEntry("phase7d-only", certificate) }
+    val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(store) }
+    trustManager = factory.trustManagers.single() as X509TrustManager
+    tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trustManager), null) }
+  }
+
+  override fun acceptsToken(token: String) = token == "phase7d.synthetic-only-not-a-Firebase-token"
+  override fun configure(builder: OkHttpClient.Builder) {
+    builder.sslSocketFactory(tls.socketFactory, trustManager)
+      .certificatePinner(CertificatePinner.Builder().add("10.0.2.2", pin).build())
+  }
+}

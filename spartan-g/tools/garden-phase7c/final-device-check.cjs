@@ -1,0 +1,16 @@
+// Read-only rollback checks plus an owned loopback listener; no cloud/external destination.
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto'),net=require('node:net');
+const docs=path.resolve(__dirname,'../../docs/garden-phase7c'),adb=path.join(process.env.LOCALAPPDATA,'Android/Sdk/platform-tools/adb.exe');
+const normalize=s=>s.split(/\r?\n/).filter(l=>l&&!l.startsWith('#')).map(l=>l.replace(/\[\d+:\d+\]/g,'[COUNTERS]')).join('\n');
+const sha=s=>crypto.createHash('sha256').update(s).digest('hex');
+function run(args){const r=cp.spawnSync(adb,['-s','emulator-5554',...args],{encoding:'utf8',windowsHide:true,timeout:10000,maxBuffer:4*1024*1024});fs.appendFileSync(path.join(docs,'device-commands.jsonl'),JSON.stringify({at:new Date().toISOString(),args:['-s','emulator-5554',...args],code:r.status})+'\n');return r;}
+async function main(){const v4=normalize(run(['shell','su','0','iptables-save']).stdout),v6=normalize(run(['shell','su','0','ip6tables-save']).stdout),baseline=JSON.parse(fs.readFileSync(path.join(docs,'firewall-baseline-state.json'),'utf8'));
+ const appStopped=run(['shell','pidof','com.spartang.mobile']).status===1;
+ const ports=[8083,15001,18081,18082,18084,18085,18086,18088,18089,18090,19097,19098,19099,19150,19151,19440,19441,19450,19451];
+ const listeners=[];for(const port of ports)await new Promise(resolve=>{const s=net.connect({host:'127.0.0.1',port});s.once('connect',()=>{listeners.push(port);s.destroy();resolve();});s.once('error',resolve);s.setTimeout(500,()=>{s.destroy();resolve();});});
+ let systemConnections=0;const sockets=new Set(),server=net.createServer(s=>{systemConnections++;sockets.add(s);s.on('close',()=>sockets.delete(s));});await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(19098,'127.0.0.1',resolve);});let shellConnection;
+ try{shellConnection=await new Promise(resolve=>{const args=['-s','emulator-5554','shell','/system/bin/toybox','nc','-z','-w','2','10.0.2.2','19098'];const p=cp.spawn(adb,args,{windowsHide:true,stdio:'ignore'});p.once('exit',code=>{fs.appendFileSync(path.join(docs,'device-commands.jsonl'),JSON.stringify({at:new Date().toISOString(),args,code})+'\n');resolve(code===0);});});}finally{for(const s of sockets)s.destroy();await new Promise(r=>server.close(r));}
+ const result={at:new Date().toISOString(),appStopped,emulatorOnline:run(['get-state']).stdout.trim()==='device',pageBytes:Number(run(['shell','getconf','PAGE_SIZE']).stdout.trim()),ipv4Sha256:sha(v4),ipv6Sha256:sha(v6),ipv4ExactlyRestored:v4===baseline.baseline.ipv4,ipv6ExactlyRestored:v6===baseline.baseline.ipv6,noTemporaryChains:!v4.includes('SG_LGARDEN')&&!v6.includes('SG_LGARDEN'),remainingTestListeners:listeners,systemUidLocalNetworkingWorks:shellConnection,systemConnections,externalNetworkingProbed:false};
+ result.passed=result.appStopped&&result.emulatorOnline&&result.pageBytes===16384&&result.ipv4ExactlyRestored&&result.ipv6ExactlyRestored&&result.noTemporaryChains&&listeners.length===0&&shellConnection;
+ fs.writeFileSync(path.join(docs,'final-device-state.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2));if(!result.passed)process.exitCode=1;}
+main().catch(e=>{console.error(e.message);process.exitCode=1;});

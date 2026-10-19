@@ -15,6 +15,9 @@ web-build/
 *.key
 *.mobileprovision
 
+# Release signing uses external, current-user protected storage.
+spartan-g-release.credentials.dpapi
+
 # Environment
 .env
 .env.local

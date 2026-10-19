@@ -10,31 +10,36 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~4.0.1",
+    "@expo/metro-runtime": "~5.0.5",
+    "@react-native-async-storage/async-storage": "1.24.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.0.14",
     "@spartan-g/shared-services": "*",
     "@spartan-g/shared-types": "*",
     "@spartan-g/shared-ui": "*",
-    "expo": "~52.0.0",
-    "expo-build-properties": "~0.13.3",
-    "expo-constants": "~17.0.0",
-    "expo-dev-client": "~5.0.20",
-    "expo-device": "~7.0.0",
-    "expo-notifications": "~0.29.0",
-    "expo-status-bar": "~2.0.0",
-    "react": "18.3.1",
-    "react-native": "0.76.5",
-    "react-native-safe-area-context": "4.12.0",
-    "react-native-screens": "~4.4.0",
-    "react-native-svg": "15.8.0",
+    "expo": "~53.0.27",
+    "expo-asset": "~11.1.7",
+    "expo-build-properties": "~0.14.8",
+    "expo-constants": "~17.1.8",
+    "expo-dev-client": "~5.2.4",
+    "expo-device": "~7.1.4",
+    "expo-file-system": "18.1.11",
+    "expo-font": "~13.3.2",
+    "expo-notifications": "~0.31.5",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.6",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "react-native-svg": "15.11.2",
     "react-native-view-shot": "^4.0.3",
-    "react-native-web": "~0.19.13"
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
-    "@types/react": "~18.3.12",
-    "typescript": "~5.3.0"
+    "@types/react": "~19.0.10",
+    "typescript": "~5.8.3"
   }
 }

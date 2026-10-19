@@ -20,6 +20,7 @@ import { assessmentAttemptRepository } from '../repositories/assessment-attempt.
 import { riskAlertService } from './risk-alert.service';
 import { assessmentOverrideService } from './assessment-override.service';
 import { gardenService } from './garden.service';
+import { isGardenBackendEnabled, getGardenOperations } from './garden-backend';
 
 class AssessmentService {
   // =================== Phase 3A Methods (Template-based assessments) ===================
@@ -335,7 +336,11 @@ class AssessmentService {
 
     // GARDEN HOOK — added for Phase 1 gamification, must never block/fail submission
     try {
-      await gardenService.recordCheckIn(attempt.studentId);
+      if (isGardenBackendEnabled()) {
+        await getGardenOperations().confirmAssessment(attempt.studentId, attemptId);
+      } else {
+        await gardenService.recordCheckIn(attempt.studentId);
+      }
     } catch (err) {
       console.error('Garden check-in failed (non-fatal):', err);
     }

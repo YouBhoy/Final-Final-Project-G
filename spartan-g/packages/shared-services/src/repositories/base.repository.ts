@@ -107,6 +107,7 @@ export abstract class BaseRepository<T extends DocumentData> {
   subscribeQuery(
     constraints: QueryConstraint[],
     callback: (data: (T & { id: string })[]) => void,
+    onError?: (error: RepositoryError) => void,
   ): Unsubscribe {
     const q = query(this.getCollectionRef(), ...constraints);
     return onSnapshot(
@@ -115,7 +116,12 @@ export abstract class BaseRepository<T extends DocumentData> {
         callback(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as T) })));
       },
       (error) => {
-        throw new RepositoryError(`Query subscription error on ${this.collectionName}`, 'repo/subscribe-query', error);
+        const repositoryError = new RepositoryError(`Query subscription error on ${this.collectionName}`, 'repo/subscribe-query', error);
+        if (onError) {
+          onError(repositoryError);
+          return;
+        }
+        throw repositoryError;
       },
     );
   }

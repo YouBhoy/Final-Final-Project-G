@@ -18,7 +18,7 @@ import {
 import type { GestureResponderEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { lightColors, palette } from '@spartan-g/shared-ui';
-import { useAuthStore, assistantGeminiClient } from '@spartan-g/shared-services';
+import { useAuthStore, assistantGeminiClient, isAssistantAiAvailable, AI_UNAVAILABLE_MESSAGE } from '@spartan-g/shared-services';
 import type { AssistantChatMessage } from '@spartan-g/shared-services';
 import { navigationRef } from '../../../navigation/navigationRef';
 
@@ -39,6 +39,7 @@ interface ChatBubbleMsg {
 }
 
 export function AssistantBubble() {
+  const assistantAvailable = isAssistantAiAvailable();
   const session = useAuthStore((s) => s.session);
   const [open, setOpen] = useState(false);
   const position = useRef(
@@ -60,12 +61,12 @@ export function AssistantBubble() {
   const historyRef = useRef<AssistantChatMessage[]>([]);
 
   useEffect(() => {
-    if (!open || !session) return;
+    if (!assistantAvailable || !open || !session) return;
     assistantGeminiClient
       .getRemaining(session.uid)
       .then((n) => setRemaining(n))
       .catch(() => setRemaining(null));
-  }, [open, session]);
+  }, [assistantAvailable, open, session]);
 
   useFocusEffect(() => {
     try {
@@ -132,6 +133,10 @@ export function AssistantBubble() {
     scrollRef.current?.scrollToEnd?.({ animated: true });
   }, []);
 const send = useCallback(async () => {
+    if (!assistantAvailable) {
+      setBanner(AI_UNAVAILABLE_MESSAGE);
+      return;
+    }
     const trimmed = input.trim();
     if (!trimmed || !session || loading) return;
     if (remaining !== null && remaining <= 0) {
@@ -172,7 +177,7 @@ const send = useCallback(async () => {
     } finally {
       setLoading(false);
     }
-  }, [input, session, loading, remaining]);
+  }, [assistantAvailable, input, session, loading, remaining]);
 
   useEffect(() => {
     if (messages.length > 0) scrollToEnd();
@@ -236,8 +241,9 @@ return (
               >
                 {messages.length === 0 && (
                   <Text style={styles.chatEmpty}>
-                    Hi! I'm here to help. Ask me about your appointments, assessments, unread
-                    messages, or your garden — or just chat.
+                    {assistantAvailable
+                      ? "Hi! I'm here to help. Ask me about your appointments, assessments, unread messages, or your garden — or just chat."
+                      : AI_UNAVAILABLE_MESSAGE}
                   </Text>
                 )}
                 {messages.map((m, i) => (
@@ -279,6 +285,7 @@ return (
 
               <View style={styles.chatInputRow}>
                 <TextInput
+                  editable={assistantAvailable}
                   style={styles.chatInput}
                   value={input}
                   onChangeText={setInput}
@@ -286,7 +293,8 @@ return (
                   placeholderTextColor={lightColors.textMuted}
                   multiline
                 />
-                <TouchableOpacity style={styles.sendButton} onPress={send} activeOpacity={0.7}>
+                <TouchableOpacity style={styles.sendButton} onPress={send} activeOpacity={0.7}
+                  disabled={!assistantAvailable} accessibilityState={{ disabled: !assistantAvailable }}>
                   <Feather name="send" size={20} color={palette.white} />
                 </TouchableOpacity>
               </View>

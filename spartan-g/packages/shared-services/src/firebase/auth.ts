@@ -1,5 +1,5 @@
 import {
-  getAuth,
+  connectAuthEmulator,
   Auth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -11,12 +11,21 @@ import {
 } from 'firebase/auth';
 
 import { getFirebaseApp } from './app';
-
-let auth: Auth;
+import { getPlatformAuth } from './auth-platform';
+import { localEmulators } from '../config/local-emulators';
+import { assertLocalEmulatorsReady } from './local-emulator-state';
 
 export function getFirebaseAuth(): Auth {
-  if (!auth) {
-    auth = getAuth(getFirebaseApp());
+  assertLocalEmulatorsReady();
+  const auth = getPlatformAuth(getFirebaseApp());
+  if (localEmulators.enabled) {
+    if (!auth.emulatorConfig) {
+      connectAuthEmulator(auth, `http://${localEmulators.host}:${localEmulators.authPort}`, { disableWarnings: true });
+    }
+  }
+  if (localEmulators.enabled && (auth.app.name !== localEmulators.appName
+      || auth.emulatorConfig?.host !== localEmulators.host || auth.emulatorConfig.port !== localEmulators.authPort)) {
+    throw new Error('Local Auth isolation failed; cold restart required.');
   }
   return auth;
 }

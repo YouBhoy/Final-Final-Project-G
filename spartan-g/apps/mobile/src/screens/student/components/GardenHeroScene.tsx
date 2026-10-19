@@ -22,6 +22,7 @@ interface GardenHeroSceneProps {
   /** Called when the watering can is tapped (after the tap animation starts). */
   onWaterPress: () => void;
   accessibilityLabel?: string;
+  wateringDisabled?: boolean;
 }
 
 type HeroStage = 'sprout' | 'young' | 'mature' | 'flourishing';
@@ -102,7 +103,7 @@ function HeroTree({ stage, halo = false, haloScale = 1.06, haloOpacity = 0.42 }:
     </View>
   );
 }
-export function GardenHeroScene({ level, onWaterPress, accessibilityLabel }: GardenHeroSceneProps) {
+export function GardenHeroScene({ level, onWaterPress, accessibilityLabel, wateringDisabled = false }: GardenHeroSceneProps) {
   const stage = stageFromLevel(level);
   const stageEffects = STAGE_EFFECTS[stage];
   const treeBaselineY = SCENE_HEIGHT - 22;
@@ -260,6 +261,8 @@ export function GardenHeroScene({ level, onWaterPress, accessibilityLabel }: Gar
           <TouchableOpacity
             style={styles.canHitbox}
             onPress={handlePress}
+            disabled={wateringDisabled}
+            accessibilityState={{ disabled: wateringDisabled }}
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel ?? 'Water your tree'}

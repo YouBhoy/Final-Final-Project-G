@@ -12,7 +12,6 @@ import {
   Image,
   Pressable,
   Dimensions,
-  findNodeHandle,
   type NativeSyntheticEvent,
   type TextInputFocusEventData,
 } from 'react-native';
@@ -131,7 +130,7 @@ export function LoginScreen({ navigation }: Props) {
 
   const scrollToFocusedField = useCallback(
     (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
-      const node = findNodeHandle(e.target);
+      const node = e.nativeEvent.target;
       const responder = scrollViewRef.current?.getScrollResponder() as
         | {
             scrollResponderScrollNativeHandleToKeyboard?: (

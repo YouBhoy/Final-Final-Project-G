@@ -1,6 +1,10 @@
 import type { EnvConfig, AppEnvironment } from './env.shared';
 import { resolveDeploymentTarget } from './env.shared';
 
+type ViteImportMeta = ImportMeta & {
+  readonly env?: Record<string, unknown> & { readonly VITE_APP_ENV?: string };
+};
+
 /**
  * IMPORTANT: Expo/Metro only performs static replacement of process.env.EXPO_PUBLIC_*
  * at build time when using DIRECT property access (e.g., process.env.EXPO_PUBLIC_FOO).
@@ -13,7 +17,7 @@ import { resolveDeploymentTarget } from './env.shared';
 function getAppEnv(): AppEnvironment {
   const env =
     process.env.EXPO_PUBLIC_APP_ENV ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_ENV) ||
+    (typeof import.meta !== 'undefined' && (import.meta as ViteImportMeta).env?.VITE_APP_ENV) ||
     'development';
   if (env === 'development' || env === 'staging' || env === 'production') {
     return env;
@@ -24,14 +28,13 @@ function getAppEnv(): AppEnvironment {
 function optional(key: string): string | undefined {
   // Try VITE_ prefix via import.meta.env (Vite/web)
   try {
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
+    if (typeof import.meta !== 'undefined' && (import.meta as ViteImportMeta).env) {
       const viteKey = `VITE_${key}`;
-      const viteVal = (import.meta.env as Record<string, unknown>)[viteKey];
+      const viteVal = ((import.meta as ViteImportMeta).env as Record<string, unknown>)[viteKey];
       if (typeof viteVal === 'string' && viteVal) return viteVal;
     }
   } catch {}
   // Fallback to process.env for Metro/Expo (already handled) or Node
-  // @ts-expect-error - process.env accessed
   return process.env[`VITE_${key}`] || undefined;
 }
 

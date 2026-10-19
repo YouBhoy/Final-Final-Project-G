@@ -1,7 +1,29 @@
-import { LinkingOptions } from '@react-navigation/native';
-import { MobileRootStackParamList } from '@spartan-g/shared-types';
+import type { LinkingOptions, NavigatorScreenParams } from '@react-navigation/native';
+import type {
+  MobileAuthStackParamList,
+  StudentMobileStackParamList,
+  StudentMobileTabParamList,
+  FacilitatorMobileStackParamList,
+  FacilitatorMobileTabParamList,
+} from '@spartan-g/shared-types';
 
-export const mobileLinking: LinkingOptions<MobileRootStackParamList> = {
+// Linking's nested-screen inference requires React Navigation's state shape.
+// Adapt the library-independent shared types without changing routes or URLs.
+type LinkingRootParamList = {
+  Auth: NavigatorScreenParams<MobileAuthStackParamList>;
+  Student: NavigatorScreenParams<
+    Omit<StudentMobileStackParamList, 'StudentTabs'> & {
+      StudentTabs: NavigatorScreenParams<StudentMobileTabParamList>;
+    }
+  >;
+  Facilitator: NavigatorScreenParams<
+    Omit<FacilitatorMobileStackParamList, 'FacilitatorTabs'> & {
+      FacilitatorTabs: NavigatorScreenParams<FacilitatorMobileTabParamList>;
+    }
+  >;
+};
+
+export const mobileLinking: LinkingOptions<LinkingRootParamList> = {
   prefixes: ['spartan-g://'],
   config: {
     screens: {

@@ -5,6 +5,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'SPARTAN-G',
   slug: 'spartan-g-mobile',
   version: '1.0.0',
+  newArchEnabled: false,
+  jsEngine: 'hermes',
   orientation: 'portrait',
   scheme: 'spartan-g',
   userInterfaceStyle: 'automatic',
@@ -31,11 +33,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   icon: './assets/icon.png',
   plugins: [
+    'expo-asset',
+    'expo-font',
     [
       'expo-build-properties',
       {
         android: {
-          kotlinVersion: '1.9.25',
+          kotlinVersion: '2.0.21',
         },
       },
     ],

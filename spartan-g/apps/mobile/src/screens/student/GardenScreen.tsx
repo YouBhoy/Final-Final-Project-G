@@ -16,6 +16,9 @@ import { lightColors } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
 import { GardenHeroScene } from './components/GardenHeroScene';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { isGardenBackendEnabled, getGardenOperations } from '@spartan-g/shared-services/src/services/garden-backend';
+import { GardenRewardStatus } from '../../garden/GardenRewardStatus';
+import { clientGardenRewardsAvailable, gardenUnavailableMessage } from '@spartan-g/shared-services/src/config/garden-capabilities';
 
 export function GardenScreen() {
   const session = useAuthStore((s) => s.session);
@@ -82,7 +85,8 @@ export function GardenScreen() {
   }, [session]);
 
   useEffect(() => {
-    loadGarden();
+    // Trusted mode loads on focus (including first focus); avoid racing two creates.
+    if (!isGardenBackendEnabled()) loadGarden();
   }, [loadGarden]);
 
   // Refresh the assessment tree whenever the Garden tab gains focus
@@ -90,7 +94,8 @@ export function GardenScreen() {
   useFocusEffect(
     useCallback(() => {
       loadAttempt();
-    }, [loadAttempt]),
+      if (isGardenBackendEnabled()) loadGarden();
+    }, [loadAttempt, loadGarden]),
   );
 
   const handleRefresh = useCallback(() => {
@@ -102,15 +107,48 @@ export function GardenScreen() {
   // ─── Daily watering (hero card) ─────────────────────────────
   const [waterToast, setWaterToast] = useState<string | null>(null);
   const waterToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wateringFlight = useRef(false);
+  const [wateringBusy, setWateringBusy] = useState(false);
+  const [wateringPending, setWateringPending] = useState(false);
+  useEffect(() => {
+    if (!isGardenBackendEnabled() || !session) return;
+    const client = getGardenOperations();
+    const show = () => {
+      const status = client.getStatus(session.uid);
+      setWateringPending(status.wateringPending);
+      setWaterToast(status.waterMessage || null);
+    };
+    show();
+    const unsubscribe = client.subscribe(show);
+    client.hydrate(session.uid).catch(() => setWaterToast('Saved watering requests could not be read. They were not reset.'));
+    return unsubscribe;
+  }, [session]);
+  useEffect(() => () => { if (waterToastTimer.current) clearTimeout(waterToastTimer.current); }, []);
 
   const handleWaterPress = useCallback(async () => {
     if (!session) return;
+    if (!isGardenBackendEnabled() && !clientGardenRewardsAvailable) {
+      setWaterToast(gardenUnavailableMessage);
+      return;
+    }
+    if (isGardenBackendEnabled()) {
+      if (wateringFlight.current) return;
+      wateringFlight.current = true; setWateringBusy(true);
+      try {
+        const result = await getGardenOperations().water(session.uid);
+        setWaterToast(result.message);
+        await loadGarden();
+      } finally { wateringFlight.current = false; setWateringBusy(false); }
+      return;
+    }
     const result = await gardenService.waterGarden(session.uid);
     let message: string;
     if (result === 'rewarded') {
       message = 'Watered! 💧 (+2 XP)';
     } else if (result === 'already') {
       message = 'Already watered today 🌱';
+    } else if (result === 'unavailable') {
+      message = gardenUnavailableMessage;
     } else {
       message = 'Couldn’t water right now';
     }
@@ -192,14 +230,22 @@ export function GardenScreen() {
 
       {/* Card 1 — Level N Tree (drawn hero scene + daily watering) */}
       <View style={styles.treeCard}>
-        <GardenHeroScene level={garden.level} onWaterPress={handleWaterPress} />
+        <GardenHeroScene level={garden.level} onWaterPress={handleWaterPress} wateringDisabled={wateringBusy || (!isGardenBackendEnabled() && !clientGardenRewardsAvailable)} />
         <Text style={styles.treeLabel}>Level {garden.level} Tree</Text>
-        {waterToast && (
+        {waterToast && !isGardenBackendEnabled() && (
           <View style={styles.waterToast} pointerEvents="none">
             <Text style={styles.waterToastText}>{waterToast}</Text>
           </View>
         )}
       </View>
+      {isGardenBackendEnabled() && <View accessibilityLiveRegion="polite">
+        {wateringBusy ? <Text>Confirming watering...</Text> : waterToast ? <Text>{waterToast}</Text> : null}
+        {wateringPending && !wateringBusy && <TouchableOpacity onPress={handleWaterPress} accessibilityRole="button">
+          <Text style={{ color: lightColors.primary, paddingVertical: 8 }}>Retry saved watering</Text>
+        </TouchableOpacity>}
+        <GardenRewardStatus />
+      </View>}
+      {!isGardenBackendEnabled() && <GardenRewardStatus />}
 
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
