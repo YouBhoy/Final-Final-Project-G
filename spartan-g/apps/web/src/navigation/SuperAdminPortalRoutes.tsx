@@ -8,6 +8,7 @@ import { AdminResourcesPage } from "../pages/admin/AdminResourcesPage";
 import { AdminAuditLogsPage } from "../pages/admin/AdminAuditLogsPage";
 import { AdminProfilePage } from "../pages/admin/AdminProfilePage";
 import { AdminStatisticsPage } from "../pages/admin/AdminStatisticsPage";
+import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminPrivacyPage } from '../pages/admin/AdminPrivacyPage';
 import { adminNavItems } from "./navConfigs";
 
@@ -23,12 +24,7 @@ export function SuperAdminPortalRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route
           path="dashboard"
-          element={
-            <PlaceholderPage
-              title="Admin Dashboard"
-              description="Platform-wide health, usage, and key metrics."
-            />
-          }
+          element={<AdminDashboardPage />}
         />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="statistics" element={<AdminStatisticsPage />} />

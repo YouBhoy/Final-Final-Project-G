@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAdminUsers } from "../../hooks/useAdminUsers";
 import { useAuth } from "../../hooks/useAuth";
 import { Badge } from "../../components/ui/Badge";
@@ -29,31 +29,43 @@ const ROLE_BADGE: Record<Role, "info" | "warning" | "default"> = {
 export function AdminUsersPage() {
   const { user: actor } = useAuth();
   const { users, loading, error } = useAdminUsers();
-  const [filter, setFilter] = useState<RoleFilter>("all");
+  const [params, setParams] = useSearchParams();
+  const requestedRole = params.get('role');
+  const filter: RoleFilter = requestedRole === 'student' || requestedRole === 'facilitator' ? requestedRole : 'all';
+  const campusFilter = params.get('campus');
+  function setFilter(role: RoleFilter) {
+    setParams(current => {
+      const next = new URLSearchParams(current);
+      if (role === 'all') next.delete('role'); else next.set('role', role);
+      return next;
+    });
+  }
   const [search, setSearch] = useState("");
   const [overrideStudent, setOverrideStudent] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
 
+  const campusUsers = useMemo(() => users.filter(user => !campusFilter || user.campus === campusFilter), [users, campusFilter]);
   const counts = useMemo(
     () => ({
-      all: users.length,
-      student: users.filter((u) => u.role === ROLES.STUDENT).length,
-      facilitator: users.filter((u) => u.role === ROLES.FACILITATOR).length,
+      all: campusUsers.length,
+      student: campusUsers.filter((u) => u.role === ROLES.STUDENT).length,
+      facilitator: campusUsers.filter((u) => u.role === ROLES.FACILITATOR).length,
     }),
-    [users],
+    [campusUsers],
   );
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return users.filter((u) => {
       if (filter !== "all" && u.role !== filter) return false;
+      if (campusFilter && u.campus !== campusFilter) return false;
       if (!term) return true;
       return (
         (u.displayName ?? "").toLowerCase().includes(term) ||
         (u.email ?? "").toLowerCase().includes(term)
       );
     });
-  }, [users, filter, search]);
+  }, [users, filter, search, campusFilter]);
 
   if (loading) {
     return (
@@ -82,6 +94,7 @@ export function AdminUsersPage() {
         </p>
       </div>
 
+      {campusFilter && <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600"><span>Campus: {CAMPUS_LABELS[campusFilter] ?? campusFilter}</span><button type="button" className="font-semibold text-[var(--color-primary)] hover:underline" onClick={() => setParams(current => { const next = new URLSearchParams(current); next.delete('campus'); return next; })}>Clear campus filter</button></div>}
       {/* Filter bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
@@ -120,7 +133,9 @@ export function AdminUsersPage() {
           description={
             search
               ? "No users match your search."
-              : "Users will appear here once accounts are registered."
+              : campusFilter
+                ? "No users match the selected campus and role."
+                : "Users will appear here once accounts are registered."
           }
         />
       ) : (
