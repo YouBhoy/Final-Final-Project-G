@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { initializeAuth, browserSessionPersistence, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
@@ -16,7 +16,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-const auth = getAuth(app);
+// Restore this tab's session before looking for a different account in shared storage.
+// loginUser selects session persistence for admins and local persistence for other roles.
+const auth = initializeAuth(app, {
+  persistence: [browserSessionPersistence, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
+});
 const db = getFirestore(app);
 const storage = getStorage(app);
 

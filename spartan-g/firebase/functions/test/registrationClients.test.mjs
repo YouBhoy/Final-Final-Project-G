@@ -10,6 +10,8 @@ const { transformSync } = require('esbuild');
 const doubles = `
 export const calls = { authCreated: 0, users: [], profiles: [] };
 const auth = {}, db = {};
+const browserLocalPersistence = {};
+async function setPersistence() {}
 const serverTimestamp = () => 'server-time';
 const doc = (_, collection, uid) => ({ collection, uid });
 async function createUserWithEmailAndPassword(_, email) {

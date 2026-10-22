@@ -1,13 +1,25 @@
-import { test } from 'node:test';
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
+const originalStorage = globalThis.sessionStorage;
+afterEach(() => { if (originalStorage === undefined) delete globalThis.sessionStorage; else globalThis.sessionStorage = originalStorage; });
+const policyCode = ts.transpileModule(readFileSync(new URL('../src/lib/adminTabSession.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
+const policyUrl = `data:text/javascript;base64,${Buffer.from(policyCode).toString('base64')}`;
+const policy = await import(policyUrl);
+
 // Execute the real auth module with instrumented Firebase boundaries.
 async function setup() {
+  const storage = new Map();
+  globalThis.sessionStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
+  policy.beginAdminTabSession('admin');
   const doubles = `
-export const fixture = { profile: { role: 'super_admin', isActive: true }, listeners: [], currentUser: null, events: [], signouts: 0 };
+import { beginAdminTabSession, clearAdminTabSession, hasAdminTabSession } from ${JSON.stringify(policyUrl)};
+export const fixture = { profile: { role: 'super_admin', isActive: true }, listeners: [], currentUser: null, events: [], signouts: 0, persistences: [] };
 const auth = { get currentUser() { return fixture.currentUser; } }, db = {};
+const inMemoryPersistence = 'memory', browserSessionPersistence = 'session', browserLocalPersistence = 'local';
+const setPersistence = async (_, persistence) => { fixture.persistences.push(persistence); if (fixture.failPersistence === persistence) throw new Error('Persistence unavailable'); };
 const doc = (_, collection, uid) => ({ collection, uid });
 const snapshot = (data, metadata = {}) => ({ exists: () => data !== null, data: () => data,
   metadata: { fromCache: false, hasPendingWrites: false, ...metadata } });
@@ -18,7 +30,11 @@ const onSnapshot = (ref, options, next, error) => {
   const listener = { ref, options, next, error, stopped: false };
   fixture.listeners.push(listener); return () => { listener.stopped = true; };
 };
-const signInWithEmailAndPassword = async () => ({ user: fixture.currentUser });
+const signInWithEmailAndPassword = async (_, email, password) => {
+  fixture.credentials = { email, password };
+  if (fixture.signInError) throw fixture.signInError;
+  return { user: fixture.currentUser };
+};
 const signOut = async () => { fixture.signouts++; fixture.currentUser = null; };
 export async function emitAuth(uid = 'admin') {
   fixture.currentUser = uid ? { uid, email: uid + '@example.com', displayName: uid } : null;
@@ -46,6 +62,21 @@ test('an already-open admin session loses access immediately when disabled or de
   assert.equal(app.session(), null);
   app.emitProfile({ role: 'student', isActive: true });
   assert.equal(app.session().role, 'student');
+});
+
+test('login trims email whitespace while preserving the exact password', async () => {
+  const app = await setup();
+  await app.emitAuth();
+  await app.loginUser(' admin@example.com ', ' password with spaces ');
+  assert.deepEqual(app.fixture.credentials, { email: 'admin@example.com', password: ' password with spaces ' });
+});
+
+test('invalid credentials give reset guidance and never create a session grant', async () => {
+  const app = await setup();
+  app.fixture.signInError = { code: 'auth/invalid-credential' };
+  await assert.rejects(app.loginUser('admin@example.com', 'incorrect'), /Email or password is incorrect.*Forgot password/);
+  assert.equal(policy.hasAdminTabSession('admin'), false);
+  assert.equal(app.fixture.signouts, 1);
 });
 
 test('cached and uncommitted role claims never authorize admin access', async () => {
@@ -99,4 +130,54 @@ test('unsubscribe removes both listeners and ignores late events', async () => {
   const count = app.fixture.events.length;
   app.emitProfile({ role: 'super_admin', isActive: true });
   assert.equal(app.fixture.events.length, count);
+});
+
+test('new admin login chooses memory first, then tab persistence after server role validation', async () => {
+  const app = await setup();
+  policy.clearAdminTabSession();
+  app.fixture.currentUser = { uid: 'admin', email: 'admin@example.com' };
+  const session = await app.loginUser('admin@example.com', 'synthetic-password');
+  assert.equal(session.role, 'super_admin');
+  assert.deepEqual(app.fixture.persistences, ['memory', 'session']);
+  assert.equal(policy.hasAdminTabSession('admin'), true);
+});
+
+test('student and facilitator logins keep persistent sign-in without an admin tab grant', async () => {
+  for (const role of ['student', 'facilitator']) {
+    const app = await setup();
+    app.fixture.currentUser = { uid: role, email: `${role}@example.com` };
+    app.fixture.profile = { role, isActive: true };
+    await app.loginUser(`${role}@example.com`, 'synthetic-password');
+    assert.deepEqual(app.fixture.persistences, ['memory', 'local']);
+    assert.equal(policy.hasAdminTabSession('admin'), false);
+    assert.equal(policy.hasAdminTabSession(role), false);
+  }
+});
+
+test('a restored legacy admin login without a tab grant is signed out before portal access', async () => {
+  const app = await setup();
+  policy.clearAdminTabSession();
+  await app.emitAuth();
+  app.emitProfile({ role: 'super_admin', isActive: true });
+  assert.equal(app.session(), null);
+  assert.equal(app.fixture.signouts, 1);
+});
+
+test('a valid tab session survives page restoration and logout removes its grant', async () => {
+  const app = await setup();
+  await app.emitAuth();
+  app.emitProfile({ role: 'super_admin', isActive: true });
+  assert.equal(app.session().role, 'super_admin');
+  await app.logoutUser();
+  assert.equal(policy.hasAdminTabSession('admin'), false);
+});
+
+test('failure to set tab persistence clears the grant and signs out instead of falling back to local login', async () => {
+  const app = await setup();
+  app.fixture.currentUser = { uid: 'admin', email: 'admin@example.com' };
+  app.fixture.failPersistence = 'session';
+  await assert.rejects(app.loginUser('admin@example.com', 'synthetic-password'), /Persistence unavailable/);
+  assert.equal(policy.hasAdminTabSession('admin'), false);
+  assert.equal(app.fixture.signouts, 1);
+  assert.ok(!app.fixture.persistences.includes('local'));
 });

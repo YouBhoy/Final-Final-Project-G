@@ -39,14 +39,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             `}
             aria-invalid={!!error}
             aria-describedby={error ? `${inputId}-error` : undefined}
-            {...props}
           />
           {isPasswordType && (
             <button
               type="button"
               onClick={() => setPasswordVisible((prev) => !prev)}
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-              tabIndex={-1}
+              disabled={props.disabled}
+              aria-controls={inputId}
+              aria-pressed={passwordVisible}
               aria-label={passwordVisible ? "Hide password" : "Show password"}
             >
               {passwordVisible ? (

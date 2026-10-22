@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test:dashboard": "node --test test/adminDashboard.test.mjs",
-    "test:admin-security": "node --test test/adminSessionSecurity.test.mjs test/adminRouteSecurity.test.mjs",
+    "test:admin-security": "node --test test/adminSessionSecurity.test.mjs test/adminRouteSecurity.test.mjs test/adminIdlePolicy.test.mjs",
     "test:privacy": "node --test test/privacyConsent.test.mjs",
     "dev": "vite",
     "build": "tsc && vite build",

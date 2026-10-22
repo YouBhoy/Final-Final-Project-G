@@ -4,12 +4,18 @@ import {
   signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
-  type User,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  inMemoryPersistence,
   updateProfile,
 } from "firebase/auth";
 import { doc, getDocFromServer, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
 import type { Role, AuthSession, Campus } from "@spartan-g/shared-types";
+import { beginAdminTabSession, clearAdminTabSession, hasAdminTabSession } from './adminTabSession';
+
+let interactiveLogin = false;
 
 /**
  * Firebase Authentication implementation.
@@ -32,6 +38,7 @@ export async function registerUser(
   }
 
   // Create Firebase Auth user
+  await setPersistence(auth, browserLocalPersistence);
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
   // Set display name in Firebase Auth
@@ -74,36 +81,58 @@ export async function loginUser(
   email: string,
   password: string
 ): Promise<AuthSession> {
-  // Authenticate with Firebase Auth
-  const { user } = await signInWithEmailAndPassword(auth, email, password);
+  interactiveLogin = true;
+  clearAdminTabSession();
+  try {
+    // Keep credentials out of shared persistent storage until the server confirms the role.
+    await setPersistence(auth, inMemoryPersistence);
+    const { user } = await signInWithEmailAndPassword(auth, email.trim(), password);
 
-  // Get user profile from Firestore
-  const userDoc = await getDocFromServer(doc(db, "users", user.uid));
+    // Get user profile from Firestore
+    const userDoc = await getDocFromServer(doc(db, "users", user.uid));
 
-  if (!userDoc.exists()) {
-    throw new Error("User profile not found");
+    if (!userDoc.exists()) {
+      throw new Error("User profile not found");
+    }
+
+    const userData = userDoc.data();
+
+    if (userData.isActive !== true) {
+      throw new Error("Account is deactivated");
+    }
+    if (!['student', 'facilitator', 'super_admin'].includes(userData.role)) {
+      throw new Error("Account role is invalid");
+    }
+
+    if (userData.role === 'super_admin') {
+      beginAdminTabSession(user.uid);
+      await setPersistence(auth, browserSessionPersistence);
+    } else {
+      await setPersistence(auth, browserLocalPersistence);
+    }
+
+    return {
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      role: userData.role,
+      displayName: user.displayName ?? userData.displayName,
+      campus: userData.campus ?? null,
+    };
+  } catch (error) {
+    clearAdminTabSession();
+    await signOut(auth).catch(() => undefined);
+    if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found'].includes((error as { code?: string })?.code ?? '')) {
+      throw new Error('Email or password is incorrect. Check your details or use Forgot password to reset it.');
+    }
+    throw error;
+  } finally {
+    interactiveLogin = false;
   }
-
-  const userData = userDoc.data();
-
-  if (userData.isActive !== true) {
-    throw new Error("Account is deactivated");
-  }
-  if (!['student', 'facilitator', 'super_admin'].includes(userData.role)) {
-    throw new Error("Account role is invalid");
-  }
-
-  return {
-    uid: user.uid,
-    email: user.email,
-    emailVerified: user.emailVerified,
-    role: userData.role,
-    displayName: user.displayName ?? userData.displayName,
-    campus: userData.campus ?? null,
-  };
 }
 
 export async function logoutUser(): Promise<void> {
+  clearAdminTabSession();
   await signOut(auth);
 }
 
@@ -127,6 +156,7 @@ export function onAuthChange(
     const isCurrent = () => !stopped && current === generation && auth.currentUser?.uid === firebaseUser.uid;
     stopProfile = onSnapshot(doc(db, "users", firebaseUser.uid), { includeMetadataChanges: true }, snapshot => {
       if (!isCurrent()) return;
+      if (interactiveLogin) return;
       // Local cache entries and optimistic client edits are not authorization.
       if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites || !snapshot.exists()) {
         callback(null);
@@ -135,6 +165,13 @@ export function onAuthChange(
       const data = snapshot.data();
       if (data.isActive !== true || !['student', 'facilitator', 'super_admin'].includes(data.role)) {
         callback(null);
+        return;
+      }
+      if (data.role === 'super_admin' && !hasAdminTabSession(firebaseUser.uid)) {
+        // Reject legacy persistent sessions and expired tab sessions before mounting the portal.
+        clearAdminTabSession();
+        callback(null);
+        void signOut(auth).catch(() => undefined);
         return;
       }
       callback({

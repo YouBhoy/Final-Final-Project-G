@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { AuthSession, AuthStatus, LoginFormData, RegisterFormData } from "@spartan-g/shared-types";
 import { clearPrivacySession } from '../lib/privacySession';
+import { clearAdminTabSession, monitorAdminIdle } from '../lib/adminTabSession';
 import {
   registerUser,
   loginUser,
@@ -33,6 +34,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthSession | null>(null);
   const [status, setStatus] = useState<AuthStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const expireAdminSession = useCallback(() => {
+    clearAdminTabSession();
+    clearPrivacySession();
+    setUser(null);
+    setStatus('unauthenticated');
+    setError('Your admin session expired after 15 minutes of inactivity. Sign in again.');
+    // Keep the portal closed even if browser storage makes SDK sign-out fail.
+    void logoutUser().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (user?.role !== 'super_admin') return;
+    return monitorAdminIdle(user.uid, expireAdminSession);
+  }, [user?.uid, user?.role, expireAdminSession]);
 
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
