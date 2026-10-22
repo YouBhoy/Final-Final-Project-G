@@ -6,7 +6,6 @@ import { AdminUsersPage } from "../pages/admin/AdminUsersPage";
 import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
 import { AdminResourcesPage } from "../pages/admin/AdminResourcesPage";
 import { AdminAuditLogsPage } from "../pages/admin/AdminAuditLogsPage";
-import { AdminProfilePage } from "../pages/admin/AdminProfilePage";
 import { AdminStatisticsPage } from "../pages/admin/AdminStatisticsPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminPrivacyPage } from '../pages/admin/AdminPrivacyPage';
@@ -19,6 +18,7 @@ export function SuperAdminPortalRoutes() {
       portalName="Super Admin Portal"
       portalTagline="Manage the SPARTAN-G platform"
       navItems={adminNavItems}
+      backgroundImage="/campus-background.jpg"
     >
       <Routes>
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -33,7 +33,6 @@ export function SuperAdminPortalRoutes() {
         <Route path="campuses" element={<AdminCampusesPage />} />
         <Route path="resources" element={<AdminResourcesPage />} />
         <Route path="audit-logs" element={<AdminAuditLogsPage />} />
-        <Route path="profile" element={<AdminProfilePage />} />
         <Route
           path="settings"
           element={

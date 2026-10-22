@@ -28,6 +28,12 @@ service firebase.storage {
       return isActiveUser() && request.auth.uid == uid;
     }
 
+    function canReadStudentFile(uid) {
+      return isOwner(uid) || isSuperAdmin() || (isActiveUser()
+        && userDoc().data.role == 'facilitator'
+        && firestore.get(/databases/(default)/documents/facilitator_student_links/$(request.auth.uid + '_' + uid)).data.status == 'accepted');
+    }
+
     function isConversationParticipant(conversationId) {
       return isActiveUser()
         && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data.participantIds;
@@ -57,9 +63,9 @@ service firebase.storage {
 
     // Assignment submissions — students upload, facilitators read
     match /assignments/{courseId}/{assignmentId}/{userId}/{fileName} {
-      allow read: if isActiveUser();
+      allow read: if canReadStudentFile(userId);
       allow write: if isOwner(userId) && isValidDocument();
-      allow delete: if isOwner(userId) || isFacilitatorOrAdmin();
+      allow delete: if canReadStudentFile(userId);
     }
 
     // Course media — facilitators and admins only
@@ -76,10 +82,16 @@ service firebase.storage {
     }
 
     // Shared resource-library files — Super Admin uploads/replaces/removes,
-    // every active user can read/download. No other role can write here,
+    // reads follow publication/audience controls. No other role can write here,
     // even by calling Storage directly from the browser.
     match /resources/{resourceId}/{fileName} {
-      allow read: if isActiveUser();
+      function publishedForCaller() {
+        let resource = firestore.get(/databases/(default)/documents/resources/$(resourceId)).data;
+        return resource.isActive == true
+          && ((userDoc().data.role == 'student' && resource.audience in ['all', 'students'])
+            || (userDoc().data.role == 'facilitator' && resource.audience in ['all', 'facilitators']));
+      }
+      allow read: if isSuperAdmin() || (isActiveUser() && publishedForCaller());
       allow write: if isSuperAdmin() && isValidDocument();
       allow delete: if isSuperAdmin();
     }

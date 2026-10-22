@@ -101,19 +101,19 @@ export function FacilitatorDashboardPage() {
               <div className="mt-6 grid grid-cols-3 gap-4">
                 {/* High Risk */}
                 <div className="rounded-[var(--radius-md)] bg-red-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-red-600">{riskSummary?.high ?? 0}</p>
+                  <p className="text-3xl font-bold text-red-600">{riskSummary?.high ?? '—'}</p>
                   <p className="mt-1 text-xs font-medium text-red-700">High Risk</p>
                 </div>
 
                 {/* Medium Risk */}
                 <div className="rounded-[var(--radius-md)] bg-yellow-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-yellow-600">{riskSummary?.medium ?? 0}</p>
+                  <p className="text-3xl font-bold text-yellow-600">{riskSummary?.medium ?? '—'}</p>
                   <p className="mt-1 text-xs font-medium text-yellow-700">Medium Risk</p>
                 </div>
 
                 {/* Low Risk */}
                 <div className="rounded-[var(--radius-md)] bg-green-50 p-4 text-center">
-                  <p className="text-3xl font-bold text-green-600">{riskSummary?.low ?? 0}</p>
+                  <p className="text-3xl font-bold text-green-600">{riskSummary?.low ?? '—'}</p>
                   <p className="mt-1 text-xs font-medium text-green-700">Low Risk</p>
                 </div>
               </div>

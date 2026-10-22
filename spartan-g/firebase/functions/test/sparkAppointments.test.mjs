@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { initializeApp as initializeAdminApp } from 'firebase-admin/app';
 import { getFirestore as getAdminFirestore, Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getFirestore, connectFirestoreEmulator, terminate, doc, updateDoc, setDoc, serverTimestamp, Timestamp, writeBatch } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, terminate, doc, getDocFromServer, updateDoc, setDoc, serverTimestamp, Timestamp, writeBatch } from 'firebase/firestore';
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
 if (!host || !/^(localhost|127\.0\.0\.1):\d+$/.test(host)) throw new Error('Local emulator required.');
@@ -204,4 +204,28 @@ test('backfilled irregular legacy appointments still block overlapping bookings'
   }
   await batch.commit();
   await denied(book(input(ids, { studentId: ids.s2 }), ids.c2, ids.s2));
+});
+
+test('public availability excludes private fields and stays atomic when the migration gate is enabled', async () => {
+  const ids = await setup();
+  await admin.doc('appointment_booking_config/spark').set({ version: 1, availabilityVersion: 1 });
+  try {
+    const id = await book(input(ids, { notes: 'PRIVATE STUDENT NOTE' }), ids.c1, ids.s1);
+    const publicRef = doc(ids.c2, 'appointment_availability', id);
+    const publicData = (await getDocFromServer(publicRef)).data();
+    assert.deepEqual(Object.keys(publicData).sort(), ['durationMinutes', 'facilitatorId', 'scheduledAt', 'status']);
+    assert.ok(!JSON.stringify(publicData).includes('PRIVATE'));
+    await denied(getDocFromServer(doc(ids.c2, 'appointments', id)));
+    await denied(updateDoc(publicRef, { status: 'cancelled' }));
+    await denied(updateDoc(doc(ids.c1, 'appointment_availability', id), { notes: 'LEAK' }));
+    await denied(updateDoc(doc(ids.c1, 'appointments', id), { status: 'cancelled', updatedAt: serverTimestamp() }));
+    const batch = writeBatch(ids.c1);
+    batch.update(doc(ids.c1, 'appointments', id), { status: 'cancelled', updatedAt: serverTimestamp() });
+    batch.update(doc(ids.c1, 'appointment_availability', id), { status: 'cancelled' });
+    await batch.commit();
+    assert.equal((await getDocFromServer(publicRef)).data().status, 'cancelled');
+    await book(input(ids, { studentId: ids.s2 }), ids.c2, ids.s2);
+  } finally {
+    await admin.doc('appointment_booking_config/spark').set({ version: 1 });
+  }
 });

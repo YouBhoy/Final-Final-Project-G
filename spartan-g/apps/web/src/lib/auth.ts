@@ -7,7 +7,7 @@ import {
   type User,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDocFromServer, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
 import type { Role, AuthSession, Campus } from "@spartan-g/shared-types";
 
@@ -78,7 +78,7 @@ export async function loginUser(
   const { user } = await signInWithEmailAndPassword(auth, email, password);
 
   // Get user profile from Firestore
-  const userDoc = await getDoc(doc(db, "users", user.uid));
+  const userDoc = await getDocFromServer(doc(db, "users", user.uid));
 
   if (!userDoc.exists()) {
     throw new Error("User profile not found");
@@ -86,8 +86,11 @@ export async function loginUser(
 
   const userData = userDoc.data();
 
-  if (!userData.isActive) {
+  if (userData.isActive !== true) {
     throw new Error("Account is deactivated");
+  }
+  if (!['student', 'facilitator', 'super_admin'].includes(userData.role)) {
+    throw new Error("Account role is invalid");
   }
 
   return {
@@ -111,35 +114,47 @@ export async function resetPassword(email: string): Promise<void> {
 export function onAuthChange(
   callback: (user: AuthSession | null) => void
 ): () => void {
-  return onAuthStateChanged(auth, async (firebaseUser) => {
-    if (firebaseUser) {
-      // Get user profile from Firestore
-      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-
-      if (!userDoc.exists()) {
+  let stopProfile: (() => void) | undefined;
+  let generation = 0;
+  let stopped = false;
+  const stopAuth = onAuthStateChanged(auth, (firebaseUser) => {
+    const current = ++generation;
+    stopProfile?.();
+    stopProfile = undefined;
+    // Never carry a previous account's privileges across an account switch.
+    callback(null);
+    if (!firebaseUser || stopped) return;
+    const isCurrent = () => !stopped && current === generation && auth.currentUser?.uid === firebaseUser.uid;
+    stopProfile = onSnapshot(doc(db, "users", firebaseUser.uid), { includeMetadataChanges: true }, snapshot => {
+      if (!isCurrent()) return;
+      // Local cache entries and optimistic client edits are not authorization.
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites || !snapshot.exists()) {
         callback(null);
         return;
       }
-
-      const userData = userDoc.data();
-
-      if (!userData.isActive) {
+      const data = snapshot.data();
+      if (data.isActive !== true || !['student', 'facilitator', 'super_admin'].includes(data.role)) {
         callback(null);
         return;
       }
-
       callback({
         uid: firebaseUser.uid,
         email: firebaseUser.email,
         emailVerified: firebaseUser.emailVerified,
-        role: userData.role,
-        displayName: firebaseUser.displayName ?? userData.displayName,
-        campus: userData.campus ?? null,
+        role: data.role,
+        displayName: firebaseUser.displayName ?? data.displayName,
+        campus: data.campus ?? null,
       });
-    } else {
-      callback(null);
-    }
+    }, () => {
+      if (isCurrent()) callback(null);
+    });
   });
+  return () => {
+    stopped = true;
+    generation++;
+    stopProfile?.();
+    stopAuth();
+  };
 }
 
 export function getRoleRedirect(role: Role): string {

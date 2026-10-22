@@ -17,6 +17,8 @@ interface PortalLayoutProps {
    * On smaller screens both use the slide-in drawer opened from the Header.
    */
   navPlacement?: "side" | "top";
+  /** Optional decorative photo behind the page content. */
+  backgroundImage?: string;
   /** The page content. */
   children: ReactNode;
 }
@@ -39,6 +41,7 @@ export function PortalLayout({
   portalTagline,
   navItems,
   navPlacement = "side",
+  backgroundImage,
   children,
 }: PortalLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,7 +53,7 @@ export function PortalLayout({
     <div className="min-h-screen bg-[var(--color-bg)]">
       {/* Desktop sidebar (fixed, full height) — side placement only */}
       {!topNav && (
-        <div className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
+        <div className="z-20 hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
           <Sidebar items={navItems} />
         </div>
       )}
@@ -80,7 +83,14 @@ export function PortalLayout({
       </div>
 
       {/* Content column — offset on desktop to make room for the fixed sidebar */}
-      <div className={topNav ? "" : "md:pl-64"}>
+      <div className={`relative isolate min-h-screen ${topNav ? "" : "md:ml-64"}`}>
+        {backgroundImage && (
+          <div
+            aria-hidden="true"
+            className={`portal-photo-background pointer-events-none fixed bottom-0 left-0 right-0 top-16 -z-10 ${topNav ? "" : "md:left-64"}`}
+            style={{ backgroundImage: `url("${backgroundImage}")` }}
+          />
+        )}
         <Header
           portalName={portalName}
           portalTagline={portalTagline}

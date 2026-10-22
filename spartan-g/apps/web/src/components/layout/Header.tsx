@@ -71,7 +71,7 @@ export function Header({ portalName, portalTagline, onMenuClick, navPlacement = 
     roleKey === "facilitator"
       ? "/facilitator/profile"
       : roleKey === "super_admin"
-        ? "/admin/profile"
+        ? null
         : "/student/profile";
   const displayName = user?.displayName ?? user?.email ?? "";
 
@@ -203,7 +203,7 @@ export function Header({ portalName, portalTagline, onMenuClick, navPlacement = 
                     </span>
                   </div>
                   <div className="my-1 border-t border-[var(--color-border)]" role="separator" />
-                  <button
+                  {profilePath && <button
                     type="button"
                     role="menuitem"
                     className={menuItem}
@@ -213,7 +213,7 @@ export function Header({ portalName, portalTagline, onMenuClick, navPlacement = 
                     }}
                   >
                     Profile
-                  </button>
+                  </button>}
                   <button
                     type="button"
                     role="menuitem"

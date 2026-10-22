@@ -1,7 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getStorage, connectStorageEmulator, ref, uploadBytes, getBytes } from 'firebase/storage';
+import { getStorage, connectStorageEmulator, ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage';
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
 const storageHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
@@ -70,37 +70,38 @@ test('schedule ownership is immutable while own schedule edits still work', asyn
   check(await write(ids.facilitator,path,{ dayOfWeek: 2 },true),200);
   check(await write(ids.facilitator,path,{ facilitatorId: ids.outsider },true),403);
 });
-// These tests record residual weaknesses; a passing test here means the gap is
-// reproduced, not that the behavior is secure. Invert assertions with the migration.
-test('OPEN SEC-003: an unrelated student can read an active appointment including notes', async () => {
+// Regression checks for the access/integrity gaps reproduced in the audit.
+test('unrelated students cannot read private active appointment records', async () => {
   const ids = await setup(), path = `appointments/${ids.conversation}`;
   check(await write('owner',path,{ studentId: ids.student, facilitatorId: ids.facilitator,
     status: 'requested', notes: 'Synthetic private appointment note' }),200);
   const response = await fetch(`${base}/${path}`,{ headers: { Authorization: `Bearer ${token(ids.outsider)}` } });
-  assert.equal(response.status,200);
-  assert.equal((await response.json()).fields.notes.stringValue,'Synthetic private appointment note');
+  assert.equal(response.status,403);
+  const owner = await fetch(`${base}/${path}`,{ headers: { Authorization: `Bearer ${token(ids.student)}` } });
+  assert.equal(owner.status,200);
 });
-test('OPEN SEC-004: students can supply their own risk classification on submission', async () => {
+test('students cannot supply their own risk classification on submission', async () => {
   const ids = await setup(), path = `assessment_attempts/${ids.conversation}`;
   check(await write('owner',path,{ studentId: ids.student, assessmentId: 'synthetic', status: 'in_progress', attemptNumber: 1 }),200);
-  check(await write(ids.student,path,{ status: 'submitted', overallRiskLevel: 'low', overallRiskScore: 0 },true),200);
+  check(await write(ids.student,path,{ status: 'submitted', overallRiskLevel: 'low', overallRiskScore: 0 },true),403);
+  check(await write(ids.student,path,{ status: 'submitted' },true),200);
 });
-test('OPEN SEC-005: an authenticated outsider can create a notification for another user', async () => {
+test('an unrelated user cannot forge a notification for another user', async () => {
   const ids = await setup();
   check(await write(ids.outsider,`notifications/${ids.conversation}`,{ userId: ids.student,
-    title: 'Synthetic spoofed notification', body: 'Synthetic', type: 'message' }),200);
+    title: 'Synthetic spoofed notification', body: 'Synthetic', type: 'message' }),403);
 });
-test('OPEN SEC-006: slot reservation permits unrelated identity and time changes', async () => {
+test('slot reservations reject unrelated identity and time changes', async () => {
   const ids = await setup(), path = `appointment_slots/${ids.conversation}`;
   check(await write('owner',path,{ facilitatorId: ids.facilitator, status: 'available', startTime: 1 }),200);
   check(await write(ids.student,path,{ status: 'reserved', appointmentId: 'nonexistent',
-    facilitatorId: ids.outsider, startTime: 999 },true),200);
+    facilitatorId: ids.outsider, startTime: 999 },true),403);
 });
-test('OPEN SEC-010: deactivated owners can still read their Firestore profile', async () => {
+test('deactivated owners cannot read their Firestore profile', async () => {
   const ids = await setup(),path = `profiles/${ids.disabled}`;
   check(await write('owner',path,{ uid: ids.disabled, campus: 'synthetic' }),200);
   const response = await fetch(`${base}/${path}`,{ headers: { Authorization: `Bearer ${token(ids.disabled)}` } });
-  assert.equal(response.status,200);
+  assert.equal(response.status,403);
 });
 const apps = [];
 function storageFor(uid) {
@@ -120,4 +121,39 @@ test('conversation attachments permit members and deny outsider reads, writes, a
   await assert.rejects(getBytes(ref(outsider,path)),{ code: 'storage/unauthorized' });
   await assert.rejects(uploadBytes(ref(outsider,path),content,{ contentType: 'application/pdf' }),{ code: 'storage/unauthorized' });
   await assert.rejects(uploadBytes(ref(disabled,`avatars/${ids.disabled}/synthetic.png`),content,{ contentType: 'image/png' }),{ code: 'storage/unauthorized' });
+});
+
+test('student assignment files are private to their owner, assigned facilitator and admin', async () => {
+  const ids = await setup();
+  const owner = storageFor(ids.student), outsider = storageFor(ids.outsider), facilitator = storageFor(ids.facilitator), admin = storageFor(ids.admin);
+  const path = `assignments/synthetic-course/synthetic-assignment/${ids.student}/private.pdf`;
+  const content = new Uint8Array([1,2,3]);
+  await uploadBytes(ref(owner,path),content,{ contentType: 'application/pdf' });
+  await assert.rejects(getBytes(ref(outsider,path)), { code: 'storage/unauthorized' });
+  await assert.rejects(getBytes(ref(facilitator,path)), { code: 'storage/unauthorized' });
+  await assert.rejects(deleteObject(ref(facilitator,path)), { code: 'storage/unauthorized' });
+  check(await write('owner', `facilitator_student_links/${ids.facilitator}_${ids.student}`, { studentId: ids.student, facilitatorId: ids.facilitator, status: 'accepted' }), 200);
+  assert.deepEqual(new Uint8Array(await getBytes(ref(facilitator,path))), content);
+  assert.deepEqual(new Uint8Array(await getBytes(ref(admin,path))), content);
+});
+
+test('students cannot start conversations with unrelated students or unassigned facilitators', async () => {
+  const ids = await setup();
+  check(await write(ids.student, `conversations/${ids.conversation}_peer`, { participantIds: [ids.student, ids.outsider] }), 403);
+  check(await write(ids.student, `conversations/${ids.conversation}_unassigned`, { participantIds: [ids.student, ids.facilitator] }), 403);
+  check(await write('owner', `facilitator_student_links/${ids.facilitator}_${ids.student}`, { studentId: ids.student, facilitatorId: ids.facilitator, status: 'accepted' }), 200);
+  check(await write(ids.student, `conversations/${ids.conversation}_assigned`, { participantIds: [ids.student, ids.facilitator] }), 200);
+});
+
+test('resource file downloads enforce publication and audience restrictions', async () => {
+  const ids = await setup(), resourceId = `${ids.conversation}_resource`;
+  const admin = storageFor(ids.admin), student = storageFor(ids.student), facilitator = storageFor(ids.facilitator);
+  const path = `resources/${resourceId}/staff.pdf`, content = new Uint8Array([1,2,3]);
+  await uploadBytes(ref(admin,path), content, { contentType: 'application/pdf' });
+  check(await write('owner', `resources/${resourceId}`, { isActive: true, audience: 'facilitators' }), 200);
+  await assert.rejects(getBytes(ref(student,path)), { code: 'storage/unauthorized' });
+  assert.deepEqual(new Uint8Array(await getBytes(ref(facilitator,path))), content);
+  check(await write('owner', `resources/${resourceId}`, { isActive: false }, true), 200);
+  await assert.rejects(getBytes(ref(facilitator,path)), { code: 'storage/unauthorized' });
+  assert.deepEqual(new Uint8Array(await getBytes(ref(admin,path))), content);
 });

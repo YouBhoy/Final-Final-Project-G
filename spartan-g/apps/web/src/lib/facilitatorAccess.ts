@@ -1,6 +1,6 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { getFirestoreDb, userRepository } from '@spartan-g/shared-services';
-import type { RiskAlertDocument, UserDocument } from '@spartan-g/shared-types';
+import { getFirestoreDb, userRepository, riskAlertService } from '@spartan-g/shared-services';
+import type { UserDocument } from '@spartan-g/shared-types';
 
 /** Query approved relationships first; never download the global student directory. */
 async function assignedStudentIds(facilitatorId: string): Promise<string[]> {
@@ -22,12 +22,5 @@ export async function getAssignedStudents(facilitatorId: string) {
 }
 
 export async function getAssignedRiskAlerts(facilitatorId: string, openOnly = false) {
-  const ids = await assignedStudentIds(facilitatorId);
-  const results = await Promise.all(ids.map(async studentId => {
-    const filters = [where('facilitatorId', '==', facilitatorId), where('studentId', '==', studentId)];
-    if (openOnly) filters.push(where('status', '==', 'open'));
-    const snapshot = await getDocs(query(collection(getFirestoreDb(), 'risk_alerts'), ...filters));
-    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as RiskAlertDocument & { id: string }));
-  }));
-  return results.flat().sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  return openOnly ? riskAlertService.getOpenAlerts(facilitatorId, 'facilitator') : riskAlertService.getAlertsForFacilitator(facilitatorId, 'facilitator');
 }

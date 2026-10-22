@@ -108,13 +108,13 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
         {validationError && <p role="alert" className="mt-3 text-sm text-red-700">{validationError}</p>}
         <p className="mt-2 text-xs text-gray-500">Dates are applied only after you select Apply. The report caption shows the current applied period.</p>
       </form>}
-      <p className="mt-4 text-xs text-gray-500">Filters apply only to this tab. Dates use Asia/Manila.</p>
+      <p className="mt-4 text-xs text-gray-500">Filters apply only to this tab.</p>
     </Card>
     {error && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}<p className="mt-1 text-xs">No report values are shown until a request succeeds.</p></div>}
     {loading && <div className="flex justify-center py-12" aria-live="polite"><Spinner label="Preparing this report..." /></div>}
     {report && <>
       <div className="flex flex-wrap justify-between gap-2 text-xs text-gray-500">
-        <span>{report.filters.startDate} through {report.filters.endDate} · {report.filters.campus ? campusOptions.find(([key]) => key === report.filters.campus)?.[1] : 'All campuses'} · Asia/Manila</span>
+        <span>{report.filters.startDate} through {report.filters.endDate} · {report.filters.campus ? campusOptions.find(([key]) => key === report.filters.campus)?.[1] : 'All campuses'}</span>
         <span>Data fetched {new Date(report.sourceLoadedAt ?? report.generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</span>
       </div>
       {view !== 'scores' && report.totals.participants === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No activity recorded for this campus and period.</p>}

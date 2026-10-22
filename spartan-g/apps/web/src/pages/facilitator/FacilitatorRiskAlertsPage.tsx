@@ -58,6 +58,7 @@ export function FacilitatorRiskAlertsPage() {
   const [alerts, setAlerts] = useState<AlertWithId[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
@@ -99,7 +100,7 @@ export function FacilitatorRiskAlertsPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, refresh]);
 
   // Load student display names for pseudonymization
   useEffect(() => {
@@ -235,6 +236,7 @@ export function FacilitatorRiskAlertsPage() {
         <p className="mt-1 text-sm text-gray-500">
           Monitor and manage student risk alerts. Critical alerts are shown first.
         </p>
+        <Button variant="outline" size="sm" className="mt-3" disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh alerts</Button>
       </div>
 
       {/* Stats cards */}
@@ -424,7 +426,7 @@ function AlertDetailModal({ alert, studentName, onClose, onAcknowledge, onResolv
   const showRealName = alert.severity === "critical" || alert.severity === "high";
   const displayName = showRealName && studentName ? studentName : "Student " + alert.studentId.slice(-4);
 
-  const riskScore = alert.overallRiskScore ?? 0;
+  const riskScore = alert.overallRiskScore;
   const riskLevel = alert.severity as AlertSeverity;
   const riskFlags = alert.riskFlags ?? [];
 
@@ -453,7 +455,7 @@ function AlertDetailModal({ alert, studentName, onClose, onAcknowledge, onResolv
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-gray-500">Risk Score</div>
-            <div className="mt-1 text-xl font-bold text-gray-900">{riskScore}/100</div>
+            <div className="mt-1 text-xl font-bold text-gray-900">{riskScore == null ? 'Needs review' : `${riskScore}/100`}</div>
           </div>
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-gray-500">Risk Level</div>

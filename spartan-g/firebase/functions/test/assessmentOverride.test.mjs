@@ -105,7 +105,10 @@ test('rules: parallel creates cannot exceed the limit', async () => {
   const results = await Promise.all([createAttempt(ids, ids.student, 2), createAttempt(ids, ids.student, 3), createAttempt(ids, ids.student, 4)]);
   assert.deepEqual(results, [200, 403, 403], 'only the next attempt is accepted');
   const duplicates = await Promise.all([createAttempt(ids, ids.other, 1), createAttempt(ids, ids.other, 1), createAttempt(ids, ids.other, 1)]);
-  assert.ok(duplicates.every(status => status === 200));
+  // A concurrent retry may be denied once the shell exists: students cannot
+  // overwrite its startedAt/identity metadata. At least one create must win.
+  assert.ok(duplicates.some(status => status === 200));
+  assert.ok(duplicates.every(status => status === 200 || status === 403));
   assert.equal((await db.collection('assessment_attempts').where('studentId', '==', ids.other).get()).size, 1, 'same id, still one attempt');
 });
 

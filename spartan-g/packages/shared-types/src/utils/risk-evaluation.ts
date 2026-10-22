@@ -259,3 +259,28 @@ export function evaluateAssessmentRisk(
     domainResults,
   };
 }
+
+/** Recalculate from saved responses, never from student-supplied derived metadata.
+ * A partial/malformed instrument is unknown, not a reassuring zero score.
+ */
+export function evaluateSubmittedRisk(answers: unknown): RiskEvaluationResult | null {
+  if (!Array.isArray(answers)) return null;
+  const groups = [
+    Array.from({ length: 9 }, (_, index) => `phq${index + 1}`),
+    Array.from({ length: 7 }, (_, index) => `gad${index + 1}`),
+    Array.from({ length: 21 }, (_, index) => `dass${index + 1}`),
+  ];
+  const known = new Set(groups.flat()), record: Record<string, string> = {};
+  for (const answer of answers) {
+    if (!answer || typeof answer.questionId !== 'string') return null;
+    if (!known.has(answer.questionId)) continue;
+    if (Object.prototype.hasOwnProperty.call(record, answer.questionId)) return null;
+    const value = answer.value;
+    if (!(typeof value === 'string' && /^[0-3]$/.test(value))
+      && !(typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 3)) return null;
+    record[answer.questionId] = String(value);
+  }
+  if (!Object.keys(record).length) return null;
+  if (groups.some(group => group.some(id => id in record) && !group.every(id => id in record))) return null;
+  return evaluateAssessmentRisk(record);
+}

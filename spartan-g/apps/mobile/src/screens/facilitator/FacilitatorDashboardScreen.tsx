@@ -39,6 +39,7 @@ export function FacilitatorDashboardScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<FacilitatorMobileTabParamList>>();
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [riskError, setRiskError] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,8 +55,8 @@ export function FacilitatorDashboardScreen() {
       tasks.push(
         riskAlertService
           .getOpenAlerts(session.uid, session.role)
-          .then((list) => setAlerts(list as Alert[]))
-          .catch(() => setAlerts([])),
+          .then((list) => { setAlerts(list as Alert[]); setRiskError(null); })
+          .catch(() => { setAlerts([]); setRiskError('Risk alerts unavailable. Pull to refresh or tap to retry.'); }),
       );
     }
     if (canManageAppointments) {
@@ -100,12 +101,12 @@ export function FacilitatorDashboardScreen() {
             >
               <Text style={styles.cardTitle}>Open Risk Alerts</Text>
               <Text style={[styles.cardCount, alerts.length > 0 && { color: SEVERITY_COLORS.critical }]}>
-                {alerts.length}
+                {riskError ? '—' : alerts.length}
               </Text>
               <Text style={styles.cardHint}>
-                {alerts.length === 0
+                {riskError ?? (alerts.length === 0
                   ? 'No open alerts. Great job!'
-                  : 'Tap to review and manage alerts'}
+                  : 'Tap to review and manage alerts')}
               </Text>
             </TouchableOpacity>
           ) : null}

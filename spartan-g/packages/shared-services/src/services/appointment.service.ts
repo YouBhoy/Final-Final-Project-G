@@ -321,7 +321,7 @@ class AppointmentService {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const existingAppointments = await appointmentRepository.getActiveByDateRange(
+    const existingAppointments = await appointmentRepository.getActiveAvailability(
       facilitatorId,
       startOfDay,
       endOfDay,

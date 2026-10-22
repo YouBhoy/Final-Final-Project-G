@@ -40,7 +40,7 @@ export interface RecentConversation {
 }
 
 export interface FacilitatorDashboardData {
-  riskSummary: RiskSummary;
+  riskSummary: RiskSummary | null;
   todayAppointments: TodayAppointments;
   upcomingAppointments: UpcomingAppointment[];
   recentConversations: RecentConversation[];
@@ -52,7 +52,7 @@ export interface FacilitatorDashboardData {
 }
 
 const EMPTY_DATA: FacilitatorDashboardData = {
-  riskSummary: { high: 0, medium: 0, low: 0 },
+  riskSummary: null,
   todayAppointments: { total: 0, completed: 0, requests: 0 },
   upcomingAppointments: [],
   recentConversations: [],
@@ -108,6 +108,7 @@ export function useFacilitatorDashboard() {
         loadAppointments(user.uid, role, resolveUserName),
         loadNotifications(user.uid),
       ]);
+      if (riskResult.status === 'rejected') setError('Risk summary is unavailable. Refresh or open Risk Alerts to retry.');
 
       // Preserve live conversation data owned by the subscription.
       setData((prev) => ({

@@ -53,7 +53,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       facilitator: "/facilitator/dashboard",
       super_admin: "/admin/dashboard",
     };
-    return <Navigate to={redirectMap[user.role]} replace />;
+    return <Navigate to={redirectMap[user.role] ?? '/login'} replace />;
   }
 
   return <>{children}</>;

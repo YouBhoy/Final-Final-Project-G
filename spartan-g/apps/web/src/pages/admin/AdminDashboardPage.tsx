@@ -24,7 +24,7 @@ function DashboardContent() {
     { label: 'Total students', value: overview.students.length, description: 'All registered student accounts', to: '/admin/users?role=student', loading: users.loading, error: users.error },
     { label: 'Active facilitators', value: overview.facilitators.length, description: 'Accounts enabled to support students', to: '/admin/users?role=facilitator', loading: users.loading, error: users.error },
     { label: 'Active campuses', value: overview.campuses.filter(campus => campus.isActive).length, description: 'Enabled campuses across the platform', to: '/admin/campuses', loading: campuses.loading, error: campuses.error },
-    { label: 'Assessments submitted', value: submissions.data, description: 'This month to date · Manila time', to: '/admin/statistics', loading: submissions.loading, error: submissions.error },
+    { label: 'Assessments submitted', value: submissions.data, description: 'This month to date', to: '/admin/statistics', loading: submissions.loading, error: submissions.error },
   ];
   const names = new Map((users.data ?? []).map(user => [user.id, user.displayName || user.email]));
   return <div className="space-y-6">
@@ -68,7 +68,7 @@ function DashboardContent() {
           {activity.data?.length ? <ul className="mt-4 divide-y divide-[var(--color-border)]">{activity.data.map(row => <li key={row.id} className="py-4">
             <p className="text-sm font-semibold capitalize text-[var(--color-text)]">{row.action.replace(/^SUPERADMIN_/, '').replace(/_/g, ' ').toLowerCase()}</p>
             <p className={`mt-1 break-words text-xs ${muted}`}>{names.get(row.actorId) || String(row.metadata?.adminEmail || row.actorId)} · {names.get(row.resourceId) || String(row.metadata?.resourceName || row.resource)}</p>
-            <p className={`mt-1 text-xs ${muted}`}>{row.createdAt?.toDate ? row.createdAt.toDate().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) + ' · Manila' : 'Time unavailable'}</p>
+            <p className={`mt-1 text-xs ${muted}`}>{row.createdAt?.toDate ? row.createdAt.toDate().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : 'Time unavailable'}</p>
           </li>)}</ul> : <p className={`py-6 text-sm ${muted}`}>No admin activity yet. Account, campus, and resource changes will appear here.</p>}
         </Message>
       </Card>

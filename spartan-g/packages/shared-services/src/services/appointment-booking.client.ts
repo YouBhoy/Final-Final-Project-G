@@ -62,6 +62,7 @@ export async function bookAppointmentClient(input: ClientBookingInput, db: Fires
         tx.set(doc(db, 'appointment_reservations', id), { ...data, appointmentId: ref.id });
       }
       const schedule = { scheduledAt: Timestamp.fromMillis(start), durationMinutes: 60, status: 'requested', updatedAt: now };
+      tx.set(doc(db, 'appointment_availability', ref.id), { facilitatorId, scheduledAt: schedule.scheduledAt, durationMinutes: 60, status: 'requested' });
       if (existing) {
         tx.update(ref, { ...schedule, rescheduleReason: deleteField(), rescheduleRequestedAt: deleteField() });
       } else {
@@ -113,6 +114,7 @@ export async function acceptAppointmentClient(appointmentId: string, db: Firesto
     }
     if (!conversation.exists()) tx.set(conversationRef, { participantIds: [facilitatorId, studentId],
       lastMessageAt: now, lastMessagePreview: '', unreadCount: {}, createdAt: now, updatedAt: now });
+    tx.set(doc(db, 'appointment_availability', appointmentId), { facilitatorId, scheduledAt: appointment.scheduledAt, durationMinutes: appointment.durationMinutes, status: 'accepted' });
     tx.set(doc(db, 'notifications', `accepted_${appointmentId}`), { userId: studentId, title: 'Appointment Accepted',
       body: 'Your appointment has been accepted by the facilitator.', type: 'appointment', relatedId: appointmentId,
       data: { relatedId: appointmentId }, isRead: false, created_at: now, updated_at: now });

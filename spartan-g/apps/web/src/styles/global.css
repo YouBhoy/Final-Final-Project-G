@@ -133,6 +133,19 @@ body {
   transition: background-color 150ms ease, color 150ms ease;
 }
 
+/* Local campus photo from https://www.topuniversities.com/universities/batangas-state-university-national-engineering-university */
+.portal-photo-background {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  filter: saturate(0.75);
+}
+
+.dark .portal-photo-background {
+  opacity: 0.10;
+}
+
 /*
   Re-point Tailwind's neutral utilities at the theme-aware scale so existing
   `bg-gray-50`, `text-gray-900`, `border-gray-200`, … honour dark mode.
