@@ -23,7 +23,7 @@ interface StudentUser {
   email: string;
   displayName: string;
   role: string;
-  isActive: boolean;
+  identityShared: boolean;
 }
 
 interface StudentWithRisk extends StudentUser {
@@ -35,15 +35,6 @@ interface StudentWithRisk extends StudentUser {
 type ViewMode = "list" | "scores";
 
 // ─── Helpers ──────────────────────────────────────────────────
-
-function getPseudonym(studentId: string): string {
-  const suffix = studentId.slice(-4);
-  return `Student ${suffix}`;
-}
-
-function getHiddenEmail(): string {
-  return "••••••••@••••••";
-}
 
 function formatDate(timestamp: Timestamp | undefined): string {
   if (!timestamp) return "—";
@@ -261,7 +252,7 @@ export function FacilitatorStudentsPage() {
             email: u.email,
             displayName: u.displayName,
             role: u.role,
-            isActive: u.isActive,
+            identityShared: u.identityShared,
           }));
           setStudents(items);
         }
@@ -386,12 +377,8 @@ export function FacilitatorStudentsPage() {
 
   // ─── Scores View ─────────────────────────────────────────
   if (viewMode === "scores" && selectedStudent) {
-    const displayName = selectedStudentIsCritical
-      ? selectedStudent.displayName || "Student"
-      : getPseudonym(selectedStudent.id);
-    const displayEmail = selectedStudentIsCritical
-      ? selectedStudent.email
-      : getHiddenEmail();
+    const displayName = selectedStudent.displayName;
+    const displayEmail = selectedStudent.email;
 
     return (
       <div className="space-y-6">
@@ -448,7 +435,7 @@ export function FacilitatorStudentsPage() {
     <div className="space-y-6">
       {/* Pseudonymization notice */}
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-        Student identities are pseudonymized to protect privacy. Real names are only shown when a student's assessment scores indicate they may need immediate support.
+        Student identities stay hidden until the student explicitly requests support and shares their identity with you. Risk scores alone never reveal a name.
       </div>
 
       <div>
@@ -487,12 +474,8 @@ export function FacilitatorStudentsPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {studentsWithRisk.map((student) => {
-                  const displayName = student.isCritical
-                    ? student.displayName || "Unnamed Student"
-                    : getPseudonym(student.id);
-                  const displayEmail = student.isCritical
-                    ? student.email
-                    : getHiddenEmail();
+                  const displayName = student.displayName;
+                  const displayEmail = student.email;
 
                   return (
                     <tr key={student.id} className="hover:bg-gray-50">
@@ -510,7 +493,7 @@ export function FacilitatorStudentsPage() {
                         {displayEmail}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <Badge variant="success">Active</Badge>
+                        <Badge variant={student.identityShared ? 'success' : 'neutral'}>{student.identityShared ? 'Identity shared' : 'Identity hidden'}</Badge>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <Button

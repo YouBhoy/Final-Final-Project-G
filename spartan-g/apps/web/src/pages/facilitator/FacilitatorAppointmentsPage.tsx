@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { appointmentService } from '@spartan-g/shared-services';
-import { userService } from '@spartan-g/shared-services';
+import { resolveStudentIdentity } from '../../lib/studentIdentity';
 import { useAuth } from '../../hooks/useAuth';
 import { AppointmentDocument } from '@spartan-g/shared-types';
 import { AppointmentStatusBadge } from '../../components/appointments/AppointmentStatusBadge';
@@ -32,7 +32,7 @@ export function FacilitatorAppointmentsPage() {
       for (const apt of data) {
         if (!names[apt.studentId]) {
           try {
-            const userDoc = await userService.getUser(apt.studentId);
+            const userDoc = await resolveStudentIdentity(user.uid, apt.studentId);
             if (userDoc) names[apt.studentId] = userDoc.displayName || 'Unknown Student';
           } catch {
             // A pending booking does not grant access to the student's private profile.

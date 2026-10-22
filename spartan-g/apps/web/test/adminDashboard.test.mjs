@@ -62,10 +62,12 @@ export const auditService = { listRecent: maximum => globalThis.__dashboardTest.
 export const loadStatistics = (...args) => globalThis.__dashboardTest.statistics(...args);
 export const statisticsError = cause => cause.message;
 `);
+const pseudonymizationUrl = moduleUrl(transpile(await readFile(new URL('../src/lib/pseudonymization.ts', import.meta.url), 'utf8')));
 const hookCode = transpile(await readFile(new URL('../src/hooks/useAdminDashboard.ts', import.meta.url), 'utf8'))
   .replace(/(['"])react\1/g, JSON.stringify(import.meta.resolve('react')))
   .replace(/(['"])@spartan-g\/shared-services\1/g, JSON.stringify(fixtureUrl))
   .replace(/(['"])\.\.\/lib\/statistics\1/g, JSON.stringify(fixtureUrl))
+  .replace(/(['"])\.\.\/lib\/pseudonymization\1/g, JSON.stringify(pseudonymizationUrl))
   .replace(/(['"])\.\.\/lib\/adminDashboard\1/g, JSON.stringify(overviewUrl));
 const hookUrl = moduleUrl(hookCode);
 const { useAdminDashboard } = await import(hookUrl);
@@ -102,18 +104,19 @@ test('refresh clears previous data while loading and bypasses the statistics cac
   assert.equal(fixture.current.users.data, null);
   assert.equal(fixture.current.users.loading, true);
   assert.deepEqual(cacheFlags, [false, true]);
-  await act(async () => resolveUsers([user('new-student')]));
-  assert.equal(fixture.current.users.data[0].id, 'new-student');
+  await act(async () => resolveUsers([user('new-student', 'student', true, 'new-campus')]));
+  assert.equal(fixture.current.users.data[0].campus, 'new-campus');
+  assert.notEqual(fixture.current.users.data[0].id, 'new-student');
 });
 
 test('results from an older refresh cannot replace the latest data', async () => {
   let resolveOld;
   const fixture = setup({ users: () => new Promise(resolve => { resolveOld = resolve; }) });
   await fixture.mount();
-  globalThis.__dashboardTest.users = async () => [user('latest-student')];
+  globalThis.__dashboardTest.users = async () => [user('latest-student', 'student', true, 'latest-campus')];
   await act(async () => fixture.current.refresh());
   await act(async () => resolveOld([user('old-student')]));
-  assert.equal(fixture.current.users.data[0].id, 'latest-student');
+  assert.equal(fixture.current.users.data[0].campus, 'latest-campus');
 });
 
 const authUrl = moduleUrl('export function useAuth() { return { user: globalThis.__dashboardTest.actor }; }');
@@ -142,22 +145,34 @@ test('unauthorized accounts cannot start dashboard data reads', async () => {
   assert.ok(root.root.findByProps({ role: 'alert' }));
 });
 
-test('dashboard renders real totals and routes attention links to the relevant account and campus', async () => {
+test('dashboard renders totals and navigation without the removed attention card', async () => {
   await mountPage({ uid: 'admin', role: 'super_admin' });
   const rendered = JSON.stringify(root.toJSON());
   assert.ok(rendered.includes('Assessments submitted'));
   assert.ok(rendered.includes('12'));
   assert.ok(rendered.includes('No admin activity yet.'));
   const destinations = root.root.findAllByType('a').map(anchor => anchor.props.href);
-  assert.ok(destinations.includes('/admin/users/student'));
-  assert.ok(destinations.includes(`/admin/users?role=facilitator&campus=${ALL_CAMPUSES[0]}`));
+  assert.ok(!rendered.includes('Needs attention'));
+  assert.ok(!destinations.includes('/admin/users/student'));
   assert.ok(destinations.includes('/admin/statistics'));
 });
 
-test('an unavailable source renders an error without claiming healthy support coverage', async () => {
-  await mountPage({ uid: 'admin', role: 'super_admin' }, { links: async () => { throw new Error('Connections unavailable'); } });
+test('an unavailable campus source renders its error without claiming healthy coverage', async () => {
+  await mountPage({ uid: 'admin', role: 'super_admin' }, { campuses: async () => { throw new Error('Campuses unavailable'); } });
   const rendered = JSON.stringify(root.toJSON());
-  assert.ok(rendered.includes('Connections unavailable'));
+  assert.ok(rendered.includes('Campuses unavailable'));
   assert.ok(!rendered.includes('All active students have an active facilitator connection.'));
   assert.ok(rendered.includes('Campus overview'));
+});
+
+test('dashboard state excludes real user identities and audit metadata', async () => {
+  const fixture = setup({
+    users: async () => [{ ...user('PRIVATE_UID'), displayName: 'PRIVATE_NAME', email: 'PRIVATE_EMAIL' }],
+    activity: async () => [{ id: 'PRIVATE_EVENT', actorId: 'PRIVATE_UID', resourceId: 'PRIVATE_TARGET', action: 'SUPERADMIN_UPDATED_USER', resource: 'users', metadata: { adminEmail: 'PRIVATE_EMAIL', resourceName: 'PRIVATE_NAME' } }],
+    links: async () => { throw new Error('Removed coverage section must not fetch relationships'); },
+  });
+  await fixture.mount();
+  assert.equal(JSON.stringify(fixture.current.users.data).includes('PRIVATE_'), false);
+  assert.equal(JSON.stringify(fixture.current.activity.data).includes('PRIVATE_'), false);
+  assert.equal(fixture.current.loading, false);
 });

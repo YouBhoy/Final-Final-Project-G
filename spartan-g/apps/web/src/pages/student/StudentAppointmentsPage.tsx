@@ -13,6 +13,7 @@ import {
 } from '@spartan-g/shared-types';
 import { AppointmentStatusBadge } from '../../components/appointments/AppointmentStatusBadge';
 import { Modal } from '../../components/ui/Modal';
+import { StudentIdentitySharing } from '../../components/appointments/StudentIdentitySharing';
 
 type Appointment = AppointmentDocument & { id: string };
 type FacilitatorInfo = { name: string; campus?: string };
@@ -504,6 +505,7 @@ export function StudentAppointmentsPage() {
                 <p className="text-sm text-[var(--color-text-secondary)]">{details.notes}</p>
               </div>
             )}
+            <StudentIdentitySharing key={`${user?.uid}_${details.facilitatorId}`} facilitatorId={details.facilitatorId} />
 
             {details.status === 'reschedule_requested' && details.rescheduleReason && (
               <div className="p-2 bg-[var(--color-warning-bg)] border border-[var(--color-warning)]/20 rounded-[var(--radius-sm)] text-sm text-[var(--color-warning)]">

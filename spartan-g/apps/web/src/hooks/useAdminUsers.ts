@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import type { UserDocument } from "@spartan-g/shared-types";
 import { userRepository } from "@spartan-g/shared-services";
+import { adminUserListRows, type AdminUserListRow } from '../lib/pseudonymization';
 
-type UserRow = UserDocument & { id: string };
+type UserRow = AdminUserListRow;
 
 /**
  * Loads every user document for the Super Admin Users page.
@@ -18,7 +18,7 @@ export function useAdminUsers() {
     setLoading(true);
     setError(null);
     try {
-      const list = await userRepository.getAll();
+      const list = adminUserListRows(await userRepository.getAll());
       list.sort((a, b) => (a.displayName ?? "").localeCompare(b.displayName ?? ""));
       setUsers(list);
     } catch (e) {

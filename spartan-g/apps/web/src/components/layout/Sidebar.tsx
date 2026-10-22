@@ -17,6 +17,7 @@ export interface NavItem {
 }
 
 interface SidebarProps {
+  portalName: string;
   items: NavItem[];
   /** Called after a nav link is clicked. Useful for closing the mobile drawer. */
   onNavigate?: () => void;
@@ -26,7 +27,7 @@ interface SidebarProps {
  * Sidebar renders a vertical list of navigation links. Each item is highlighted
  * with a maroon background and gold left-border indicator when active.
  */
-export function Sidebar({ items, onNavigate }: SidebarProps) {
+export function Sidebar({ portalName, items, onNavigate }: SidebarProps) {
   const { pathname } = useLocation();
 
   return (
@@ -45,7 +46,7 @@ export function Sidebar({ items, onNavigate }: SidebarProps) {
               University
             </p>
             <p className="mt-0.5 text-[10px] font-medium tracking-wider text-[var(--color-accent)] uppercase">
-              Student Portal
+              {portalName}
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { getFirestoreDb, userRepository, riskAlertService } from '@spartan-g/shared-services';
-import type { UserDocument } from '@spartan-g/shared-types';
+import { getFirestoreDb, riskAlertService } from '@spartan-g/shared-services';
+import { resolveStudentIdentity } from './studentIdentity';
 
 /** Query approved relationships first; never download the global student directory. */
 async function assignedStudentIds(facilitatorId: string): Promise<string[]> {
@@ -15,9 +15,8 @@ async function assignedStudentIds(facilitatorId: string): Promise<string[]> {
 
 export async function getAssignedStudents(facilitatorId: string) {
   const ids = await assignedStudentIds(facilitatorId);
-  const students = await Promise.all(ids.map(id => userRepository.getById(id)));
-  return students.filter((student): student is UserDocument & { id: string } =>
-    student !== null && student.role === 'student' && student.isActive)
+  const students = await Promise.all(ids.map(async id => ({ id, role: 'student', ...await resolveStudentIdentity(facilitatorId, id) })));
+  return students
     .sort((a, b) => (a.displayName ?? '').localeCompare(b.displayName ?? ''));
 }
 

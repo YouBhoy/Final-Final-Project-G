@@ -133,8 +133,23 @@ test('student assignment files are private to their owner, assigned facilitator 
   await assert.rejects(getBytes(ref(facilitator,path)), { code: 'storage/unauthorized' });
   await assert.rejects(deleteObject(ref(facilitator,path)), { code: 'storage/unauthorized' });
   check(await write('owner', `facilitator_student_links/${ids.facilitator}_${ids.student}`, { studentId: ids.student, facilitatorId: ids.facilitator, status: 'accepted' }), 200);
+  await assert.rejects(getBytes(ref(facilitator,path)), { code: 'storage/unauthorized' });
+  check(await write(ids.student, `student_identity_consents/${ids.facilitator}_${ids.student}`, { studentId: ids.student, facilitatorId: ids.facilitator }, false, ['requestedAt']), 200);
   assert.deepEqual(new Uint8Array(await getBytes(ref(facilitator,path))), content);
   assert.deepEqual(new Uint8Array(await getBytes(ref(admin,path))), content);
+});
+
+test('student avatars require an accepted connection and explicit identity sharing', async () => {
+  const ids = await setup();
+  const student = storageFor(ids.student), facilitator = storageFor(ids.facilitator), outsider = storageFor(ids.outsider);
+  const path = `avatars/${ids.student}/private.png`, content = new Uint8Array([1,2,3]);
+  await uploadBytes(ref(student,path),content,{ contentType: 'image/png' });
+  await assert.rejects(getBytes(ref(facilitator,path)), { code: 'storage/unauthorized' });
+  await assert.rejects(getBytes(ref(outsider,path)), { code: 'storage/unauthorized' });
+  check(await write('owner', `facilitator_student_links/${ids.facilitator}_${ids.student}`, { studentId: ids.student, facilitatorId: ids.facilitator, status: 'accepted' }), 200);
+  await assert.rejects(getBytes(ref(facilitator,path)), { code: 'storage/unauthorized' });
+  check(await write(ids.student, `student_identity_consents/${ids.facilitator}_${ids.student}`, { studentId: ids.student, facilitatorId: ids.facilitator }, false, ['requestedAt']), 200);
+  assert.deepEqual(new Uint8Array(await getBytes(ref(facilitator,path))), content);
 });
 
 test('students cannot start conversations with unrelated students or unassigned facilitators', async () => {

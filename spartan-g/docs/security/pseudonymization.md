@@ -1,0 +1,25 @@
+# Reporting pseudonymization
+
+Super Admin dashboards, audit views and the statistics calculation cache minimize personal information. The user directory also replaces student names with random aliases and hides student emails before sorting, searching or storing rows. Role selection uses a dropdown. Student detail pages hide identity fields by default; Super Admins can explicitly reveal a single account for operational management and then hide it again. This reveal is a display control for authorized administrators, not a restriction on their underlying Firestore access. Facilitators see a real student identity only after that student explicitly requests support from that facilitator and an accepted relationship exists; risk severity and administrator assignment alone never disclose it.
+
+## Student-controlled facilitator access
+
+The `student_identity_consents/{facilitatorId}_{studentId}` document can only be created or renewed by that active student, with a server timestamp and canonical participant IDs. Facilitators and administrators cannot forge a student's consent through the client API. Firestore checks both consent and an accepted relationship before allowing facilitator reads of `users` or `profiles`. An unrelated facilitator remains denied, even if the student shares identity with somebody else.
+
+Booking an appointment records the request and identity-sharing consent atomically. The booking form explains this before submission. Existing appointments and administrator assignments do not receive retroactive consent: students can open Appointment Details to request support and share their identity, or stop sharing. Revocation blocks subsequent identity reads; information already seen cannot be recalled.
+
+Facilitator student lists, risk alerts, appointments, dashboard, slots and message participant labels resolve through a server-checked identity helper. Without valid consent/access, it returns a random per-tab alias and no name/email. High or critical scores never override this decision. Assigned assessment/risk access still follows the existing accepted-relationship rules; this is not a promise to anonymize student-written messages, notes or answers, which may themselves contain identifying information.
+
+## Super Admin reporting
+
+- Statistics replace account, conversation and event identifiers with random aliases before caching calculation input. The same account has the same alias across sources within one snapshot, so joins and distinct counts still work. Names, emails, written responses, notes and message bodies are excluded by the existing field allowlist.
+- Refreshing a snapshot creates fresh aliases. The lookup maps are temporary, scoped to that load, and are not saved to browser storage or Firestore. The account-bound report cache is cleared on logout/account switch and expires after five minutes.
+- Public campus and assessment-template identifiers remain usable as report filters. Event-ID ordering is preserved for assessment tie breaking. Existing small-group score suppression remains in place, and statistics output is aggregate.
+- Dashboard user state retains only aliases, roles, campus and active status. The removed support-coverage card no longer triggers a facilitator/student-link read.
+- Audit component state retains random actor/target aliases, action, time, resource type and allowlisted changed-field names. It drops raw identifiers, emails and free-text metadata. The underlying immutable audit trail remains intact for accountability.
+
+This is reporting-layer pseudonymization, not anonymization or a new authorization boundary. Authorized browser reads still receive original source documents from Firestore before projection. Account management and operational records still contain identifiable data protected by Firebase rules. Preventing even authorized reporting clients from receiving original documents would require a separately protected, trusted reporting projection; a frontend alias cannot provide that guarantee. Do not add client-side secrets or claim aliases encrypt the source records.
+
+Validation: `npm run test:pseudonymization --workspace=@spartan-g/web`, the production web build, and Firestore/Storage emulator tests in `facilitatorAccess.test.mjs`, `sparkAppointments.test.mjs` and `securityRules.test.mjs`. Tests verify identifier removal, alias rotation, source immutability, relationships, deterministic retake results, aggregate equality, authorization/cache boundaries, consent forgery rejection, student revocation, private-file restrictions and atomic booking consent. Rescheduling does not renew consent after revocation.
+
+Storage rules also restrict student avatars and assignment files to the student, Super Admin, or an assigned facilitator with consent. Production Storage rules require a configured Storage bucket; do not enable paid services automatically to deploy them. Existing public download URLs, if any, require a separate token-revocation review because Storage download tokens bypass authenticated read rules.

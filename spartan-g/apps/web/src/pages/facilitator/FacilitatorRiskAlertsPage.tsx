@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { riskAlertService } from "@spartan-g/shared-services";
 import { getAssignedRiskAlerts } from "../../lib/facilitatorAccess";
-import { userRepository } from "@spartan-g/shared-services";
+import { resolveStudentIdentity, studentAlias } from "../../lib/studentIdentity";
 import type { RiskAlertDocument, RiskLevel } from "@spartan-g/shared-types";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
@@ -105,7 +105,8 @@ export function FacilitatorRiskAlertsPage() {
   // Load student display names for pseudonymization
   useEffect(() => {
     const uniqueStudentIds = Array.from(new Set(alerts.map((a) => a.studentId)));
-    if (uniqueStudentIds.length === 0) return;
+    setStudentNames({});
+    if (!user || uniqueStudentIds.length === 0) return;
 
     let cancelled = false;
     async function loadNames() {
@@ -113,7 +114,7 @@ export function FacilitatorRiskAlertsPage() {
       await Promise.all(
         uniqueStudentIds.map(async (sid) => {
           try {
-            const u = await userRepository.getById(sid);
+            const u = await resolveStudentIdentity(user!.uid, sid);
             if (u && !cancelled) {
               names[sid] = u.displayName || u.email || "Student";
             }
@@ -130,7 +131,7 @@ export function FacilitatorRiskAlertsPage() {
     return () => {
       cancelled = true;
     };
-  }, [alerts]);
+  }, [alerts, user?.uid]);
 
   const filteredAlerts = useMemo(() => {
     let result = [...alerts];
@@ -208,9 +209,7 @@ export function FacilitatorRiskAlertsPage() {
 
   const getStudentDisplay = (alert: AlertWithId) => {
     const name = studentNames[alert.studentId];
-    const showReal = alert.severity === "critical" || alert.severity === "high";
-    if (showReal && name) return name;
-    return "Student " + alert.studentId.slice(-4);
+    return name || studentAlias(user?.uid ?? "", alert.studentId);
   };
 
   if (loading) {
@@ -404,7 +403,7 @@ export function FacilitatorRiskAlertsPage() {
       {selectedAlert && (
         <AlertDetailModal
           alert={selectedAlert}
-          studentName={studentNames[selectedAlert.studentId] || null}
+          studentName={studentNames[selectedAlert.studentId] || studentAlias(user?.uid ?? "", selectedAlert.studentId)}
           onClose={() => setSelectedAlert(null)}
           onAcknowledge={() => handleAcknowledge(selectedAlert.id)}
           onResolve={() => handleResolve(selectedAlert.id)}
@@ -423,8 +422,7 @@ interface AlertDetailModalProps {
 }
 
 function AlertDetailModal({ alert, studentName, onClose, onAcknowledge, onResolve }: AlertDetailModalProps) {
-  const showRealName = alert.severity === "critical" || alert.severity === "high";
-  const displayName = showRealName && studentName ? studentName : "Student " + alert.studentId.slice(-4);
+  const displayName = studentName || "Student identity hidden";
 
   const riskScore = alert.overallRiskScore;
   const riskLevel = alert.severity as AlertSeverity;

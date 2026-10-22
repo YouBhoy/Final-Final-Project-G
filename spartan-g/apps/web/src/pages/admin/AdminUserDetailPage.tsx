@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { saveStudentProfile } from "../../lib/adminStudentProfile";
+import { adminStudentAlias } from '../../lib/pseudonymization';
 import { listStudentOverrides, type StudentOverride } from "../../lib/assessmentOverrides";
 import { AssessmentOverrideDialog } from "../../components/admin/AssessmentOverrideDialog";
 import { userRepository, profileRepository, adminService } from "@spartan-g/shared-services";
@@ -61,6 +62,9 @@ export function AdminUserDetailPage() {
   const { user: actor } = useAuth();
 
   const [target, setTarget] = useState<(UserDocument & { id: string }) | null>(null);
+  const [revealedUid, setRevealedUid] = useState<string | null>(null);
+  const identityHidden = target?.role === 'student' && revealedUid !== uid;
+  const accountLabel = target ? (identityHidden ? adminStudentAlias(target.id) : target.displayName || target.email) : '';
   const [profile, setProfile] = useState<ProfileFormValue>(EMPTY_PROFILE);
   const [initial, setInitial] = useState<ProfileFormValue>(EMPTY_PROFILE);
   const [initialName, setInitialName] = useState("");
@@ -309,7 +313,7 @@ export function AdminUserDetailPage() {
                 setSaveError(null);
                 setEditing(true);
               }}
-              disabled={isSelf}
+              disabled={isSelf || identityHidden}
             >
               Edit Profile
             </Button>
@@ -338,17 +342,23 @@ export function AdminUserDetailPage() {
       )}
 
       {/* Account summary */}
+      {target.role === 'student' && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+        <p>{identityHidden ? 'Student identity is hidden. Reveal it only when needed to manage this account.' : 'Student identity is visible for this account-management task.'}</p>
+        <Button variant="outline" onClick={() => { setRevealedUid(identityHidden ? target.id : null); setEditing(false); setPwOpen(false); }}>
+          {identityHidden ? 'Reveal identity for account management' : 'Hide identity'}
+        </Button>
+      </div>}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-xl font-semibold text-indigo-700">
-              {(target.displayName || target.email || "?").charAt(0).toUpperCase()}
+              {identityHidden ? 'S' : (target.displayName || target.email || "?").charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="truncate text-lg font-semibold text-gray-900">
-                {target.displayName || "—"}
+                {accountLabel || "—"}
               </p>
-              <p className="truncate text-sm text-gray-500">{target.email}</p>
+              <p className="truncate text-sm text-gray-500">{identityHidden ? 'Identity hidden' : target.email}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <Badge variant={target.role === "super_admin" ? "default" : target.role === "facilitator" ? "warning" : "info"}>
                   {ROLE_LABELS[target.role] ?? target.role}
@@ -363,10 +373,10 @@ export function AdminUserDetailPage() {
           </div>
         </CardHeader>
         <CardBody>
-          {!editing ? (
+          {!editing || identityHidden ? (
             <dl className="divide-y divide-gray-100">
-              <InfoRow label="Full Name" value={target.displayName || "—"} />
-              <InfoRow label="Email" value={target.email} />
+              <InfoRow label="Full Name" value={identityHidden ? accountLabel : target.displayName || "—"} />
+              <InfoRow label="Email" value={identityHidden ? 'Identity hidden' : target.email} />
               <InfoRow label="Role" value={ROLE_LABELS[target.role] ?? target.role} />
               <InfoRow
                 label="Campus"
@@ -375,16 +385,16 @@ export function AdminUserDetailPage() {
               <InfoRow label="Status" value={target.isActive ? "Active" : "Inactive"} />
               <InfoRow
                 label="Pronouns"
-                value={profile.pronouns || "—"}
+                value={identityHidden ? 'Hidden' : profile.pronouns || "—"}
               />
-              <InfoRow label="Gender" value={profile.gender || "—"} />
-              <InfoRow label="Phone" value={profile.phone || "—"} />
-              <InfoRow label="Institution" value={profile.institution || "—"} />
-              <InfoRow label="Bio" value={profile.bio || "—"} />
+              <InfoRow label="Gender" value={identityHidden ? 'Hidden' : profile.gender || "—"} />
+              <InfoRow label="Phone" value={identityHidden ? 'Hidden' : profile.phone || "—"} />
+              <InfoRow label="Institution" value={identityHidden ? 'Hidden' : profile.institution || "—"} />
+              <InfoRow label="Bio" value={identityHidden ? 'Hidden' : profile.bio || "—"} />
               <InfoRow label="Member Since" value={toDate(target.createdAt)} />
               <InfoRow
                 label="User ID"
-                value={<span className="break-all font-mono text-xs">{target.id}</span>}
+                value={<span className="break-all font-mono text-xs">{identityHidden ? 'Hidden' : target.id}</span>}
               />
             </dl>
           ) : (
@@ -443,7 +453,7 @@ export function AdminUserDetailPage() {
                     <div className="min-w-0">
                       <p className="break-words text-sm font-medium text-gray-900">{o.assessmentTitle}</p>
                       <p className="mt-0.5 break-words text-xs text-gray-500">
-                        {o.reason ? `Reason: ${o.reason}` : "No reason recorded"}
+                        {identityHidden ? 'Reason hidden' : o.reason ? `Reason: ${o.reason}` : "No reason recorded"}
                         {o.grantedAt ? ` · ${o.grantedAt.toLocaleDateString()}` : ""}
                       </p>
                     </div>
@@ -460,7 +470,7 @@ export function AdminUserDetailPage() {
         <AssessmentOverrideDialog
           open={overrideOpen}
           onClose={() => setOverrideOpen(false)}
-          student={{ id: target.id, name: target.displayName || target.email || "this student" }}
+          student={{ id: target.id, name: accountLabel || "this student" }}
           actorRole={actor.role}
           onChanged={() => void loadOverrides()}
         />
@@ -473,7 +483,7 @@ export function AdminUserDetailPage() {
         title="Change Password"
         description={
           target
-            ? `Set a new password for ${target.displayName || target.email}.`
+            ? `Set a new password for ${accountLabel}.`
             : undefined
         }
         size="md"

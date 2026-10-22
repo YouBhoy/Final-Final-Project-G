@@ -14,19 +14,16 @@ function Message({ loading, error, children }: { loading: boolean; error: string
 }
 
 function DashboardContent() {
-  const { users, campuses, links, activity, submissions, loading, refresh } = useAdminDashboard();
-  const overview = dashboardOverview(users.data ?? [], campuses.data ?? [], links.data ?? []);
+  const { users, campuses, activity, submissions, loading, refresh } = useAdminDashboard();
+  const overview = dashboardOverview(users.data ?? [], campuses.data ?? [], []);
   const coverageError = users.error || campuses.error;
   const coverageLoading = users.loading || campuses.loading;
-  const attentionError = coverageError || links.error;
-  const attentionLoading = coverageLoading || links.loading;
   const cards = [
     { label: 'Total students', value: overview.students.length, description: 'All registered student accounts', to: '/admin/users?role=student', loading: users.loading, error: users.error },
     { label: 'Active facilitators', value: overview.facilitators.length, description: 'Accounts enabled to support students', to: '/admin/users?role=facilitator', loading: users.loading, error: users.error },
     { label: 'Active campuses', value: overview.campuses.filter(campus => campus.isActive).length, description: 'Enabled campuses across the platform', to: '/admin/campuses', loading: campuses.loading, error: campuses.error },
     { label: 'Assessments submitted', value: submissions.data, description: 'This month to date', to: '/admin/statistics', loading: submissions.loading, error: submissions.error },
   ];
-  const names = new Map((users.data ?? []).map(user => [user.id, user.displayName || user.email]));
   return <div className="space-y-6">
     <section className="relative overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-primary)] px-6 py-8 text-white sm:px-8">
       <div className="absolute inset-y-0 left-0 w-1 bg-[var(--color-accent)]" />
@@ -44,35 +41,17 @@ function DashboardContent() {
       </Card>)}
     </section>
 
-    <div className="grid items-start gap-6 xl:grid-cols-2">
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold text-[var(--color-text)]">Needs attention</h2><span className="rounded-full bg-[var(--color-accent-pastel)] px-3 py-1 text-xs font-medium text-[var(--color-text)]">Support coverage</span></div>
-        <p className={`mt-1 text-sm ${muted}`}>Review connections and campus staffing.</p>
-        <Message loading={attentionLoading} error={attentionError}>
-          <div className="mt-5 space-y-5">
-            <div><h3 className="font-semibold text-[var(--color-text)]">{overview.unlinked.length.toLocaleString()} students without an active facilitator connection</h3><p className={`mt-1 text-xs leading-5 ${muted}`}>Active students with no accepted connection to an active facilitator.</p>
-              {overview.unlinked.length ? <ul className="mt-3 divide-y divide-[var(--color-border)]">{overview.unlinked.slice(0, 5).map(student => <li key={student.id} className="flex items-center justify-between gap-3 py-2"><span className="min-w-0 truncate text-sm text-[var(--color-text)]">{student.displayName || student.email}</span><Link to={`/admin/users/${encodeURIComponent(student.id)}`} className={`${linkStyle} shrink-0`} aria-label={`Review ${student.displayName || student.email}`}>Review</Link></li>)}</ul> : <p className="mt-2 text-sm text-emerald-700">All active students have an active facilitator connection.</p>}
-              {overview.unlinked.length > 5 && <p className={`mt-2 text-xs ${muted}`}>Showing 5 of {overview.unlinked.length} students.</p>}
-            </div>
-            <div className="border-t border-[var(--color-border)] pt-4"><h3 className="font-semibold text-[var(--color-text)]">{overview.uncovered.length} campuses without active facilitators</h3>
-              {overview.uncovered.length ? <ul className="mt-2 space-y-2">{overview.uncovered.map(campus => <li key={campus.key}><Link className={linkStyle} to={`/admin/users?role=facilitator&campus=${encodeURIComponent(campus.key)}`}>{campus.label} <span aria-hidden="true">→</span></Link></li>)}</ul> : <p className="mt-2 text-sm text-emerald-700">Every active campus has facilitator coverage.</p>}
-            </div>
-          </div>
-        </Message>
-      </Card>
-
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold text-[var(--color-text)]">Recent admin activity</h2><Link to="/admin/audit-logs" className={linkStyle}>View audit log</Link></div>
-        <p className={`mt-1 text-sm ${muted}`}>The latest six entries from the platform audit trail.</p>
+        <p className={`mt-1 text-sm ${muted}`}>The latest six entries from the platform audit trail. Account aliases change when refreshed.</p>
         <Message loading={activity.loading} error={activity.error}>
           {activity.data?.length ? <ul className="mt-4 divide-y divide-[var(--color-border)]">{activity.data.map(row => <li key={row.id} className="py-4">
             <p className="text-sm font-semibold capitalize text-[var(--color-text)]">{row.action.replace(/^SUPERADMIN_/, '').replace(/_/g, ' ').toLowerCase()}</p>
-            <p className={`mt-1 break-words text-xs ${muted}`}>{names.get(row.actorId) || String(row.metadata?.adminEmail || row.actorId)} · {names.get(row.resourceId) || String(row.metadata?.resourceName || row.resource)}</p>
+            <p className={`mt-1 break-words text-xs ${muted}`}>{row.actorLabel} · {row.targetLabel}</p>
             <p className={`mt-1 text-xs ${muted}`}>{row.createdAt?.toDate ? row.createdAt.toDate().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : 'Time unavailable'}</p>
           </li>)}</ul> : <p className={`py-6 text-sm ${muted}`}>No admin activity yet. Account, campus, and resource changes will appear here.</p>}
         </Message>
       </Card>
-    </div>
 
     <Card className="p-6">
       <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-semibold text-[var(--color-text)]">Campus overview</h2><p className={`mt-1 text-sm ${muted}`}>Active student and facilitator accounts by campus.</p></div><Link className={linkStyle} to="/admin/campuses">Manage campuses</Link></div>

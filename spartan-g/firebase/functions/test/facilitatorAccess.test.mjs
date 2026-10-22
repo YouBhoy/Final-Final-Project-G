@@ -64,6 +64,9 @@ async function setup({ assigned = true } = {}) {
     if (assigned) writes.set(db.doc(`facilitator_student_links/${facilitatorId}_${studentId}`), {
       facilitatorId, studentId, status: 'accepted', requestedAt: new Date(),
     });
+    if (assigned) writes.set(db.doc(`student_identity_consents/${facilitatorId}_${studentId}`), {
+      facilitatorId, studentId, requestedAt: new Date(),
+    });
     writes.set(db.doc(`profiles/${studentId}`), { uid: studentId, bio: 'Private profile' });
     for (const collection of ['assessment_attempts', 'assessment_responses', 'assessments', 'enrollments', 'submissions']) {
       writes.set(db.doc(`${collection}/${studentId}`), { studentId, assessmentId: 'definition',
@@ -127,6 +130,37 @@ test('facilitators can read only assigned profiles and student records; admins r
   }
   check(await read(ids.studentA, `assessment_attempts/${ids.studentA}`), 200);
   check(await read(ids.studentB, `assessment_attempts/${ids.studentA}`), 403);
+});
+
+test('identity requires explicit student consent, not assignment, severity or staff writes', async () => {
+  const ids = await setup();
+  const path = `student_identity_consents/${ids.facA}_${ids.studentA}`;
+  await db.doc(path).delete();
+  await db.doc(`risk_alerts/${ids.studentA}`).update({ severity: 'critical' });
+  for (const collection of ['users', 'profiles']) check(await read(ids.facA, `${collection}/${ids.studentA}`), 403);
+  check(await read(ids.facA, `assessment_attempts/${ids.studentA}`), 200);
+  const consent = { studentId: ids.studentA, facilitatorId: ids.facA };
+  for (const actor of [ids.facA, ids.facB, ids.studentB, ids.admin, ids.disabled]) {
+    check(await write(actor, path, consent, ['requestedAt']), 403);
+  }
+  check(await write(ids.studentA, path, { ...consent, requestedAt: new Date('2020-01-01') }), 403);
+  check(await write(ids.studentA, `${path}_fake`, consent, ['requestedAt']), 403);
+  check(await write(ids.studentA, path, { ...consent, name: 'must not duplicate identity' }, ['requestedAt']), 403);
+  check(await write(ids.studentA, path, consent, ['requestedAt']), 200);
+  for (const collection of ['users', 'profiles']) {
+    check(await read(ids.facA, `${collection}/${ids.studentA}`), 200);
+    check(await read(ids.facB, `${collection}/${ids.studentA}`), 403);
+  }
+  check(await read(ids.studentB, path), 403);
+  check(await read(ids.facB, path), 403);
+  const staffDelete = await fetch(`${base}/${path}`, { method: 'DELETE', headers: headers(ids.facA) });
+  assert.equal(staffDelete.status, 403, await staffDelete.text());
+  const revoke = await fetch(`${base}/${path}`, { method: 'DELETE', headers: headers(ids.studentA) });
+  assert.equal(revoke.status, 200, await revoke.text());
+  check(await read(ids.facA, `users/${ids.studentA}`), 403);
+  check(await write(ids.studentA, path, consent, ['requestedAt']), 200);
+  await db.doc(`facilitator_student_links/${ids.facA}_${ids.studentA}`).update({ status: 'pending' });
+  check(await read(ids.facA, `users/${ids.studentA}`), 403, 'Consent alone cannot grant assignment access');
 });
 
 test('query authorization supports assignment-based website queries and denies global/foreign queries', async () => {

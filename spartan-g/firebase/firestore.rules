@@ -52,6 +52,30 @@ service cloud.firestore {
       return isSuperAdmin() || isAssignedFacilitator(studentId);
     }
 
+    function canReadStudentIdentity(studentId) {
+      let consent = get(/databases/$(database)/documents/student_identity_consents/$(request.auth.uid + '_' + studentId));
+      return isAssignedFacilitator(studentId)
+        && consent.data.studentId == studentId
+        && consent.data.facilitatorId == request.auth.uid;
+    }
+
+    // Assignment and risk severity never constitute a student's request to disclose identity.
+    match /student_identity_consents/{consentId} {
+      allow read: if isSuperAdmin() || (isActiveUser() && resource == null)
+        || (isStudent() && resource.data.studentId == request.auth.uid)
+        || (isFacilitator() && resource.data.facilitatorId == request.auth.uid);
+      allow create, update: if isStudent()
+        && request.resource.data.keys().hasAll(['studentId', 'facilitatorId', 'requestedAt'])
+        && request.resource.data.keys().hasOnly(['studentId', 'facilitatorId', 'requestedAt'])
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.facilitatorId is string
+        && consentId == request.resource.data.facilitatorId + '_' + request.auth.uid
+        && request.resource.data.requestedAt == request.time
+        && get(/databases/$(database)/documents/users/$(request.resource.data.facilitatorId)).data.role == 'facilitator'
+        && get(/databases/$(database)/documents/users/$(request.resource.data.facilitatorId)).data.isActive == true;
+      allow delete: if isStudent() && resource.data.studentId == request.auth.uid;
+    }
+
     function studentIdentityUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['studentId', 'assessmentId', 'attemptNumber', 'templateId', 'courseId', 'isPublished']);
@@ -94,7 +118,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId)
         || isSuperAdmin()
-        || (resource.data.role == 'student' && isAssignedFacilitator(userId))
+        || (resource.data.role == 'student' && canReadStudentIdentity(userId))
         || (isStudent() && resource.data.role == 'facilitator' && resource.data.isActive == true);
       // Public signup is student-only. Staff accounts must be provisioned
       // by a trusted backend or an existing active super admin.
@@ -137,7 +161,7 @@ service cloud.firestore {
     // ─── Profiles ──────────────────────────────────────────────
     match /profiles/{userId} {
       allow read: if (isActiveUser() && isOwner(userId))
-        || canReadStudent(userId)
+        || isSuperAdmin() || canReadStudentIdentity(userId)
         || (isStudent() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'facilitator' && get(/databases/$(database)/documents/users/$(userId)).data.isActive == true);
       // Students are read-only on their own profile. They may only create the
       // initial {uid, campus} document at registration; everything after that is

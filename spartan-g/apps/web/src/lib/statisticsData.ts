@@ -1,4 +1,5 @@
 import type { ReportInput, Data } from '@spartan-g/shared-types';
+import { createPseudonymizer } from './pseudonymization';
 
 export const MAX_STATISTICS_RECORDS = 1000;
 export const STATISTICS_FIELDS: Record<string, string[]> = {
@@ -31,7 +32,7 @@ function calculationValue(field: string, value: any) {
   }));
   return value;
 }
-/** Raw input stays in this account-bound memory cache, never in browser storage. */
+/** Only minimized, pseudonymized input stays in this account-bound memory cache. */
 export function createStatisticsLoader(source: StatisticsSource, ttlMs = 5 * 60 * 1000) {
   let cached: { uid: string; input: ReportInput; loadedAt: number } | null = null;
   let pending: { uid: string; promise: Promise<ReportInput> } | null = null;
@@ -45,10 +46,29 @@ export function createStatisticsLoader(source: StatisticsSource, ttlMs = 5 * 60 
     if (source.currentUid() !== uid || user?.role !== 'super_admin' || user.isActive !== true) throw denied();
   }
   async function read(): Promise<ReportInput> {
+    const alias = createPseudonymizer();
+    const identity = (namespace: string, value: unknown) => typeof value === 'string' && value ? alias(namespace, value) : value;
     const entries = await Promise.all(Object.entries(STATISTICS_FIELDS).map(async ([name, fields]) => {
       const records = await source.records(name, MAX_STATISTICS_RECORDS + 1);
       if (records.length > MAX_STATISTICS_RECORDS) throw new StatisticsDataError('statistics/capacity', 'This report exceeds the browser reporting limit (1,000 records per collection). No partial totals are shown.');
-      return [name, records.map(record => ({ id: record.id, ...Object.fromEntries(fields.filter(field => record[field] !== undefined).map(field => [field, calculationValue(field, record[field])])) }))] as const;
+      // Preserve the existing tie-break order for simultaneous attempts, without retaining IDs.
+      const orderedIds = [...new Set(records.map(record => record.id))].sort((a, b) => a.localeCompare(b));
+      const ranks = new Map(orderedIds.map((id, index) => [id, String(index).padStart(6, '0')]));
+      const eventPrefix = alias('Event', name);
+      return [name, records.map(record => {
+        const row: Data = { id: record.id, ...Object.fromEntries(fields.filter(field => record[field] !== undefined).map(field => [field, calculationValue(field, record[field])])) };
+        // Preserve public campus/template IDs, but replace account and event identifiers.
+        if (name === 'users') row.id = identity('Account', row.id) as string;
+        else if (name === 'conversations') row.id = identity('Conversation', row.id) as string;
+        else if (name !== 'campuses' && !(name === 'assessments' && !('studentId' in row))) row.id = `${eventPrefix}-${ranks.get(record.id)}`;
+        for (const field of ['studentId', 'facilitatorId', 'senderId']) {
+          if (field in row) row[field] = identity('Account', row[field]);
+        }
+        if ('conversationId' in row) row.conversationId = identity('Conversation', row.conversationId);
+        if (Array.isArray(row.participantIds)) row.participantIds = row.participantIds.map(value => identity('Account', value));
+        if (name === 'facilitator_student_links' && record.id === `${record.facilitatorId}_${record.studentId}`) row.id = `${row.facilitatorId}_${row.studentId}`;
+        return row;
+      })] as const;
     }));
     const rows = Object.fromEntries(entries);
     return { users: rows.users, campuses: rows.campuses, appointments: rows.appointments, messages: rows.messages,

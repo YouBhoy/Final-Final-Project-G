@@ -31,7 +31,9 @@ service firebase.storage {
     function canReadStudentFile(uid) {
       return isOwner(uid) || isSuperAdmin() || (isActiveUser()
         && userDoc().data.role == 'facilitator'
-        && firestore.get(/databases/(default)/documents/facilitator_student_links/$(request.auth.uid + '_' + uid)).data.status == 'accepted');
+        && firestore.get(/databases/(default)/documents/facilitator_student_links/$(request.auth.uid + '_' + uid)).data.status == 'accepted'
+        && firestore.get(/databases/(default)/documents/student_identity_consents/$(request.auth.uid + '_' + uid)).data.studentId == uid
+        && firestore.get(/databases/(default)/documents/student_identity_consents/$(request.auth.uid + '_' + uid)).data.facilitatorId == request.auth.uid);
     }
 
     function isConversationParticipant(conversationId) {
@@ -56,7 +58,9 @@ service firebase.storage {
 
     // User avatars — owner only
     match /avatars/{userId}/{fileName} {
-      allow read: if isActiveUser();
+      allow read: if canReadStudentFile(userId) || (isActiveUser()
+        && firestore.get(/databases/(default)/documents/users/$(userId)).data.role == 'facilitator'
+        && firestore.get(/databases/(default)/documents/users/$(userId)).data.isActive == true);
       allow write: if isOwner(userId) && isValidImage();
       allow delete: if isOwner(userId) || isSuperAdmin();
     }

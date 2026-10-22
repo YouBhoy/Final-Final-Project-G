@@ -50,7 +50,7 @@ async function setup() {
 const input = (ids, changes = {}) => ({ studentId: ids.s1, facilitatorId: ids.f1, scheduledAt: new Date(ids.start), durationMinutes: 60, ...changes });
 const denied = promise => assert.rejects(promise);
 
-test('actual client booking atomically writes appointment, four reservations and notification', async () => {
+test('actual client booking atomically writes appointment, reservations, notification and student consent', async () => {
   const ids = await setup();
   const id = await book(input(ids), ids.c1, ids.s1);
   const appointment = (await admin.doc(`appointments/${id}`).get()).data();
@@ -61,6 +61,10 @@ test('actual client booking atomically writes appointment, four reservations and
   assert.ok(reservations.docs.every(row => !('notes' in row.data())));
   const notifications = await admin.collection('notifications').where('relatedId', '==', id).get();
   assert.equal(notifications.size, 1);
+  const consent = (await admin.doc(`student_identity_consents/${ids.f1}_${ids.s1}`).get()).data();
+  assert.equal(consent.studentId, ids.s1);
+  assert.equal(consent.facilitatorId, ids.f1);
+  assert.ok(consent.requestedAt.toMillis() > 0);
 });
 
 test('simultaneous bookings for the same facilitator have exactly one winner', async () => {
@@ -111,8 +115,10 @@ test('rescheduling is owner-only, requires a request and releases the old time',
   const id = await book(input(ids), ids.c1, ids.s1);
   await denied(book(input(ids, { appointmentId: id, scheduledAt: new Date(ids.start + 3600000) }), ids.c1, ids.s1));
   await updateDoc(doc(ids.f, 'appointments', id), { status: 'reschedule_requested', updatedAt: serverTimestamp() });
+  await admin.doc(`student_identity_consents/${ids.f1}_${ids.s1}`).delete();
   await denied(book(input(ids, { appointmentId: id, studentId: ids.s2 }), ids.c2, ids.s2));
   await book(input(ids, { appointmentId: id, scheduledAt: new Date(ids.start + 3600000) }), ids.c1, ids.s1);
+  assert.equal((await admin.doc(`student_identity_consents/${ids.f1}_${ids.s1}`).get()).exists, false, 'Rescheduling must not silently restore revoked identity sharing');
   await book(input(ids, { studentId: ids.s2 }), ids.c2, ids.s2);
   assert.equal((await admin.doc(`appointments/${id}`).get()).data().scheduledAt.toMillis(), ids.start + 3600000);
 });

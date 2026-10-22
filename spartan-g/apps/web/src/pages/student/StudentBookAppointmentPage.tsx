@@ -324,6 +324,7 @@ export function StudentBookAppointmentPage() {
         </div>
 
         {/* Book button */}
+        <p className="mb-3 text-sm text-gray-600">Requesting this appointment shares your name and email with this facilitator once they accept, so they can support you.</p>
         <button
           onClick={handleBook}
           disabled={!workHoursForDay || isBooking || noTimeLeftToday || timeTooEarly || !windowKeys.has(selectedKey)}

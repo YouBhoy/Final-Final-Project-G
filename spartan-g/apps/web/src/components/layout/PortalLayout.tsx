@@ -17,7 +17,7 @@ interface PortalLayoutProps {
    * On smaller screens both use the slide-in drawer opened from the Header.
    */
   navPlacement?: "side" | "top";
-  /** Optional decorative photo behind the page content. */
+  /** Decorative photo behind portal content; defaults to the shared campus background. */
   backgroundImage?: string;
   /** The page content. */
   children: ReactNode;
@@ -41,7 +41,7 @@ export function PortalLayout({
   portalTagline,
   navItems,
   navPlacement = "side",
-  backgroundImage,
+  backgroundImage = '/campus-background.jpg',
   children,
 }: PortalLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -54,7 +54,7 @@ export function PortalLayout({
       {/* Desktop sidebar (fixed, full height) — side placement only */}
       {!topNav && (
         <div className="z-20 hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
-          <Sidebar items={navItems} />
+          <Sidebar portalName={portalName} items={navItems} />
         </div>
       )}
 
@@ -78,7 +78,7 @@ export function PortalLayout({
             mobileOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <Sidebar items={navItems} onNavigate={() => setMobileOpen(false)} />
+          <Sidebar portalName={portalName} items={navItems} onNavigate={() => setMobileOpen(false)} />
         </div>
       </div>
 

@@ -11,7 +11,7 @@ import { CAMPUS_LABELS, ROLE_LABELS, ROLES } from "@spartan-g/shared-types";
 import type { Role } from "@spartan-g/shared-types";
 import { AssessmentOverrideDialog } from "../../components/admin/AssessmentOverrideDialog";
 
-type RoleFilter = "all" | "student" | "facilitator";
+type RoleFilter = "all" | Role;
 
 const ROLE_BADGE: Record<Role, "info" | "warning" | "default"> = {
   student: "info",
@@ -22,7 +22,7 @@ const ROLE_BADGE: Record<Role, "info" | "warning" | "default"> = {
 /**
  * Super Admin — User Management.
  *
- * Filter by All Users / Students / Facilitators, search by name or email,
+ * Filter by role and search visible names, aliases or staff emails,
  * and open a user's detail page to view or edit their profile. Reads the
  * same `users` collection every portal uses.
  */
@@ -31,7 +31,7 @@ export function AdminUsersPage() {
   const { users, loading, error } = useAdminUsers();
   const [params, setParams] = useSearchParams();
   const requestedRole = params.get('role');
-  const filter: RoleFilter = requestedRole === 'student' || requestedRole === 'facilitator' ? requestedRole : 'all';
+  const filter: RoleFilter = requestedRole === 'student' || requestedRole === 'facilitator' || requestedRole === 'super_admin' ? requestedRole : 'all';
   const campusFilter = params.get('campus');
   function setFilter(role: RoleFilter) {
     setParams(current => {
@@ -50,6 +50,7 @@ export function AdminUsersPage() {
       all: campusUsers.length,
       student: campusUsers.filter((u) => u.role === ROLES.STUDENT).length,
       facilitator: campusUsers.filter((u) => u.role === ROLES.FACILITATOR).length,
+      super_admin: campusUsers.filter((u) => u.role === ROLES.SUPER_ADMIN).length,
     }),
     [campusUsers],
   );
@@ -97,35 +98,26 @@ export function AdminUsersPage() {
       {campusFilter && <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600"><span>Campus: {CAMPUS_LABELS[campusFilter] ?? campusFilter}</span><button type="button" className="font-semibold text-[var(--color-primary)] hover:underline" onClick={() => setParams(current => { const next = new URLSearchParams(current); next.delete('campus'); return next; })}>Clear campus filter</button></div>}
       {/* Filter bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          {(["all", "student", "facilitator"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                filter === f
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              {f === "all"
-                ? `All Users (${counts.all})`
-                : f === "student"
-                  ? `Students (${counts.student})`
-                  : `Facilitators (${counts.facilitator})`}
-            </button>
-          ))}
-        </div>
+        <label className="block w-full text-sm font-medium text-gray-700 sm:w-64">
+          Role
+          <select value={filter} onChange={event => setFilter(event.target.value as RoleFilter)} className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="all">All Users ({counts.all})</option>
+            <option value="student">Students ({counts.student})</option>
+            <option value="facilitator">Facilitators ({counts.facilitator})</option>
+            <option value="super_admin">Super Admins ({counts.super_admin})</option>
+          </select>
+        </label>
         <div className="w-full sm:max-w-xs">
           <Input
             label="Search"
-            placeholder="Search by name or email…"
+            placeholder="Search by alias or staff name/email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
+
+      <p className="text-sm text-gray-600">Students use random aliases and hidden emails. Search students by their alias; identities stay hidden when opening an account until explicitly revealed for account management.</p>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -144,7 +136,7 @@ export function AdminUsersPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {["Name", "Email", "Role", "Campus", "Status"].map((h) => (
+                  {["Name / Alias", "Email", "Role", "Campus", "Status"].map((h) => (
                     <th
                       key={h}
                       className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"

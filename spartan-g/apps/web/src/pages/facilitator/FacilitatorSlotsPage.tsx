@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { appointmentSlotService, workHoursService, appointmentService, userService } from '@spartan-g/shared-services';
+import { appointmentSlotService, workHoursService, appointmentService } from '@spartan-g/shared-services';
+import { resolveStudentIdentity } from '../../lib/studentIdentity';
 import { useAuth } from '../../hooks/useAuth';
 import { AppointmentSlotDocument, WorkHoursScheduleDocument } from '@spartan-g/shared-types';
 
@@ -37,7 +38,7 @@ export function FacilitatorSlotsPage() {
             const studentId = idParts[idParts.length - 2]; // second-to-last part
             if (studentId && !names[studentId]) {
               try {
-                const userDoc = await userService.getUser(studentId);
+                const userDoc = await resolveStudentIdentity(user.uid, studentId);
                 if (userDoc) {
                   names[studentId] = userDoc.displayName || userDoc.email || 'Unknown Student';
                 } else {

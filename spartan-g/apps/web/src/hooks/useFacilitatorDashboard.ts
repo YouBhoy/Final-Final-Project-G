@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   appointmentService,
   messagingService,
-  userService,
 } from "@spartan-g/shared-services";
 import type { NotificationDocument, Role } from "@spartan-g/shared-types";
 import { useAuth } from "./useAuth";
 import { getAssignedRiskAlerts } from "../lib/facilitatorAccess";
+import { resolveStudentIdentity, studentAlias } from '../lib/studentIdentity';
 
 /** Open risk alerts aggregated by severity (critical folds into high). */
 export interface RiskSummary {
@@ -73,22 +73,18 @@ export function useFacilitatorDashboard() {
   const [data, setData] = useState<FacilitatorDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const nameCacheRef = useRef<Map<string, string>>(new Map());
 
-  /** Resolve a participant's display name, cached to avoid repeat reads. */
+  /** Resolve identity only through the student's server-checked support consent. */
   const resolveUserName = useCallback(async (uid: string): Promise<string> => {
     if (!uid) return "Unknown";
-    const cached = nameCacheRef.current.get(uid);
-    if (cached) return cached;
     try {
-      const userDoc = await userService.getUser(uid);
+      const userDoc = await resolveStudentIdentity(user?.uid ?? '', uid);
       const name = userDoc?.displayName || "Student";
-      nameCacheRef.current.set(uid, name);
       return name;
     } catch {
-      return "Student";
+      return studentAlias(user?.uid ?? '', uid);
     }
-  }, []);
+  }, [user?.uid]);
 
   const reload = useCallback(async () => {
     if (!user) {

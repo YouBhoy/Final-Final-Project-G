@@ -57,6 +57,10 @@ export async function bookAppointmentClient(input: ClientBookingInput, db: Fires
       // whether an existing reservation has been released by cancellation or rescheduling.
       for (const item of reservations) await tx.get(doc(db, 'appointment_reservations', item.id));
       const now = serverTimestamp();
+      // A new support request shares identity; rescheduling never overrides revocation.
+      if (!existing) tx.set(doc(db, 'student_identity_consents', `${facilitatorId}_${uid}`), {
+        studentId: uid, facilitatorId, requestedAt: now,
+      });
       for (const item of reservations) {
         const { id, ...data } = item;
         tx.set(doc(db, 'appointment_reservations', id), { ...data, appointmentId: ref.id });

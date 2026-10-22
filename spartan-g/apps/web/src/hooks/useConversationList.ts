@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { messagingService, userService } from '@spartan-g/shared-services';
 import { ConversationDocument, Role } from '@spartan-g/shared-types';
 import { useAuth } from './useAuth';
+import { resolveStudentIdentity } from '../lib/studentIdentity';
 
 export type ConversationWithId = ConversationDocument & { id: string };
 
@@ -47,6 +48,8 @@ export function useConversationList() {
 
     setIsLoading(true);
     setError(null);
+    participantNamesRef.current = {};
+    setParticipantNames({});
     pendingParticipantIdsRef.current.clear();
 
     const syncParticipantNames = async (nextConversations: ConversationWithId[]) => {
@@ -76,7 +79,9 @@ export function useConversationList() {
         const resolvedNames = await Promise.all(
           missingParticipantIds.map(async (participantId) => {
             try {
-              const userDocument = await userService.getUser(participantId);
+              const userDocument = userRole === 'facilitator'
+                ? await resolveStudentIdentity(userId, participantId)
+                : await userService.getUser(participantId);
               return userDocument ? [participantId, userDocument.displayName || 'Unknown User'] as const : null;
             } catch (fetchError) {
               console.error('[useConversationList] Failed to load participant profile:', fetchError);

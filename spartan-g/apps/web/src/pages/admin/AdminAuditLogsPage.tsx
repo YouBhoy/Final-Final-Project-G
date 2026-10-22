@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { auditService } from "@spartan-g/shared-services";
-import { getErrorMessage, type AuditLogDocument } from "@spartan-g/shared-types";
+import { getErrorMessage } from "@spartan-g/shared-types";
+import { pseudonymizeAuditRows, type AuditDisplayRow } from '../../lib/pseudonymization';
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Spinner } from "../../components/ui/Spinner";
 
-type AuditRow = AuditLogDocument & { id: string };
+type AuditRow = AuditDisplayRow;
 
 function actionVariant(action: string): "info" | "warning" | "danger" | "neutral" | "success" {
   if (action.includes("DELETED")) return "danger";
@@ -38,7 +39,7 @@ export function AdminAuditLogsPage() {
     (async () => {
       try {
         const list = await auditService.listRecent(100);
-        if (!cancelled) setRows(list as AuditRow[]);
+        if (!cancelled) setRows(pseudonymizeAuditRows(list));
       } catch (err) {
         if (!cancelled) setError(getErrorMessage(err));
       } finally {
@@ -74,6 +75,7 @@ export function AdminAuditLogsPage() {
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Append-only trail of privileged Super Admin actions (most recent 100 entries).
+          {' '}Identities use random aliases for this view; aliases change when reloaded.
         </p>
       </div>
 
@@ -106,23 +108,18 @@ export function AdminAuditLogsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       <div className="font-medium text-gray-900">
-                        {(row.metadata?.adminEmail as string) ?? row.actorId}
+                        {row.actorLabel}
                       </div>
-                      <div className="font-mono text-xs text-gray-400">{row.actorId}</div>
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant={actionVariant(row.action)}>{row.action}</Badge>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      <div>{(row.metadata?.targetUserRole as string) ?? row.resource}</div>
-                      <div className="font-mono text-xs text-gray-400">{row.resourceId}</div>
+                      <div>{row.targetType}</div>
+                      <div className="break-all font-mono text-xs text-gray-400">{row.targetLabel}</div>
                     </td>
                     <td className="px-6 py-4 text-xs text-gray-500">
-                      {row.metadata?.changedFields
-                        ? `Changed: ${(row.metadata.changedFields as string[]).join(", ")}`
-                        : row.metadata?.resourceName
-                          ? String(row.metadata.resourceName)
-                          : "—"}
+                      {row.changedFields.length ? `Changed: ${row.changedFields.join(', ')}` : '—'}
                     </td>
                   </tr>
                 ))}

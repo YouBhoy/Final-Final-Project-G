@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:pseudonymization": "node --test test/adminUserPrivacy.test.mjs test/studentIdentity.test.mjs test/adminDashboard.test.mjs ../../firebase/functions/test/statisticsClient.test.mjs ../../firebase/functions/test/statistics.test.mjs",
     "test:dashboard": "node --test test/adminDashboard.test.mjs",
     "test:admin-security": "node --test test/adminSessionSecurity.test.mjs test/adminRouteSecurity.test.mjs test/adminIdlePolicy.test.mjs",
     "test:privacy": "node --test test/privacyConsent.test.mjs",

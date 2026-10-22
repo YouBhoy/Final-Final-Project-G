@@ -1,6 +1,6 @@
 import { ALL_CAMPUSES, getCampusLabel, type CampusDocument, type FacilitatorStudentLinkDocument, type UserDocument } from '@spartan-g/shared-types';
 
-export type DashboardUser = UserDocument & { id: string };
+export type DashboardUser = Pick<UserDocument, 'role' | 'campus' | 'isActive'> & { id: string };
 
 /** Match campus management's built-in campuses, preserving persisted overrides. */
 export function dashboardOverview(users: DashboardUser[], campuses: CampusDocument[], links: FacilitatorStudentLinkDocument[]) {
