@@ -87,8 +87,6 @@ export function DashboardPage({ title, portalName }: DashboardPageProps) {
           background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
         }}
       >
-        {/* Gold accent bar */}
-        <div className="absolute left-0 top-0 h-full w-1 bg-[var(--color-accent)]" />
 
         {/* Geometric pattern instead of washed-out watermark */}
         <HeroPattern />

@@ -83,6 +83,7 @@ class MessagingService {
     body: string,
     actorRole: Role,
     attachmentUrl?: string,
+    identityRecipientId?: string,
   ): Promise<string> {
     if (!hasPermission(actorRole, PERMISSIONS.SEND_MESSAGES)) {
       throw new PermissionError();
@@ -112,6 +113,16 @@ class MessagingService {
         const otherParticipants = conversation.participantIds.filter(
           (id) => id !== senderId,
         );
+
+        // The web confirmation authorizes disclosure; save it atomically with the message.
+        if (identityRecipientId) {
+          if (actorRole !== 'student' || otherParticipants.length !== 1 || otherParticipants[0] !== identityRecipientId) {
+            throw new Error('Identity sharing must target this conversation\'s facilitator.');
+          }
+          transaction.set(doc(db, 'student_identity_consents', `${identityRecipientId}_${senderId}`), {
+            studentId: senderId, facilitatorId: identityRecipientId, requestedAt: serverTimestamp(),
+          });
+        }
 
         // Create the message
         transaction.set(messageRef, {

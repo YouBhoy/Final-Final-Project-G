@@ -26,7 +26,6 @@ function DashboardContent() {
   ];
   return <div className="space-y-6">
     <section className="relative overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-primary)] px-6 py-8 text-white sm:px-8">
-      <div className="absolute inset-y-0 left-0 w-1 bg-[var(--color-accent)]" />
       <div className="flex flex-wrap items-start justify-between gap-5">
         <div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-accent)]">SPARTAN-G · Platform overview</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Admin Dashboard</h1><p className="mt-2 max-w-xl text-sm leading-6 text-white/80">A clear view of your campuses, student support coverage, and recent platform activity.</p></div>
         <button type="button" className="rounded-lg border border-white/50 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-wait disabled:opacity-60" disabled={loading} onClick={refresh}>{loading ? 'Loading overview...' : 'Refresh overview'}</button>

@@ -346,7 +346,6 @@ export function StudentDashboardPage() {
         aria-labelledby="sd-hero-heading"
         className={`relative overflow-hidden rounded-[var(--radius-xl)] px-6 py-5 sm:px-8 sm:py-6 ${RED_SURFACE}`}
       >
-        <div className="absolute left-0 top-0 h-full w-1 bg-[var(--color-accent)]" />
         <HeroPattern />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

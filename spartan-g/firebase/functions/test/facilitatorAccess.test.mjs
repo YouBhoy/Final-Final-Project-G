@@ -163,6 +163,22 @@ test('identity requires explicit student consent, not assignment, severity or st
   check(await read(ids.facA, `users/${ids.studentA}`), 403, 'Consent alone cannot grant assignment access');
 });
 
+test('verified bookings permit names for the booked facilitator without exposing private profile fields', async () => {
+  const ids = await setup();
+  await db.doc(`student_identity_consents/${ids.facA}_${ids.studentA}`).delete();
+  const link = db.doc(`facilitator_student_links/${ids.facA}_${ids.studentA}`);
+  await link.update({ appointmentId: ids.studentA });
+  check(await read(ids.facA, `users/${ids.studentA}`), 403, 'An unaccepted request is not an established booking');
+  await db.doc(`appointments/${ids.studentA}`).update({ status: 'accepted' });
+  check(await read(ids.facA, `users/${ids.studentA}`), 200);
+  check(await read(ids.facA, `profiles/${ids.studentA}`), 403);
+  check(await read(ids.facB, `users/${ids.studentA}`), 403);
+  await link.update({ appointmentId: ids.studentB });
+  check(await read(ids.facA, `users/${ids.studentA}`), 403, 'A foreign booking reference is never a name grant');
+  await link.update({ appointmentId: ids.studentA, status: 'rejected' });
+  check(await read(ids.facA, `users/${ids.studentA}`), 403);
+});
+
 test('query authorization supports assignment-based website queries and denies global/foreign queries', async () => {
   const ids = await setup();
   check(await list(ids.facA, 'facilitator_student_links', [['facilitatorId', ids.facA], ['status', 'accepted']]), 200);

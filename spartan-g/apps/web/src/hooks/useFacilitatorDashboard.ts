@@ -78,7 +78,7 @@ export function useFacilitatorDashboard() {
   const resolveUserName = useCallback(async (uid: string): Promise<string> => {
     if (!uid) return "Unknown";
     try {
-      const userDoc = await resolveStudentIdentity(user?.uid ?? '', uid);
+      const userDoc = await resolveStudentIdentity(user?.uid ?? '', uid, true);
       const name = userDoc?.displayName || "Student";
       return name;
     } catch {

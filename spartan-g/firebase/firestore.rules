@@ -59,6 +59,16 @@ service cloud.firestore {
         && consent.data.facilitatorId == request.auth.uid;
     }
 
+    function hasBookedStudentIdentity(studentId) {
+      let link = get(/databases/$(database)/documents/facilitator_student_links/$(request.auth.uid + '_' + studentId));
+      let appointmentId = link.data.get('appointmentId', '__missing__');
+      let booking = get(/databases/$(database)/documents/appointments/$(appointmentId));
+      return isAssignedFacilitator(studentId)
+        && booking.data.studentId == studentId
+        && booking.data.facilitatorId == request.auth.uid
+        && booking.data.status in ['accepted', 'completed'];
+    }
+
     // Assignment and risk severity never constitute a student's request to disclose identity.
     match /student_identity_consents/{consentId} {
       allow read: if isSuperAdmin() || (isActiveUser() && resource == null)
@@ -118,7 +128,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId)
         || isSuperAdmin()
-        || (resource.data.role == 'student' && canReadStudentIdentity(userId))
+        || (resource.data.role == 'student' && (canReadStudentIdentity(userId) || hasBookedStudentIdentity(userId)))
         || (isStudent() && resource.data.role == 'facilitator' && resource.data.isActive == true);
       // Public signup is student-only. Staff accounts must be provisioned
       // by a trusted backend or an existing active super admin.

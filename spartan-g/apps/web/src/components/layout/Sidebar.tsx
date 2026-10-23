@@ -25,7 +25,7 @@ interface SidebarProps {
 
 /**
  * Sidebar renders a vertical list of navigation links. Each item is highlighted
- * with a maroon background and gold left-border indicator when active.
+ * with a maroon background when active.
  */
 export function Sidebar({ portalName, items, onNavigate }: SidebarProps) {
   const { pathname } = useLocation();
@@ -75,10 +75,6 @@ export function Sidebar({ portalName, items, onNavigate }: SidebarProps) {
                   const isActive = linkActive || matchesPrefix;
                   return (
                   <>
-                    {/* Active indicator bar */}
-                    {isActive && (
-                      <span className="absolute left-0 h-6 w-[3px] rounded-r-full bg-[var(--color-accent)]" />
-                    )}
                     <svg
                       className={`h-5 w-5 flex-shrink-0 transition-colors duration-150 ${
                         isActive

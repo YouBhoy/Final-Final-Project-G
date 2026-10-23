@@ -3,6 +3,7 @@ import { messagingService } from '@spartan-g/shared-services';
 import { MessageBubble } from '../../components/messaging/MessageBubble';
 import { MessageInput } from '../../components/messaging/MessageInput';
 import { useAuth } from '../../hooks/useAuth';
+import { useMessageIdentityConfirmation } from '../../hooks/useMessageIdentityConfirmation';
 import { MessageDocument } from '@spartan-g/shared-types';
 
 interface MessageThreadProps {
@@ -19,6 +20,7 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
   const [subscriptionKey, setSubscriptionKey] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const { user } = useAuth();
+  const { requestConfirmation, confirmation } = useMessageIdentityConfirmation(conversationId, participantId);
   const markedMessageIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -100,11 +102,14 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
     setIsSending(true);
     setSendError(null);
     try {
+      if (!await requestConfirmation()) return false;
       await messagingService.sendMessage(
         conversationId,
         user.uid,
         body,
         user.role,
+        undefined,
+        user.role === 'student' ? participantId : undefined,
       );
       return true;
     } catch (sendError) {
@@ -192,6 +197,7 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
         isSending={isSending}
         placeholder="Type a message..."
       />
+      {confirmation}
     </div>
   );
 }

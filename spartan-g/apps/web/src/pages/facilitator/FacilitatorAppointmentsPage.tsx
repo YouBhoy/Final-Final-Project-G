@@ -32,7 +32,7 @@ export function FacilitatorAppointmentsPage() {
       for (const apt of data) {
         if (!names[apt.studentId]) {
           try {
-            const userDoc = await resolveStudentIdentity(user.uid, apt.studentId);
+            const userDoc = await resolveStudentIdentity(user.uid, apt.studentId, true);
             if (userDoc) names[apt.studentId] = userDoc.displayName || 'Unknown Student';
           } catch {
             // A pending booking does not grant access to the student's private profile.

@@ -38,7 +38,7 @@ export function FacilitatorSlotsPage() {
             const studentId = idParts[idParts.length - 2]; // second-to-last part
             if (studentId && !names[studentId]) {
               try {
-                const userDoc = await resolveStudentIdentity(user.uid, studentId);
+                const userDoc = await resolveStudentIdentity(user.uid, studentId, true);
                 if (userDoc) {
                   names[studentId] = userDoc.displayName || userDoc.email || 'Unknown Student';
                 } else {

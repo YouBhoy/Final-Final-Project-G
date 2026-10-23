@@ -49,7 +49,6 @@ export function FacilitatorDashboardPage() {
           background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
         }}
       >
-        <div className="absolute left-0 top-0 h-full w-1 bg-[var(--color-accent)]" />
         <div className="relative max-w-2xl">
           <p className="text-sm font-medium tracking-wider text-[var(--color-accent)] uppercase">
             {getGreeting()}, {user?.displayName?.split(" ")[0] || "Facilitator"}
@@ -325,9 +324,7 @@ export function FacilitatorDashboardPage() {
                   <button
                     key={notification.id}
                     onClick={() => handleOpenNotification(notification)}
-                    className={`w-full rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 text-left transition-all duration-150 hover:bg-[var(--color-primary-pastel)] hover:shadow-sm ${
-                      !notification.isRead ? "border-l-2 border-[var(--color-accent)]" : ""
-                    }`}
+                    className="w-full rounded-[var(--radius-md)] bg-[var(--color-bg)] p-4 text-left transition-all duration-150 hover:bg-[var(--color-primary-pastel)] hover:shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

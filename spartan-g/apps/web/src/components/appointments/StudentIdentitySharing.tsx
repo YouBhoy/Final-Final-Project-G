@@ -34,6 +34,7 @@ export function StudentIdentitySharing({ facilitatorId }: { facilitatorId: strin
     <p className="mt-1 text-[var(--color-text-secondary)]">{shared
       ? 'You have requested support and shared your name and email with this facilitator. Identity access also requires an accepted connection.'
       : 'Your name and email stay hidden from this facilitator until you request support and share them.'}</p>
+    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Booked appointments and confirmed messages identify you to this facilitator. Stopping additional sharing does not undo information already shared for those interactions.</p>
     {error && <p role="alert" className="mt-2 text-red-700">{error}</p>}
     <button type="button" disabled={busy} onClick={changeSharing} className="mt-2 font-medium text-[var(--color-primary)] underline disabled:opacity-50">
       {busy ? 'Checking...' : shared ? 'Stop sharing my identity' : 'Request support and share my identity'}

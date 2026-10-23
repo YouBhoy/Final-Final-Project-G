@@ -60,7 +60,7 @@ export function useConversationList() {
             conversation.participantIds.filter(
               (participantId) =>
                 participantId !== userId &&
-                !cachedNames[participantId] &&
+                (userRole === 'facilitator' || !cachedNames[participantId]) &&
                 !pendingParticipantIdsRef.current.has(participantId),
             ),
           ),
@@ -80,7 +80,7 @@ export function useConversationList() {
           missingParticipantIds.map(async (participantId) => {
             try {
               const userDocument = userRole === 'facilitator'
-                ? await resolveStudentIdentity(userId, participantId)
+                ? await resolveStudentIdentity(userId, participantId, true)
                 : await userService.getUser(participantId);
               return userDocument ? [participantId, userDocument.displayName || 'Unknown User'] as const : null;
             } catch (fetchError) {

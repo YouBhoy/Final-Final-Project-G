@@ -23,6 +23,18 @@ source = source.replaceAll("'firebase/firestore'", JSON.stringify(import.meta.re
   .replace(/import \{ getFirestoreDb \} from '[^']+';/, 'const getFirestoreDb = () => { throw new Error("Test must pass emulator db explicitly"); };');
 const { bookAppointmentClient: book, acceptAppointmentClient: accept } = await import(moduleUrl(source));
 const { getBookingWindow } = await import(windowUrl);
+const messagingBoundary = moduleUrl(`
+export { serverTimestamp, where, orderBy, collection, doc, runTransaction, Timestamp } from ${JSON.stringify(import.meta.resolve('firebase/firestore'))};
+export const getFirestoreDb = () => globalThis.__messagingTestDb;
+export const PERMISSIONS = { SEND_MESSAGES: 'send' }, hasPermission = () => true;
+export class PermissionError extends Error {}
+export const COLLECTIONS = { MESSAGES: 'messages', CONVERSATIONS: 'conversations' };
+export const conversationRepository = { getById: async () => null };
+export const messageRepository = {}, userRepository = {}, notificationService = {};
+`);
+const messagingSource = transpile(await readFile(new URL('../../../packages/shared-services/src/services/messaging.service.ts', import.meta.url), 'utf8'))
+  .replace(/from (['"])[^'"]+\1/g, `from ${JSON.stringify(messagingBoundary)}`);
+const { messagingService } = await import(moduleUrl(messagingSource));
 const clients = [];
 let sequence = 0;
 function client(uid) {
@@ -108,6 +120,31 @@ test('acceptance grants only the booked facilitator access and is idempotent aft
   await linkRef.delete();
   await accept(id, ids.f, ids.f1);
   assert.equal((await linkRef.get()).exists, false);
+});
+
+test('confirmed messaging commits identity sharing with the message; failed sends grant nothing', async () => {
+  const ids = await setup();
+  const id = await book(input(ids), ids.c1, ids.s1);
+  await accept(id, ids.f, ids.f1);
+  const consentRef = admin.doc(`student_identity_consents/${ids.f1}_${ids.s1}`);
+  await consentRef.delete();
+  const conversationId = [ids.f1, ids.s1].sort().join('_');
+  const sent = () => admin.collection('messages').where('conversationId', '==', conversationId).get();
+  globalThis.__messagingTestDb = ids.c1;
+  try {
+    await denied(messagingService.sendMessage(conversationId, ids.s1, 'Wrong recipient', 'student', undefined, ids.f2));
+    assert.equal((await consentRef.get()).exists, false);
+    assert.equal((await sent()).size, 0);
+    await messagingService.sendMessage(conversationId, ids.s1, 'Confirmed support request', 'student', undefined, ids.f1);
+    assert.equal((await sent()).size, 1);
+    assert.equal((await consentRef.get()).data().studentId, ids.s1);
+    assert.equal((await consentRef.get()).data().facilitatorId, ids.f1);
+    await consentRef.delete();
+    await admin.doc(`users/${ids.f1}`).update({ isActive: false });
+    await denied(messagingService.sendMessage(conversationId, ids.s1, 'Must fail atomically', 'student', undefined, ids.f1));
+    assert.equal((await sent()).size, 1);
+    assert.equal((await consentRef.get()).exists, false);
+  } finally { delete globalThis.__messagingTestDb; }
 });
 
 test('rescheduling is owner-only, requires a request and releases the old time', async () => {

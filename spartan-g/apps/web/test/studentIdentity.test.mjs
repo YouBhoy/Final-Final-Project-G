@@ -11,10 +11,10 @@ const policyUrl = url(transpile(readFileSync(new URL('../src/lib/pseudonymizatio
 async function identityFixture() {
   const doubles = `
 import { createPseudonymizer } from ${JSON.stringify(policyUrl)};
-export const state = { reads: [], consent: undefined, student: { role: 'student', isActive: true, displayName: 'Private name', email: 'private@example.com' }, fail: null };
+export const state = { reads: [], consent: undefined, link: undefined, booking: undefined, student: { role: 'student', isActive: true, displayName: 'Private name', email: 'private@example.com' }, fail: null };
 const db = {};
 const doc = (_, collection, id) => ({ collection, id });
-const getDocFromServer = async ref => { state.reads.push(ref.collection); if (state.fail === ref.collection) throw new Error('permission-denied'); return { data: () => ref.collection === 'users' ? state.student : state.consent }; };
+const getDocFromServer = async ref => { state.reads.push(ref.collection); if (state.fail === ref.collection) throw new Error('permission-denied'); return { data: () => ({ users: state.student, student_identity_consents: state.consent, facilitator_student_links: state.link, appointments: state.booking })[ref.collection] }; };
 `;
   const source = readFileSync(new URL('../src/lib/studentIdentity.ts', import.meta.url), 'utf8').replace(/^import .*;\r?\n/gm, '');
   return import(url(transpile(doubles + source)) + '#' + Math.random());
@@ -44,6 +44,22 @@ test('server-authorized consent resolves names; profile denial still returns an 
   const hidden = await f.resolveStudentIdentity('fac', 'student');
   assert.equal(hidden.identityShared, false);
   assert.equal(hidden.email, 'Identity not shared');
+});
+
+test('appointment and chat contexts reveal a verified booked student without changing default masking', async () => {
+  const f = await identityFixture();
+  f.state.link = { studentId: 'student', facilitatorId: 'fac', status: 'accepted', appointmentId: 'booking' };
+  f.state.booking = { studentId: 'student', facilitatorId: 'fac', status: 'accepted' };
+  assert.equal((await f.resolveStudentIdentity('fac', 'student')).identityShared, false);
+  assert.equal((await f.resolveStudentIdentity('fac', 'student', true)).displayName, 'Private name');
+  f.state.booking.facilitatorId = 'other';
+  assert.equal((await f.resolveStudentIdentity('fac', 'student', true)).identityShared, false);
+  f.state.booking.facilitatorId = 'fac';
+  f.state.booking.status = 'requested';
+  assert.equal((await f.resolveStudentIdentity('fac', 'student', true)).identityShared, false);
+  f.state.booking.status = 'completed';
+  f.state.link.status = 'rejected';
+  assert.equal((await f.resolveStudentIdentity('fac', 'student', true)).identityShared, false);
 });
 
 test('identity sharing control writes only after an explicit student action, then permits revocation', async () => {

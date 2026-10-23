@@ -41,10 +41,10 @@ export function ConversationItem({
       type="button"
       onClick={onClick}
       aria-current={isActive ? 'true' : undefined}
-      className={`flex w-full items-center gap-3 border-b border-l-[3px] border-b-[var(--color-border)] px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)] ${
+      className={`flex w-full items-center gap-3 border-b border-b-[var(--color-border)] px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)] ${
         isActive
-          ? 'border-l-[var(--color-primary)] bg-[var(--color-primary)]/10'
-          : 'border-l-transparent hover:bg-[var(--color-primary)]/5'
+          ? 'bg-[var(--color-primary)]/10'
+          : 'hover:bg-[var(--color-primary)]/5'
       }`}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-sm font-semibold text-[var(--color-primary)]">
