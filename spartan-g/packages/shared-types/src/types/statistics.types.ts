@@ -1,3 +1,5 @@
+import type { ReferralForecast } from '../utils/referralForecast';
+
 export interface StatisticsFilters {
   startDate: string;
   endDate: string;
@@ -23,6 +25,24 @@ export interface StatisticsReport {
   generatedAt: string;
   sourceLoadedAt?: string;
   filters: StatisticsFilters;
+  referrals: {
+    forecast: ReferralForecast;
+    requests: number;
+    requestingStudents: number;
+    pending: number;
+    accepted: number;
+    statuses: { key: string; label: string; requests: number }[];
+    trends: { label: string; startDate: string; endDate: string; partial: boolean; requests: number }[];
+    coverage: {
+      missingRequestDates: number;
+      futureDatedRequests: number;
+      missingCampusSnapshots: number;
+      missingStudentIds: number;
+      unknownStudentAccounts: number;
+      conflictingDates: number;
+      legacyDateFallbacks: number;
+    };
+  };
   campuses: { key: string; label: string }[];
   assessments: { id: string; title: string }[];
   totals: ParticipationSummary;

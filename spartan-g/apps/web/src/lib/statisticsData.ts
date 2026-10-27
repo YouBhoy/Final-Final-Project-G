@@ -5,7 +5,7 @@ export const MAX_STATISTICS_RECORDS = 1000;
 export const STATISTICS_FIELDS: Record<string, string[]> = {
   users: ['role', 'campus', 'createdAt', 'created_at'],
   campuses: ['key', 'label'],
-  appointments: ['studentId', 'campus', 'createdAt', 'created_at'],
+  appointments: ['studentId', 'campus', 'status', 'createdAt', 'created_at'],
   messages: ['senderId', 'conversationId', 'campus', 'createdAt', 'created_at', 'type', 'status', 'isDeleted'],
   conversations: ['participantIds'],
   facilitator_student_links: ['facilitatorId', 'studentId', 'status', 'requestedAt', 'respondedAt'],

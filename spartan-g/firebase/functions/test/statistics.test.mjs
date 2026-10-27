@@ -13,6 +13,87 @@ const empty = () => ({ users: [], campuses: [{ id: 'lipa', key: 'lipa', label: '
 const report = (input, changes = {}) => buildStatistics(input, { ...filters, ...changes }, now);
 function scoredInput(n = 5) { const data = empty(); for (let i = 0; i < n; i++) { data.users.push(student(`s${i}`)); data.attempts.push(attempt(`a${i}`, `s${i}`)); } return data; }
 
+test('referrals count requests, not accepted links; every current status reconciles to the total', () => {
+  const data = empty(); data.users = [student('s')];
+  const states = ['requested', 'accepted', 'rejected', 'reschedule_requested', 'completed', 'cancelled', 'no_show', 'invalid'];
+  data.appointments = states.map((status, i) => ({ id: `r${i}`, studentId: 's', status, createdAt: ts(5) }));
+  data.links = [{ id: 'f_s', studentId: 's', facilitatorId: 'f', status: 'accepted' }];
+  const result = report(data).referrals;
+  assert.equal(result.requests, 8);
+  assert.equal(result.requestingStudents, 1);
+  assert.equal(result.pending, 1);
+  assert.equal(result.accepted, 1, 'completed and no-show are not inferred acceptance decisions');
+  assert.equal(result.statuses.reduce((sum, row) => sum + row.requests, 0), result.requests);
+  assert.equal(result.statuses.find(row => row.key === 'unknown').requests, 1);
+  assert.equal(result.trends.reduce((sum, row) => sum + row.requests, 0), result.requests);
+  assert.deepEqual(report(data, { assessmentId: 'unrelated' }).referrals, result);
+});
+
+test('referral campus attribution uses request snapshots even after transfers or account removal', () => {
+  const data = empty(); data.users = [student('s', 'alangilan')];
+  data.appointments = [
+    { id: 'historical', studentId: 's', campus: 'lipa', status: 'accepted', createdAt: ts(2) },
+    { id: 'no-snapshot', studentId: 's', status: 'requested', createdAt: ts(3) },
+    { id: 'deleted-account', studentId: 'deleted', campus: 'lipa', status: 'cancelled', createdAt: ts(4) },
+    { id: 'missing-id', campus: 'lipa', createdAt: ts(5) },
+  ];
+  assert.equal(report(data).referrals.requests, 4);
+  assert.equal(report(data).referrals.requestingStudents, 2);
+  assert.equal(report(data, { campus: 'lipa' }).referrals.requests, 3);
+  assert.equal(report(data, { campus: 'alangilan' }).referrals.requests, 0);
+  assert.equal(report(data, { campus: '__unknown__' }).referrals.requests, 1);
+  assert.equal(report(data).referrals.coverage.missingCampusSnapshots, 1);
+  assert.equal(report(data).referrals.coverage.unknownStudentAccounts, 1);
+  assert.equal(report(data).referrals.coverage.missingStudentIds, 1);
+  data.appointments.push({ id: 'orphan-campus', studentId: 'deleted', campus: 'historical-campus', createdAt: ts(6) });
+  assert.ok(report(data).campuses.some(campus => campus.key === 'historical-campus'));
+  assert.equal(report(data, { campus: 'historical-campus' }).referrals.requests, 1);
+});
+
+test('referral weekly and monthly cohorts respect Manila boundaries and stop at generation time', () => {
+  const data = empty();
+  data.appointments = [
+    { id: 'before', createdAt: '2026-09-30T15:59:59Z' },
+    { id: 'start', createdAt: '2026-09-30T16:00:00Z' },
+    { id: 'sunday', createdAt: '2026-10-04T15:59:59Z' },
+    { id: 'monday', createdAt: '2026-10-04T16:00:00Z' },
+    { id: 'end', createdAt: '2026-10-31T15:59:59Z' },
+    { id: 'after', createdAt: '2026-10-31T16:00:00Z' },
+  ];
+  const result = report(data).referrals;
+  assert.equal(result.requests, 4);
+  assert.equal(result.trends[0].requests, 2);
+  assert.equal(result.trends[0].partial, true);
+  assert.equal(result.trends[1].label, '2026-10-05');
+  assert.equal(result.trends[1].requests, 1);
+  const current = buildStatistics(data, { ...filters, interval: 'monthly' }, new Date('2026-10-06T00:00:00+08:00')).referrals;
+  assert.equal(current.requests, 3);
+  assert.equal(current.coverage.futureDatedRequests, 1);
+  assert.equal(current.trends[0].partial, true);
+  assert.equal(current.trends[0].endDate, '2026-10-05');
+  const future = buildStatistics(data, { ...filters, startDate: '2026-12-01', endDate: '2026-12-31' }, now).referrals;
+  assert.equal(future.requests, 0);
+  assert.deepEqual(future.trends, []);
+  const laterThisWeek = buildStatistics(data, { ...filters, startDate: '2026-10-07', endDate: '2026-10-08' }, new Date('2026-10-06T00:00:00+08:00')).referrals;
+  assert.deepEqual(laterThisWeek.trends, [], 'a future date range cannot emit an inverted partial-week interval');
+});
+
+test('referral data quality reports missing dates, legacy fallbacks and canonical conflicts without identities', () => {
+  const data = empty();
+  data.appointments = [
+    { id: 'missing', createdAt: 'invalid', notes: 'PRIVATE NOTE' },
+    { id: 'legacy', studentId: 'PRIVATE_STUDENT', created_at: ts(5) },
+    { id: 'conflict', createdAt: ts(6), created_at: ts(8) },
+  ];
+  const result = report(data).referrals;
+  assert.equal(result.requests, 2);
+  assert.equal(result.coverage.missingRequestDates, 1);
+  assert.equal(result.coverage.legacyDateFallbacks, 1);
+  assert.equal(result.coverage.conflictingDates, 1);
+  assert.equal(JSON.stringify(result).includes('PRIVATE'), false);
+  assert.equal(report(empty()).referrals.requests, 0);
+});
+
 test('strict dates, leap dates, maximum window and Manila midnight', () => {
   assert.equal(dateBoundary('2026-10-01'), Date.parse('2026-09-30T16:00:00Z'));
   assert.throws(() => dateBoundary('2026-02-30'));

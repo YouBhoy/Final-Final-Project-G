@@ -2,6 +2,8 @@
 
 Date: October 13, 2026 (Asia/Manila)
 
+October 27 extension: Referral Analytics is now the first/default tab, reporting student-to-facilitator request creation cohorts, current statuses and weekly/monthly counts. Participation, Trends and Assessment Scores remain supporting tabs. The sections below describe the original three views. See [implementation and testing](statistics-implementation.md#referral-analytics) for referral definitions, test-data disclosure, campus attribution and forecasting limitations.
+
 Route: `/admin/statistics`
 
 Navigation: Statistics in the admin's left sidebar, below Dashboard

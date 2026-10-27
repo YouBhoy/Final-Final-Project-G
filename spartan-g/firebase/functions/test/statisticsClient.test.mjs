@@ -35,6 +35,19 @@ test('cache does not retain names, emails, notes or message bodies, and report s
   assert.equal(report.totals.participants, 1);
   assert.ok(!JSON.stringify(report).includes('"studentId"'));
 });
+test('referral statuses survive the minimized loader without retaining notes or raw identities', async () => {
+  const f = fixture();
+  f.source.records = async name => name === 'appointments' ? [
+    { id: 'PRIVATE_EVENT', studentId: 'PRIVATE_STUDENT', status: 'reschedule_requested', createdAt: '2026-10-05', notes: 'PRIVATE NOTES' },
+  ] : [];
+  const input = await f.loader.input();
+  assert.equal(input.appointments[0].status, 'reschedule_requested');
+  assert.equal(JSON.stringify(input).includes('PRIVATE'), false);
+  const result = buildStatistics(input, { startDate: '2026-10-01', endDate: '2026-10-31', campus: '', assessmentId: '', interval: 'weekly' }, new Date('2026-11-01')).referrals;
+  assert.equal(result.requests, 1);
+  assert.equal(result.statuses.find(row => row.key === 'reschedule_requested').requests, 1);
+});
+
 test('access is rechecked even when cached, and disabled account cannot receive old data', async () => {
   const f = fixture(); await f.loader.input(); f.active(false);
   await assert.rejects(f.loader.input(), error => error.code === 'permission-denied');

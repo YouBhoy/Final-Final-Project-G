@@ -4,9 +4,9 @@ import { loadStatistics, statisticsError } from '../../lib/statistics';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Spinner } from '../ui/Spinner';
-import { activityLabels, campusLabel, control, CoverageDetails, ParticipationView, ScoresView, TrendsView, type StatisticsView, type TrendActivity } from './StatisticsViews';
+import { activityLabels, campusLabel, control, CoverageDetails, ReferralsView, ParticipationView, ScoresView, TrendsView, type StatisticsView, type TrendActivity } from './StatisticsViews';
 
-type Period = 'month' | 'week' | 'previous' | 'quarter' | 'custom';
+type Period = 'month' | 'week' | 'previous' | 'quarter' | 'year' | 'custom';
 const instruments = ['PHQ-9', 'GAD-7', 'DASS-21 depression', 'DASS-21 anxiety', 'DASS-21 stress'];
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 function presetDates(period: Exclude<Period, 'custom'>) {
@@ -17,9 +17,11 @@ function presetDates(period: Exclude<Period, 'custom'>) {
   if (period === 'week') return { startDate: isoDate(new Date(today.getTime() - ((today.getUTCDay() + 6) % 7) * 86400000)), endDate: isoDate(today) };
   if (period === 'previous') return { startDate: isoDate(new Date(Date.UTC(year, month - 1, 1))), endDate: isoDate(new Date(Date.UTC(year, month, 0))) };
   if (period === 'quarter') return { startDate: isoDate(new Date(Date.UTC(year, month - 2, 1))), endDate: isoDate(today) };
+  if (period === 'year') return { startDate: isoDate(new Date(Date.UTC(year, month - 11, 1))), endDate: isoDate(today) };
   return { startDate: isoDate(new Date(Date.UTC(year, month, 1))), endDate: isoDate(new Date(Date.UTC(year, month + 1, 0))) };
 }
 const descriptions: Record<StatisticsView, string> = {
+  referrals: 'How many students request a facilitator, and what are the current statuses of those requests?',
   participation: 'Who is using the portal and which connection features are they using?',
   trends: 'How does portal activity change from week to week or month to month?',
   scores: 'What do submitted assessment scores look like across campuses?',
@@ -27,8 +29,8 @@ const descriptions: Record<StatisticsView, string> = {
 
 /** Each mounted panel owns its filters, selections and report independently. */
 export function StatisticsPanel({ view }: { view: StatisticsView }) {
-  const [period, setPeriod] = useState<Period>(view === 'trends' ? 'quarter' : 'month');
-  const [filters, setFilters] = useState<StatisticsFilters>(() => ({ ...presetDates(view === 'trends' ? 'quarter' : 'month'), campus: '', assessmentId: '', interval: view === 'trends' ? 'monthly' : 'weekly' }));
+  const [period, setPeriod] = useState<Period>(view === 'referrals' ? 'year' : view === 'trends' ? 'quarter' : 'month');
+  const [filters, setFilters] = useState<StatisticsFilters>(() => ({ ...presetDates(view === 'referrals' ? 'year' : view === 'trends' ? 'quarter' : 'month'), campus: '', assessmentId: '', interval: view === 'trends' ? 'monthly' : 'weekly' }));
   const [customDates, setCustomDates] = useState(() => ({ startDate: filters.startDate, endDate: filters.endDate }));
   const [report, setReport] = useState<StatisticsReport | null>(null);
   const [catalogue, setCatalogue] = useState<Pick<StatisticsReport, 'campuses' | 'assessments'>>({ campuses: [], assessments: [] });
@@ -76,7 +78,7 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
   return <div className="space-y-5">
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h2 className="text-lg font-semibold text-gray-900">{view === 'participation' ? 'Participation & engagement' : view === 'trends' ? 'Engagement trends' : 'Assessment scores'}</h2><p className="mt-1 text-sm text-gray-500">{descriptions[view]}</p></div>
+        <div><h2 className="text-lg font-semibold text-gray-900">{view === 'referrals' ? 'Referral Analytics' : view === 'participation' ? 'Participation & engagement' : view === 'trends' ? 'Engagement trends' : 'Assessment scores'}</h2><p className="mt-1 text-sm text-gray-500">{descriptions[view]}</p></div>
         <Button variant="outline" size="sm" disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh this tab</Button>
       </div>
       <div className={`mt-5 grid gap-4 sm:grid-cols-2 ${view === 'trends' ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
@@ -84,15 +86,16 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
           <select className={control} value={filters.campus} onChange={event => setFilters(current => ({ ...current, campus: event.target.value }))}>
             <option value="">All campuses</option>{campusOptions.map(([key, label]) => <option value={key} key={key}>{label}</option>)}
           </select>
+          {view === 'referrals' && <span className="mt-1 block text-xs font-normal text-gray-500">Uses request-time campus. Missing campuses remain Unknown / Unassigned.</span>}
         </label>
-        <label className="text-sm font-medium text-gray-700">{view === 'scores' ? 'Submission period' : view === 'trends' ? 'Trend window' : 'Activity period'}
+        <label className="text-sm font-medium text-gray-700">{view === 'referrals' ? 'Request creation period' : view === 'scores' ? 'Submission period' : view === 'trends' ? 'Trend window' : 'Activity period'}
           <select className={control} value={period} onChange={event => selectPeriod(event.target.value as Period)}>
-            <option value="month">This month</option><option value="week">This week</option><option value="previous">Previous month</option><option value="quarter">Last 3 calendar months (to date)</option><option value="custom">Custom dates</option>
+            <option value="month">This month</option><option value="week">This week</option><option value="previous">Previous month</option><option value="quarter">Last 3 calendar months (to date)</option><option value="year">Last 12 calendar months (to date)</option><option value="custom">Custom dates</option>
           </select>
         </label>
-        {view === 'trends' && <>
+        {(view === 'trends' || view === 'referrals') && <>
           <label className="text-sm font-medium text-gray-700">Interval<select className={control} value={filters.interval} onChange={event => setFilters(current => ({ ...current, interval: event.target.value as StatisticsFilters['interval'] }))}><option value="weekly">Weekly (Monday to Sunday)</option><option value="monthly">Monthly</option></select></label>
-          <label className="text-sm font-medium text-gray-700">Activity<select className={control} value={activity} onChange={event => setActivity(event.target.value as TrendActivity)}>{Object.entries(activityLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
+          {view === 'trends' && <label className="text-sm font-medium text-gray-700">Activity<select className={control} value={activity} onChange={event => setActivity(event.target.value as TrendActivity)}>{Object.entries(activityLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>}
         </>}
         {view === 'scores' && <label className="text-sm font-medium text-gray-700">Instrument<select className={control} value={instrument} onChange={event => setInstrument(event.target.value)}>{instruments.map(label => <option key={label}>{label}</option>)}</select></label>}
         {view === 'participation' && <label className="text-sm font-medium text-gray-700">Assessment<select className={control} value={filters.assessmentId} onChange={event => setFilters(current => ({ ...current, assessmentId: event.target.value }))}><option value="">All assessments</option>{catalogue.assessments.map(assessment => <option value={assessment.id} key={assessment.id}>{assessment.title}</option>)}</select><span className="mt-1 block text-xs font-normal text-gray-500">Changes assessment metrics only.</span></label>}
@@ -117,7 +120,9 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
         <span>{report.filters.startDate} through {report.filters.endDate} · {report.filters.campus ? campusOptions.find(([key]) => key === report.filters.campus)?.[1] : 'All campuses'}</span>
         <span>Data fetched {new Date(report.sourceLoadedAt ?? report.generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</span>
       </div>
-      {view !== 'scores' && report.totals.participants === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No activity recorded for this campus and period.</p>}
+      {view === 'referrals' && report.referrals.requests === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No referral requests recorded for this campus and period. Requests without a request-time campus are available under All campuses or Unknown / Unassigned.</p>}
+      {view !== 'scores' && view !== 'referrals' && report.totals.participants === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No activity recorded for this campus and period.</p>}
+      {view === 'referrals' && <ReferralsView report={report} />}
       {view === 'participation' && <ParticipationView report={report} />}
       {view === 'trends' && <TrendsView report={report} activity={activity} />}
       {view === 'scores' && <ScoresView report={report} instrument={instrument} version={version} focusedCampus={focusedCampus} onVersionChange={setVersion} onCampusChange={setFocusedCampus} />}

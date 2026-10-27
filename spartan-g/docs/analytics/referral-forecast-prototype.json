@@ -1,0 +1,335 @@
+{
+  "artifactVersion": 2,
+  "sourceAsOf": "2026-10-27",
+  "dataKind": "development",
+  "productionEnabled": false,
+  "featureOrder": [
+    "previous_week_requests",
+    "two_weeks_ago_requests"
+  ],
+  "trainingSeries": [
+    {
+      "weekStart": "2026-07-06",
+      "requests": 3
+    },
+    {
+      "weekStart": "2026-07-13",
+      "requests": 16
+    },
+    {
+      "weekStart": "2026-07-20",
+      "requests": 3
+    },
+    {
+      "weekStart": "2026-07-27",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-08-03",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-08-10",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-08-17",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-08-24",
+      "requests": 8
+    },
+    {
+      "weekStart": "2026-08-31",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-09-07",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-09-14",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-09-21",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-09-28",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-10-05",
+      "requests": 0
+    },
+    {
+      "weekStart": "2026-10-12",
+      "requests": 1
+    },
+    {
+      "weekStart": "2026-10-19",
+      "requests": 3
+    }
+  ],
+  "method": "Ridge reference plus ridge/Poisson/fitted-smoothing comparison with separate earlier validation; same later expanding-window backtest for all methods and benchmarks.",
+  "assumptions": [
+    "The first observed week and unfinished weeks are excluded.",
+    "Zero-count gaps are assumed observations for this test-data experiment; logging completeness is unverified.",
+    "Metrics describe test data, not real student demand."
+  ],
+  "status": "ready",
+  "message": "Prototype evaluation on development/test data; real-world accuracy is unverified.",
+  "weeks": 16,
+  "requiredWeeks": 11,
+  "trainingStart": "2026-07-06",
+  "trainingEnd": "2026-10-19",
+  "model": {
+    "version": "referral-ridge-v1",
+    "alpha": 1,
+    "intercept": 1.097317267302458,
+    "coefficients": [
+      0.0824510993706831,
+      -0.0890357508204513
+    ],
+    "featureMeans": [
+      2,
+      2.142857142857143
+    ],
+    "featureScales": [
+      4.423960733486292,
+      4.421653583012046
+    ],
+    "trainingRows": 14
+  },
+  "metrics": {
+    "modelMAE": 1.076862437297911,
+    "modelRMSE": 1.2713471542839065,
+    "baselineMAE": 0.75,
+    "baselineRMSE": 1.118033988749895,
+    "comparison": "baseline-better",
+    "testWeeks": 4,
+    "initialTrainingRows": 10
+  },
+  "evaluation": [
+    {
+      "weekStart": "2026-09-28",
+      "actual": 0,
+      "predicted": 1.186858461508265,
+      "baseline": 0,
+      "trainedThrough": "2026-09-21"
+    },
+    {
+      "weekStart": "2026-10-05",
+      "actual": 0,
+      "predicted": 1.0268550063465551,
+      "baseline": 0,
+      "trainedThrough": "2026-09-28"
+    },
+    {
+      "weekStart": "2026-10-12",
+      "actual": 1,
+      "predicted": 0.904542477103253,
+      "baseline": 0,
+      "trainedThrough": "2026-10-05"
+    },
+    {
+      "weekStart": "2026-10-19",
+      "actual": 3,
+      "predicted": 1.0017212415599226,
+      "baseline": 1,
+      "trainedThrough": "2026-10-12"
+    }
+  ],
+  "forecast": {
+    "weekStart": "2026-10-26",
+    "weekEnd": "2026-11-01",
+    "requests": 1.255634814594056
+  },
+  "comparisonStudy": {
+    "status": "ready",
+    "requiredWeeks": 14,
+    "validationStart": "2026-08-31",
+    "validationEnd": "2026-09-21",
+    "validationWeeks": 4,
+    "validationActiveWeeks": 0,
+    "testStart": "2026-09-28",
+    "testEnd": "2026-10-19",
+    "testWeeks": 4,
+    "testActiveWeeks": 2,
+    "testZeroWeeks": 2,
+    "selectedId": "poisson",
+    "selectedLabel": "Poisson count regression",
+    "selectedEstimate": 1.1404343677014672,
+    "observedRequests": 34,
+    "zeroWeeks": 10,
+    "activeWeeks": 6,
+    "candidates": [
+      {
+        "id": "ridge",
+        "label": "Ridge regression",
+        "learned": true,
+        "validation": {
+          "mae": 1.693911327747644,
+          "rmse": 1.815872727296516,
+          "bias": 1.693911327747644,
+          "activeWeekMAE": null
+        },
+        "test": {
+          "mae": 1.076862437297911,
+          "rmse": 1.2713471542839065,
+          "bias": 0.02999429662949893,
+          "activeWeekMAE": 1.0468681406684122
+        },
+        "nextEstimate": 1.255634814594056,
+        "unavailable": null
+      },
+      {
+        "id": "poisson",
+        "label": "Poisson count regression",
+        "learned": true,
+        "validation": {
+          "mae": 1.6310796669363539,
+          "rmse": 1.7231837102433925,
+          "bias": 1.6310796669363539,
+          "activeWeekMAE": null
+        },
+        "test": {
+          "mae": 1.0732246809724635,
+          "rmse": 1.2767601135692104,
+          "bias": -0.00907733662285437,
+          "activeWeekMAE": 1.082302017595318
+        },
+        "nextEstimate": 1.1404343677014672,
+        "unavailable": null
+      },
+      {
+        "id": "smoothing",
+        "label": "Fitted exponential smoothing",
+        "learned": true,
+        "validation": {
+          "mae": 2.8047996521750003,
+          "rmse": 2.8241140455850546,
+          "bias": 2.8047996521750003,
+          "activeWeekMAE": null
+        },
+        "test": {
+          "mae": 1.535044708229133,
+          "rmse": 1.6298272489957897,
+          "bias": 0.8652290517920183,
+          "activeWeekMAE": 1.0366871492847651
+        },
+        "nextEstimate": 1.7943318184131936,
+        "unavailable": null
+      },
+      {
+        "id": "last-week",
+        "label": "Same as last week",
+        "learned": false,
+        "validation": {
+          "mae": 2,
+          "rmse": 4,
+          "bias": 2,
+          "activeWeekMAE": null
+        },
+        "test": {
+          "mae": 0.75,
+          "rmse": 1.118033988749895,
+          "bias": -0.75,
+          "activeWeekMAE": 1.5
+        },
+        "nextEstimate": 3,
+        "unavailable": null
+      },
+      {
+        "id": "mean",
+        "label": "Historical mean",
+        "learned": false,
+        "validation": {
+          "mae": 3.202651515151515,
+          "rmse": 3.225353765094487,
+          "bias": 3.202651515151515,
+          "activeWeekMAE": null
+        },
+        "test": {
+          "mae": 1.720970695970696,
+          "rmse": 1.8542301196907134,
+          "bias": 1.2543040293040293,
+          "activeWeekMAE": 1.038095238095238
+        },
+        "nextEstimate": 2.125,
+        "unavailable": null
+      },
+      {
+        "id": "zero",
+        "label": "Always zero (sparsity check)",
+        "learned": false,
+        "validation": {
+          "mae": 0,
+          "rmse": 0,
+          "bias": 0,
+          "activeWeekMAE": null
+        },
+        "test": {
+          "mae": 1,
+          "rmse": 1.5811388300841898,
+          "bias": -1,
+          "activeWeekMAE": 2
+        },
+        "nextEstimate": 0,
+        "unavailable": null
+      }
+    ],
+    "predictions": [
+      {
+        "weekStart": "2026-09-28",
+        "actual": 0,
+        "forecasts": {
+          "ridge": 1.186858461508265,
+          "poisson": 1.1313371742197194,
+          "smoothing": 2.1404234391300005,
+          "last-week": 0,
+          "mean": 2.5,
+          "zero": 0
+        }
+      },
+      {
+        "weekStart": "2026-10-05",
+        "actual": 0,
+        "forecasts": {
+          "ridge": 1.0268550063465551,
+          "poisson": 0.9969575144794991,
+          "smoothing": 1.9263810952170006,
+          "last-week": 0,
+          "mean": 2.3076923076923075,
+          "zero": 0
+        }
+      },
+      {
+        "weekStart": "2026-10-12",
+        "actual": 1,
+        "forecasts": {
+          "ridge": 0.904542477103253,
+          "poisson": 0.893367534142016,
+          "smoothing": 1.7337429856953006,
+          "last-week": 0,
+          "mean": 2.142857142857143,
+          "zero": 0
+        }
+      },
+      {
+        "weekStart": "2026-10-19",
+        "actual": 3,
+        "forecasts": {
+          "ridge": 1.0017212415599226,
+          "poisson": 0.9420284306673482,
+          "smoothing": 1.6603686871257706,
+          "last-week": 1,
+          "mean": 2.066666666666667,
+          "zero": 0
+        }
+      }
+    ]
+  }
+}

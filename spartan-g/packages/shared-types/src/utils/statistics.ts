@@ -1,3 +1,5 @@
+import { evaluateReferralForecast } from './referralForecast';
+
 /** Browser-safe reporting code. No database access and no individual records in output. */
 export type Data = Record<string, any> & { id: string };
 export interface ReportFilters { startDate: string; endDate: string; campus: string; assessmentId: string; interval: 'weekly' | 'monthly' }
@@ -72,6 +74,76 @@ const quantile = (sorted: number[], p: number) => {
   const position = (sorted.length - 1) * p, lower = Math.floor(position), upper = Math.ceil(position);
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
 };
+
+/** Request cohorts use creation dates; statuses describe the fetched snapshot, not past decisions. */
+function referralStatistics(input: ReportInput, filters: ReportFilters, now: Date) {
+  const start = dateBoundary(filters.startDate), end = dateBoundary(filters.endDate) + DAY;
+  const observedEnd = Math.min(end, now.getTime());
+  const statusDefinitions = [
+    ['requested', 'Pending'], ['accepted', 'Accepted'], ['rejected', 'Declined'],
+    ['reschedule_requested', 'Awaiting reschedule'], ['completed', 'Completed'],
+    ['cancelled', 'Cancelled'], ['no_show', 'No-show'], ['unknown', 'Unrecognized status'],
+  ] as const;
+  const counts = new Map<string, number>(statusDefinitions.map(([key]) => [key, 0]));
+  const students = new Set<string>(), accounts = new Map(input.users.map(user => [user.id, user.role]));
+  const dates: number[] = [];
+  let firstObserved = Infinity;
+  const coverage = { missingRequestDates: 0, futureDatedRequests: 0, missingCampusSnapshots: 0,
+    missingStudentIds: 0, unknownStudentAccounts: 0, conflictingDates: 0, legacyDateFallbacks: 0 };
+  for (const request of input.appointments) {
+    // Current student campus must not silently rewrite historical referral attribution.
+    const campus = typeof request.campus === 'string' && request.campus.trim() ? request.campus : UNKNOWN;
+    if (filters.campus && campus !== filters.campus) continue;
+    const canonical = timestamp(request.createdAt), legacy = timestamp(request.created_at);
+    const created = canonical ?? legacy;
+    if (created === null) { coverage.missingRequestDates++; continue; }
+    if (created < now.getTime()) firstObserved = Math.min(firstObserved, created);
+    if (created < start || created >= end) continue;
+    if (created >= observedEnd) { coverage.futureDatedRequests++; continue; }
+    dates.push(created);
+    if (canonical !== null && legacy !== null && canonical !== legacy) coverage.conflictingDates++;
+    if (canonical === null) coverage.legacyDateFallbacks++;
+    if (campus === UNKNOWN) coverage.missingCampusSnapshots++;
+    if (typeof request.studentId === 'string' && request.studentId.trim()) {
+      students.add(request.studentId);
+      if (accounts.get(request.studentId) !== 'student') coverage.unknownStudentAccounts++;
+    } else coverage.missingStudentIds++;
+    const key = statusDefinitions.find(([key]) => key !== 'unknown' && key === request.status)?.[0] ?? 'unknown';
+    counts.set(key, counts.get(key)! + 1);
+  }
+  const bucketCounts = new Map<number, number>();
+  for (const date of dates) {
+    const bucket = bucketStart(date, filters.interval);
+    bucketCounts.set(bucket, (bucketCounts.get(bucket) ?? 0) + 1);
+  }
+  const trends = [];
+  for (let bucket = bucketStart(start, filters.interval); start < observedEnd && bucket < observedEnd; bucket = nextBucket(bucket, filters.interval)) {
+    const next = nextBucket(bucket, filters.interval);
+    trends.push({ label: filters.interval === 'monthly' ? localDate(bucket).slice(0, 7) : localDate(bucket),
+      startDate: localDate(Math.max(start, bucket)), endDate: localDate(Math.min(next, observedEnd) - 1),
+      partial: bucket < start || next > observedEnd, requests: bucketCounts.get(bucket) ?? 0 });
+  }
+  // Weekly modeling is independent of chart interval. Exclude the first observed week
+  // (logging start unknown), clipped filter weeks and the unfinished current week.
+  const weeklyCounts = new Map<number, number>();
+  for (const date of dates) {
+    const week = bucketStart(date, 'weekly');
+    weeklyCounts.set(week, (weeklyCounts.get(week) ?? 0) + 1);
+  }
+  const weeks = [];
+  if (Number.isFinite(firstObserved)) {
+    const earliest = Math.max(start, bucketStart(firstObserved, 'weekly') + 7 * DAY);
+    for (let week = bucketStart(earliest, 'weekly'); week + 7 * DAY <= observedEnd; week += 7 * DAY) {
+      if (week >= earliest) weeks.push({ weekStart: localDate(week), requests: weeklyCounts.get(week) ?? 0 });
+    }
+  }
+  const forecast = evaluateReferralForecast(weeks, coverage.missingRequestDates || coverage.conflictingDates
+    ? 'Resolve missing or conflicting request creation dates before evaluating a forecast.' : undefined);
+  return { forecast, requests: dates.length, requestingStudents: students.size, pending: counts.get('requested')!,
+    accepted: counts.get('accepted')!, statuses: statusDefinitions.map(([key, label]) => ({ key, label, requests: counts.get(key)! })),
+    trends, coverage };
+}
+
 export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, now = new Date()) {
   const filters = validateFilters(rawFilters), start = dateBoundary(filters.startDate), end = dateBoundary(filters.endDate) + DAY;
   const observedEnd = Math.min(end, now.getTime());
@@ -83,6 +155,9 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
   const campusLabels = new Map(input.campuses.map(c => [typeof c.key === 'string' && c.key ? c.key : c.id, typeof c.label === 'string' && c.label ? c.label : c.id]));
   const campusOf = (record: Data, student: Data) => typeof record.campus === 'string' && record.campus ? record.campus : typeof student.campus === 'string' && student.campus ? student.campus : UNKNOWN;
   for (const u of users.values()) if (u.role === 'student') { const key = campusOf(u, u); if (!campusLabels.has(key)) campusLabels.set(key, key); }
+  for (const request of input.appointments) {
+    if (typeof request.campus === 'string' && request.campus.trim() && !campusLabels.has(request.campus)) campusLabels.set(request.campus, request.campus);
+  }
   campusLabels.set(UNKNOWN, 'Unknown / Unassigned');
   const eventDate = (record: Data, canonical = 'createdAt', legacy = 'created_at', fallback?: string) => {
     const a = timestamp(record[canonical]), b = timestamp(record[legacy]);
@@ -205,7 +280,7 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
     const starters = new Set(starts.map(e => e.student)), completed = new Set(starts.filter(e => e.completed).map(e => e.student));
     return { assessmentId: definition.id, title: typeof definition.title === 'string' ? definition.title : 'Untitled assessment', starters: starters.size, completed: completed.size, remaining: starters.size - completed.size, rate: starters.size ? completed.size / starters.size * 100 : null };
   }).filter(row => row.starters > 0).sort((a, b) => a.title.localeCompare(b.title));
-  return { generatedAt: now.toISOString(), filters, campuses: [...campusLabels].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label)),
+  return { generatedAt: now.toISOString(), filters, referrals: referralStatistics(input, filters, now), campuses: [...campusLabels].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label)),
     assessments: input.definitions.map(d => ({ id: d.id, title: typeof d.title === 'string' ? d.title : 'Untitled assessment' })).sort((a, b) => a.title.localeCompare(b.title)),
     totals: summary(filters.campus), participation: [...campusLabels].filter(([key]) => !filters.campus || key === filters.campus).map(([campus, label]) => ({ campus, label, ...summary(campus) })), assessmentCohorts, trends, scores, coverage,
     notes: ['Participation uses registered portal students, including currently inactive accounts, not college enrollment. Rates use current campus attribution; historical membership is unavailable.',

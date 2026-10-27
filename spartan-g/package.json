@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "train:referral-prototype": "node scripts/train-referral-forecast.mjs",
     "sync:assessment-catalog": "node scripts/sync-assessment-catalog.mjs",
     "test:assessment-catalog": "node --test scripts/assessment-catalog.test.mjs",
     "test:admin-security": "npm run test:admin-security --workspace=@spartan-g/web && npm --prefix firebase/functions run build && firebase emulators:exec --project demo-spartan-booking --config firebase.security-test.json --only firestore \"node --test firebase/functions/test/adminSecurityRules.test.mjs firebase/functions/test/registrationRules.test.mjs firebase/functions/test/statisticsClientAccess.test.mjs\"",
