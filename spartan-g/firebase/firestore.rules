@@ -444,6 +444,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function validBookingCampus(data) {
+      let campus = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('campus', null);
+      // Older clients may omit this analytics snapshot. Validate it when supplied.
+      return !data.keys().hasAny(['campus'])
+        || (campus is string && campus.size() > 0 && data.campus == campus);
+    }
+
     match /appointments/{appointmentId} {
       // Availability has a separate public projection; appointment contents are private.
       allow read: if isSuperAdmin()
@@ -451,7 +458,8 @@ service cloud.firestore {
         || (isStudent() && resource.data.studentId == request.auth.uid);
       allow create: if isStudent() && request.resource.data.studentId == request.auth.uid
         && request.resource.data.keys().hasAll(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes', 'status', 'createdAt', 'updatedAt', 'notifyBeforeMinutes'])
-        && request.resource.data.keys().hasOnly(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes', 'status', 'createdAt', 'updatedAt', 'notifyBeforeMinutes', 'notes'])
+        && request.resource.data.keys().hasOnly(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes', 'status', 'createdAt', 'updatedAt', 'notifyBeforeMinutes', 'notes', 'campus'])
+        && validBookingCampus(request.resource.data)
         && request.resource.data.createdAt == request.time
         && request.resource.data.notifyBeforeMinutes is int && request.resource.data.notifyBeforeMinutes >= 0
         && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 10000
@@ -469,7 +477,7 @@ service cloud.firestore {
         && bookingLinkValid(appointmentId, request.resource.data)
         && availabilitySynchronized(request.resource.data, appointmentId);
       allow update: if !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes'])
+          .hasAny(['studentId', 'facilitatorId', 'scheduledAt', 'durationMinutes', 'campus'])
         && availabilitySynchronized(request.resource.data, appointmentId)
         && (
           ((isSuperAdmin() || (isFacilitator() && resource.data.facilitatorId == request.auth.uid))

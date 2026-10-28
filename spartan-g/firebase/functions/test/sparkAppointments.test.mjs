@@ -5,6 +5,7 @@ import ts from 'typescript';
 import { initializeApp as initializeAdminApp } from 'firebase-admin/app';
 import { getFirestore as getAdminFirestore, Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
+import { buildStatistics } from './helpers/statisticsModules.mjs';
 import { getFirestore, connectFirestoreEmulator, terminate, doc, getDocFromServer, updateDoc, setDoc, serverTimestamp, Timestamp, writeBatch } from 'firebase/firestore';
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
@@ -50,7 +51,7 @@ async function setup() {
   const ids = Object.fromEntries(['s1', 's2', 'f1', 'f2', 'disabled'].map(key => [key, `${prefix}_${key}`]));
   const batch = admin.batch();
   for (const [key, uid] of Object.entries(ids)) batch.set(admin.doc(`users/${uid}`), {
-    role: key.startsWith('f') ? 'facilitator' : 'student', isActive: key !== 'disabled',
+    role: key.startsWith('f') ? 'facilitator' : 'student', isActive: key !== 'disabled', campus: 'lipa',
   });
   batch.set(admin.doc('appointment_booking_config/spark'), { version: 1 });
   await batch.commit();
@@ -68,6 +69,7 @@ test('actual client booking atomically writes appointment, reservations, notific
   const appointment = (await admin.doc(`appointments/${id}`).get()).data();
   assert.equal(appointment.status, 'requested');
   assert.equal(appointment.studentId, ids.s1);
+  assert.equal(appointment.campus, 'lipa');
   const reservations = await admin.collection('appointment_reservations').where('appointmentId', '==', id).get();
   assert.equal(reservations.size, 4);
   assert.ok(reservations.docs.every(row => !('notes' in row.data())));
@@ -153,11 +155,20 @@ test('rescheduling is owner-only, requires a request and releases the old time',
   await denied(book(input(ids, { appointmentId: id, scheduledAt: new Date(ids.start + 3600000) }), ids.c1, ids.s1));
   await updateDoc(doc(ids.f, 'appointments', id), { status: 'reschedule_requested', updatedAt: serverTimestamp() });
   await admin.doc(`student_identity_consents/${ids.f1}_${ids.s1}`).delete();
+  await admin.doc(`users/${ids.s1}`).update({ campus: 'alangilan' });
   await denied(book(input(ids, { appointmentId: id, studentId: ids.s2 }), ids.c2, ids.s2));
   await book(input(ids, { appointmentId: id, scheduledAt: new Date(ids.start + 3600000) }), ids.c1, ids.s1);
   assert.equal((await admin.doc(`student_identity_consents/${ids.f1}_${ids.s1}`).get()).exists, false, 'Rescheduling must not silently restore revoked identity sharing');
   await book(input(ids, { studentId: ids.s2 }), ids.c2, ids.s2);
   assert.equal((await admin.doc(`appointments/${id}`).get()).data().scheduledAt.toMillis(), ids.start + 3600000);
+  const appointment = (await admin.doc(`appointments/${id}`).get()).data();
+  assert.equal(appointment.campus, 'lipa', 'Rescheduling after a transfer preserves request-time campus');
+  const date = new Date(appointment.createdAt.toMillis() + 8 * 3600000).toISOString().slice(0, 10);
+  const reportInput = { users: [{ id: ids.s1, role: 'student', campus: 'alangilan' }], campuses: [],
+    appointments: [{ id, ...appointment }], messages: [], conversations: [], links: [], attempts: [], definitions: [], legacyInstances: [] };
+  const filters = { startDate: date, endDate: date, campus: 'lipa', assessmentId: '', interval: 'weekly' };
+  assert.equal(buildStatistics(reportInput, filters, new Date(appointment.createdAt.toMillis() + 1)).referrals.requests, 1);
+  assert.equal(buildStatistics(reportInput, { ...filters, campus: 'alangilan' }, new Date(appointment.createdAt.toMillis() + 1)).referrals.requests, 0);
 });
 
 test('acceptance handles existing pending links and permits active super administrators', async () => {
@@ -202,14 +213,57 @@ function rawBooking(ids, start = ids.start, overrides = {}, skip = -1) {
   const id = `raw_${Date.now()}_${++sequence}`, first = Math.floor(start / 1800000);
   const batch = writeBatch(ids.c1);
   const data = { studentId: ids.s1, facilitatorId: ids.f1, scheduledAt: Timestamp.fromMillis(start),
-    durationMinutes: 60, status: 'requested', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), notifyBeforeMinutes: 30, ...overrides };
+    durationMinutes: 60, status: 'requested', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), notifyBeforeMinutes: 30, campus: 'lipa', ...overrides };
+  if (data.campus === undefined) delete data.campus;
   batch.set(doc(ids.c1, 'appointments', id), data);
+  batch.set(doc(ids.c1, 'appointment_availability', id), { facilitatorId: data.facilitatorId,
+    scheduledAt: data.scheduledAt, durationMinutes: data.durationMinutes, status: data.status });
   const reservations = [['f', ids.f1, first], ['f', ids.f1, first + 1], ['s', ids.s1, first], ['s', ids.s1, first + 1]];
   reservations.forEach(([kind, participantId, slot], i) => {
     if (i !== skip) batch.set(doc(ids.c1, 'appointment_reservations', `${kind}_${participantId}_${slot}`), { kind, participantId, slot, appointmentId: id });
   });
   return batch.commit();
 }
+
+test('rules validate a supplied campus on creation and prevent later campus edits', async () => {
+  const ids = await setup();
+  await denied(rawBooking(ids, ids.start, { campus: 'alangilan' }));
+  await denied(rawBooking(ids, ids.start, { campus: 42 }));
+  await rawBooking(ids);
+  const id = await book(input(ids, { scheduledAt: new Date(ids.start + 3600000) }), ids.c1, ids.s1);
+  await denied(updateDoc(doc(ids.c1, 'appointments', id), { campus: 'alangilan' }));
+  await denied(updateDoc(doc(ids.f, 'appointments', id), { campus: 'alangilan', status: 'reschedule_requested', updatedAt: serverTimestamp() }));
+});
+
+test('older mobile booking format can omit campus even when the account has one', async () => {
+  const ids = await setup();
+  await rawBooking(ids, ids.start, { campus: undefined });
+  const rows = await admin.collection('appointments').where('studentId', '==', ids.s1).get();
+  assert.equal(rows.size, 1);
+  assert.equal(Object.hasOwn(rows.docs[0].data(), 'campus'), false);
+  const appointment = rows.docs[0].data();
+  const date = new Date(appointment.createdAt.toMillis() + 8 * 3600000).toISOString().slice(0, 10);
+  const reportInput = { users: [{ id: ids.s1, role: 'student', campus: 'lipa' }], campuses: [],
+    appointments: [{ ...appointment, id: rows.docs[0].id }], messages: [], conversations: [], links: [], attempts: [], definitions: [], legacyInstances: [] };
+  const filters = { startDate: date, endDate: date, campus: '', assessmentId: '', interval: 'weekly' };
+  const now = new Date(appointment.createdAt.toMillis() + 1);
+  assert.equal(buildStatistics(reportInput, filters, now).referrals.requests, 1);
+  assert.equal(buildStatistics(reportInput, { ...filters, campus: '__unknown__' }, now).referrals.requests, 1);
+  assert.equal(buildStatistics(reportInput, { ...filters, campus: 'lipa' }, now).referrals.requests, 0);
+});
+
+test('legacy accounts without campus can book but cannot invent a campus snapshot', async () => {
+  const ids = await setup();
+  await admin.doc(`users/${ids.s1}`).set({ role: 'student', isActive: true });
+  await denied(rawBooking(ids));
+  const id = await book(input(ids), ids.c1, ids.s1);
+  assert.equal(Object.hasOwn((await admin.doc(`appointments/${id}`).get()).data(), 'campus'), false);
+  await admin.doc(`users/${ids.s1}`).update({ campus: 'alangilan' });
+  await updateDoc(doc(ids.f, 'appointments', id), { status: 'reschedule_requested', updatedAt: serverTimestamp() });
+  await book(input(ids, { appointmentId: id, scheduledAt: new Date(ids.start + 3600000) }), ids.c1, ids.s1);
+  assert.equal(Object.hasOwn((await admin.doc(`appointments/${id}`).get()).data(), 'campus'), false,
+    'Rescheduling a legacy request must not infer its original campus from the current account');
+});
 
 test('rules independently require every reservation and reject forged ownership, durations and times', async () => {
   const ids = await setup();

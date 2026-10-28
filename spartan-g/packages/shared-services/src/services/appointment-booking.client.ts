@@ -44,6 +44,10 @@ export async function bookAppointmentClient(input: ClientBookingInput, db: Fires
       if (existing && (!existing.exists() || existing.data().studentId !== uid || existing.data().status !== 'reschedule_requested')) {
         throw new Error('This appointment is not awaiting your reschedule.');
       }
+      // Capture the authoritative campus only for a new request. Transfers and
+      // rescheduling must not rewrite the original referral's attribution.
+      const student = !existing ? (await tx.get(doc(db, 'users', uid))).data() : undefined;
+      const campus = typeof student?.campus === 'string' && student.campus.length > 0 ? student.campus : undefined;
       const facilitatorId = existing?.data()?.facilitatorId ?? input.facilitatorId;
       if (typeof facilitatorId !== 'string' || !facilitatorId || facilitatorId.includes('/')) throw new Error('Choose a valid facilitator.');
       const first = start / HALF_HOUR;
@@ -71,6 +75,7 @@ export async function bookAppointmentClient(input: ClientBookingInput, db: Fires
         tx.update(ref, { ...schedule, rescheduleReason: deleteField(), rescheduleRequestedAt: deleteField() });
       } else {
         tx.set(ref, { ...schedule, studentId: uid, facilitatorId, createdAt: now,
+          ...(campus !== undefined ? { campus } : {}),
           notifyBeforeMinutes: input.notifyBeforeMinutes ?? 30, ...(input.notes !== undefined ? { notes: input.notes } : {}) });
       }
       tx.set(notification, { userId: facilitatorId, title: existing ? 'Appointment Rescheduled' : 'New Appointment Request',
