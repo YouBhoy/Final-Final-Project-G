@@ -24,6 +24,15 @@ signup and logout clear the marker; a new sign-in gets a new marker. If browser 
 disabled, acceptance works in memory and a refresh prompts again. This is a web portal entry
 gate, not a permanent consent flag on the user record or a change to the mobile app.
 
+All web portals now use a tab-bound sign-in session with a 15-minute inactivity limit,
+including students and facilitators. Trusted interaction extends an unexpired session;
+refreshing, refocusing, or returning after sleep does not reset an expired deadline.
+Expiry clears portal access and the privacy acceptance marker and signs out Firebase.
+Sign-in and student registration use session persistence rather than durable local
+persistence. Existing sessions without the new inactivity marker require a fresh
+sign-in. This is a browser session policy, not server-side token revocation or a
+mobile app timeout; Firestore rules continue to authorize database requests.
+
 Policy reads require an active account; writes require an active super admin. Rules validate
 nonblank title/body, lengths, revision increments, author and server timestamp. Clients cannot
 delete the policy. A failed policy read leaves Accept disabled, with Retry and Deny available.

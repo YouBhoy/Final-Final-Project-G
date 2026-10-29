@@ -17,7 +17,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Restore this tab's session before looking for a different account in shared storage.
-// loginUser selects session persistence for admins and local persistence for other roles.
+// Every web role uses tab persistence plus a wall-clock inactivity deadline.
 const auth = initializeAuth(app, {
   persistence: [browserSessionPersistence, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
 });

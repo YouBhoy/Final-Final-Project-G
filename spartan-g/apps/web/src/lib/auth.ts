@@ -5,7 +5,6 @@ import {
   sendPasswordResetEmail,
   onAuthStateChanged,
   setPersistence,
-  browserLocalPersistence,
   browserSessionPersistence,
   inMemoryPersistence,
   updateProfile,
@@ -13,7 +12,7 @@ import {
 import { doc, getDocFromServer, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
 import type { Role, AuthSession, Campus } from "@spartan-g/shared-types";
-import { beginAdminTabSession, clearAdminTabSession, hasAdminTabSession } from './adminTabSession';
+import { beginPortalTabSession, clearPortalTabSession, hasPortalTabSession } from './adminTabSession';
 
 let interactiveLogin = false;
 
@@ -37,44 +36,56 @@ export async function registerUser(
     throw new Error("Campus is required for registration");
   }
 
-  // Create Firebase Auth user
-  await setPersistence(auth, browserLocalPersistence);
-  const { user } = await createUserWithEmailAndPassword(auth, email, password);
+  interactiveLogin = true;
+  clearPortalTabSession();
+  try {
+    // Keep registration credentials in memory until profile creation succeeds.
+    await setPersistence(auth, inMemoryPersistence);
+    const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
-  // Set display name in Firebase Auth
-  await updateProfile(user, { displayName: `${firstName} ${lastName}` });
+    // Set display name in Firebase Auth
+    await updateProfile(user, { displayName: `${firstName} ${lastName}` });
 
-  // Create user profile in Firestore
-  const userDoc = {
-    uid: user.uid,
-    email,
-    displayName: `${firstName} ${lastName}`,
-    role,
-    campus,
-    isActive: true,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
+    // Create user profile in Firestore
+    const userDoc = {
+      uid: user.uid,
+      email,
+      displayName: `${firstName} ${lastName}`,
+      role,
+      campus,
+      isActive: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
 
-      await setDoc(doc(db, "users", user.uid), userDoc);
+    await setDoc(doc(db, "users", user.uid), userDoc);
 
-  // Create a profile document so profile updates (which use updateDoc) succeed.
-  // Mirrors shared auth.service.register() which creates both docs.
-  await setDoc(doc(db, "profiles", user.uid), {
-    uid: user.uid,
-    campus,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    // Create a profile document so profile updates (which use updateDoc) succeed.
+    // Mirrors shared auth.service.register() which creates both docs.
+    await setDoc(doc(db, "profiles", user.uid), {
+      uid: user.uid,
+      campus,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
 
-  return {
-    uid: user.uid,
-    email: user.email,
-    emailVerified: user.emailVerified,
-    role,
-    displayName: userDoc.displayName,
-    campus,
-  };
+    beginPortalTabSession(user.uid);
+    await setPersistence(auth, browserSessionPersistence);
+    return {
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      role,
+      displayName: userDoc.displayName,
+      campus,
+    };
+  } catch (error) {
+    clearPortalTabSession();
+    await signOut(auth).catch(() => undefined);
+    throw error;
+  } finally {
+    interactiveLogin = false;
+  }
 }
 
 export async function loginUser(
@@ -82,7 +93,7 @@ export async function loginUser(
   password: string
 ): Promise<AuthSession> {
   interactiveLogin = true;
-  clearAdminTabSession();
+  clearPortalTabSession();
   try {
     // Keep credentials out of shared persistent storage until the server confirms the role.
     await setPersistence(auth, inMemoryPersistence);
@@ -104,12 +115,8 @@ export async function loginUser(
       throw new Error("Account role is invalid");
     }
 
-    if (userData.role === 'super_admin') {
-      beginAdminTabSession(user.uid);
-      await setPersistence(auth, browserSessionPersistence);
-    } else {
-      await setPersistence(auth, browserLocalPersistence);
-    }
+    beginPortalTabSession(user.uid);
+    await setPersistence(auth, browserSessionPersistence);
 
     return {
       uid: user.uid,
@@ -120,7 +127,7 @@ export async function loginUser(
       campus: userData.campus ?? null,
     };
   } catch (error) {
-    clearAdminTabSession();
+    clearPortalTabSession();
     await signOut(auth).catch(() => undefined);
     if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found'].includes((error as { code?: string })?.code ?? '')) {
       throw new Error('Email or password is incorrect. Check your details or use Forgot password to reset it.');
@@ -132,7 +139,7 @@ export async function loginUser(
 }
 
 export async function logoutUser(): Promise<void> {
-  clearAdminTabSession();
+  clearPortalTabSession();
   await signOut(auth);
 }
 
@@ -167,9 +174,9 @@ export function onAuthChange(
         callback(null);
         return;
       }
-      if (data.role === 'super_admin' && !hasAdminTabSession(firebaseUser.uid)) {
+      if (!hasPortalTabSession(firebaseUser.uid)) {
         // Reject legacy persistent sessions and expired tab sessions before mounting the portal.
-        clearAdminTabSession();
+        clearPortalTabSession();
         callback(null);
         void signOut(auth).catch(() => undefined);
         return;

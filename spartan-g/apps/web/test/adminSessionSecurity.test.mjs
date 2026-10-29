@@ -15,11 +15,15 @@ async function setup() {
   globalThis.sessionStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
   policy.beginAdminTabSession('admin');
   const doubles = `
-import { beginAdminTabSession, clearAdminTabSession, hasAdminTabSession } from ${JSON.stringify(policyUrl)};
+import { beginPortalTabSession, clearPortalTabSession, hasPortalTabSession } from ${JSON.stringify(policyUrl)};
 export const fixture = { profile: { role: 'super_admin', isActive: true }, listeners: [], currentUser: null, events: [], signouts: 0, persistences: [] };
 const auth = { get currentUser() { return fixture.currentUser; } }, db = {};
 const inMemoryPersistence = 'memory', browserSessionPersistence = 'session', browserLocalPersistence = 'local';
 const setPersistence = async (_, persistence) => { fixture.persistences.push(persistence); if (fixture.failPersistence === persistence) throw new Error('Persistence unavailable'); };
+const createUserWithEmailAndPassword = async (_, email, password) => { fixture.currentUser = { uid: 'new-student', email }; return { user: fixture.currentUser }; };
+const updateProfile = async () => {};
+const serverTimestamp = () => 'server-time';
+const setDoc = async () => {};
 const doc = (_, collection, uid) => ({ collection, uid });
 const snapshot = (data, metadata = {}) => ({ exists: () => data !== null, data: () => data,
   metadata: { fromCache: false, hasPendingWrites: false, ...metadata } });
@@ -116,6 +120,7 @@ test('account switches clear the old session and ignore late snapshots from the 
   assert.equal(app.session(), null);
   app.emitProfile({ role: 'super_admin', isActive: true }, {}, 0);
   assert.equal(app.session(), null);
+  policy.beginPortalTabSession('student');
   app.emitProfile({ role: 'student', isActive: true });
   assert.equal(app.session().uid, 'student');
   assert.equal(app.session().role, 'student');
@@ -142,15 +147,52 @@ test('new admin login chooses memory first, then tab persistence after server ro
   assert.equal(policy.hasAdminTabSession('admin'), true);
 });
 
-test('student and facilitator logins keep persistent sign-in without an admin tab grant', async () => {
+test('student and facilitator logins use tab persistence with an inactivity grant', async () => {
   for (const role of ['student', 'facilitator']) {
     const app = await setup();
     app.fixture.currentUser = { uid: role, email: `${role}@example.com` };
     app.fixture.profile = { role, isActive: true };
     await app.loginUser(`${role}@example.com`, 'synthetic-password');
-    assert.deepEqual(app.fixture.persistences, ['memory', 'local']);
+    assert.deepEqual(app.fixture.persistences, ['memory', 'session']);
     assert.equal(policy.hasAdminTabSession('admin'), false);
-    assert.equal(policy.hasAdminTabSession(role), false);
+    assert.equal(policy.hasPortalTabSession(role), true);
+  }
+});
+
+test('student registration uses the same expiring tab session as sign-in', async () => {
+  const app = await setup();
+  const session = await app.registerUser('student@example.com', 'synthetic-password', 'Test', 'Student', 'student', 'lipa');
+  assert.equal(session.uid, 'new-student');
+  assert.deepEqual(app.fixture.persistences, ['memory', 'session']);
+  assert.equal(policy.hasPortalTabSession(session.uid), true);
+});
+
+test('student and facilitator legacy or expired sessions cannot restore portal access', async () => {
+  for (const role of ['student', 'facilitator']) {
+    const app = await setup();
+    policy.clearPortalTabSession();
+    await app.emitAuth(role);
+    app.emitProfile({ role, isActive: true });
+    assert.equal(app.session(), null);
+    assert.equal(app.fixture.signouts, 1);
+
+    policy.beginPortalTabSession(role, Date.now() - policy.PORTAL_IDLE_MS);
+    await app.emitAuth(role);
+    app.emitProfile({ role, isActive: true });
+    assert.equal(app.session(), null);
+    assert.equal(app.fixture.signouts, 2);
+  }
+});
+
+test('student and facilitator tab sessions restore before expiry and are cleared on logout', async () => {
+  for (const role of ['student', 'facilitator']) {
+    const app = await setup();
+    policy.beginPortalTabSession(role);
+    await app.emitAuth(role);
+    app.emitProfile({ role, isActive: true });
+    assert.equal(app.session().role, role);
+    await app.logoutUser();
+    assert.equal(policy.hasPortalTabSession(role), false);
   }
 });
 

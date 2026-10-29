@@ -6,7 +6,7 @@ import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 
 const source = ts.transpileModule(readFileSync(new URL('../src/lib/adminTabSession.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
-const { ADMIN_IDLE_MS, beginAdminTabSession, clearAdminTabSession, hasAdminTabSession, monitorAdminIdle } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const { ADMIN_IDLE_MS, beginAdminTabSession, clearAdminTabSession, hasAdminTabSession, monitorAdminIdle, beginPortalTabSession } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const original = { window: globalThis.window, document: globalThis.document, sessionStorage: globalThis.sessionStorage, now: Date.now, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
 let cleanup;
 let root;
@@ -132,6 +132,7 @@ const providerSource = ts.transpileModule(readFileSync(new URL('../src/hooks/use
 const { AuthProvider, useAuth } = await import(moduleUrl(providerSource));
 function mountProvider(role, failLogout = false) {
   const clock = setup();
+  beginPortalTabSession(role === 'super_admin' ? 'admin' : role);
   globalThis.__idleAuth = { signouts: 0, failLogout };
   let current;
   function Consumer() { current = useAuth(); return null; }
@@ -158,12 +159,16 @@ test('an SDK sign-out failure cannot reopen the admin session after idle expiry'
   assert.equal(hasAdminTabSession('admin'), false);
 });
 
-test('student and facilitator sessions are not subjected to the admin inactivity policy', () => {
+test('student and facilitator sessions expire after 15 idle minutes, even if SDK signout fails', async () => {
   for (const role of ['student', 'facilitator']) {
-    const app = mountProvider(role);
-    act(() => app.clock.tick(2 * ADMIN_IDLE_MS));
+    const app = mountProvider(role, true);
+    act(() => app.clock.tick(ADMIN_IDLE_MS - 1));
     assert.equal(app.session().user.role, role);
-    assert.equal(globalThis.__idleAuth.signouts, 0);
+    await act(async () => app.clock.tick(1));
+    assert.equal(app.session().user, null);
+    assert.equal(app.session().status, 'unauthenticated');
+    assert.match(app.session().error, /15 minutes of inactivity/);
+    assert.equal(globalThis.__idleAuth.signouts, 1);
     act(() => root.unmount()); root = undefined;
   }
 });
