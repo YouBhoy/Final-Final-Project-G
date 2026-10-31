@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { AuthLayout } from "../components/auth/AuthLayout";
+import { PublicAuthLayout } from "../components/auth/PublicAuthLayout";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Button } from "../components/ui/Button";
@@ -96,7 +96,7 @@ export function RegisterPage() {
   }
 
   return (
-    <AuthLayout
+    <PublicAuthLayout registration
       title="Create your student account"
       subtitle="Join SPARTAN-G"
     >
@@ -191,7 +191,7 @@ export function RegisterPage() {
         <Button
           type="submit"
           isLoading={isLoading}
-          className="w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
+          className="btn primary w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
         >
           Create account
         </Button>
@@ -206,6 +206,6 @@ export function RegisterPage() {
           </Link>
         </p>
       </form>
-    </AuthLayout>
+    </PublicAuthLayout>
   );
 }

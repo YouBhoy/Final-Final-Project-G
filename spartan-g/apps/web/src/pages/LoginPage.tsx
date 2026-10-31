@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { AuthLayout } from "../components/auth/AuthLayout";
+import { PublicAuthLayout } from "../components/auth/PublicAuthLayout";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
@@ -53,7 +53,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to your SPARTAN-G account">
+    <PublicAuthLayout title="Welcome back" subtitle="Sign in to your SPARTAN-G account">
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         {/* Error banner */}
         {error && (
@@ -98,7 +98,7 @@ export function LoginPage() {
         <Button
           type="submit"
           isLoading={isLoading}
-          className="w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
+          className="btn primary w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
         >
           Sign in
         </Button>
@@ -113,6 +113,6 @@ export function LoginPage() {
           </Link>
         </p>
       </form>
-    </AuthLayout>
+    </PublicAuthLayout>
   );
 }
