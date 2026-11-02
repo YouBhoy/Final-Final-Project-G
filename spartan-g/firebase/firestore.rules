@@ -203,7 +203,9 @@ service cloud.firestore {
     // Write: Super Admin only — students/facilitators can never mutate
     // the library, even by calling Firestore directly.
     match /resources/{resourceId} {
-      allow read: if isSuperAdmin()
+      // Only published student-facing educational resources are public.
+      allow read: if (resource.data.isActive == true && resource.data.audience in ['all', 'students'])
+        || isSuperAdmin()
         || (isStudent()
           && resource.data.isActive == true
           && resource.data.audience in ['all', 'students'])

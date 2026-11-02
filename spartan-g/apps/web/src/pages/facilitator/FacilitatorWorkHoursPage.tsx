@@ -101,7 +101,7 @@ export function FacilitatorWorkHoursPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h1 className="text-xl font-semibold text-gray-900 mb-2">Work Hours</h1>
         <p className="text-sm text-gray-500 mb-6">
@@ -117,6 +117,8 @@ export function FacilitatorWorkHoursPage() {
             return (
               <div key={index} className="flex items-center gap-4 p-3 border rounded-lg">
                 <button
+                  aria-label={day+" availability"}
+                  aria-pressed={isActive}
                   onClick={() => handleToggleDay(index)}
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                     isActive ? 'bg-blue-600 border-blue-600' : 'border-gray-300'

@@ -95,7 +95,11 @@ service firebase.storage {
           && ((userDoc().data.role == 'student' && resource.audience in ['all', 'students'])
             || (userDoc().data.role == 'facilitator' && resource.audience in ['all', 'facilitators']));
       }
-      allow read: if isSuperAdmin() || (isActiveUser() && publishedForCaller());
+      function publishedPublicly() {
+        let entry = firestore.get(/databases/(default)/documents/resources/$(resourceId)).data;
+        return entry.isActive == true && entry.audience in ['all', 'students'];
+      }
+      allow read: if publishedPublicly() || isSuperAdmin() || (isActiveUser() && publishedForCaller());
       allow write: if isSuperAdmin() && isValidDocument();
       allow delete: if isSuperAdmin();
     }

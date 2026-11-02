@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
+import { PublicResourcesPage } from "../pages/PublicResourcesPage";
 import { LandingPage } from "../pages/LandingPage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
@@ -69,8 +70,10 @@ function PrivacyDashboardBackground() {
 }
 
 function AuthGate({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
   const { status } = useAuth();
 
+  if (pathname === "/" || pathname === "/resources" || pathname.startsWith("/resources/")) return <>{children}</>;
   if (status === "idle" || status === "loading") {
     return <LoadingScreen />;
   }
@@ -84,6 +87,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/resources" element={<PublicResourcesPage />} />
+      <Route path="/resources/:resourceId" element={<PublicResourcesPage />} />
       {/* Public auth routes — redirect to dashboard if already logged in */}
       <Route
         path="/login"

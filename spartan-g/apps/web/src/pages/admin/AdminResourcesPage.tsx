@@ -485,7 +485,7 @@ export function AdminResourcesPage() {
               className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               disabled={busy}
             />
-            Published — visible to Students and Facilitators (uncheck to save as a draft)
+            Published — student/all-audience resources are public on the website; facilitator-only resources require sign-in. Uncheck to save as a draft.
           </label>
         </div>
 

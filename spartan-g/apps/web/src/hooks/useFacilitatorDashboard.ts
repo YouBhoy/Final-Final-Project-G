@@ -219,7 +219,7 @@ async function loadAppointments(
   const todayAppointments: TodayAppointments = {
     total: todaysList.length,
     completed: todaysList.filter((a) => a.status === "completed").length,
-    requests: todaysList.filter((a) => a.status === "requested").length,
+    requests: appointments.filter((a) => a.status === "requested" || a.status === "reschedule_requested").length,
   };
 
   const upcomingAppointments = await Promise.all(

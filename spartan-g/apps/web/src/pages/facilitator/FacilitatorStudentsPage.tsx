@@ -13,7 +13,6 @@ import { Card, CardBody } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { AiSummaryCard } from "../../components/assessment/AiSummaryCard";
 import type { Timestamp } from "firebase/firestore";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -209,7 +208,6 @@ function AttemptScorePanel({ attempt }: AttemptScorePanelProps) {
         />
       </div>
 
-      {attempt.status !== "in_progress" && <AiSummaryCard attemptId={attempt.id} />}
     </div>
   );
 }

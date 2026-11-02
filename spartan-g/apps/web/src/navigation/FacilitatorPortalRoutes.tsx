@@ -1,6 +1,6 @@
+import "../styles/facilitator-workflows.css";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
-import { PlaceholderPage } from "../components/PlaceholderPage";
 import { ResourcesBrowsePage } from "../components/resources/ResourcesBrowsePage";
 import { useAuth } from "../hooks/useAuth";
 import { FacilitatorAssessmentsPage } from "../pages/facilitator/FacilitatorAssessmentsPage";
@@ -40,23 +40,14 @@ export function FacilitatorPortalRoutes() {
           element={<FacilitatorRiskAlertsPage />}
         />
         <Route
-          path="referrals"
-          element={
-            <PlaceholderPage
-              title="Referrals"
-              description="Create and track referrals to specialist support."
-            />
-          }
-        />
-        <Route
           path="appointments"
-          element={<FacilitatorAppointmentsPage />}
+          element={<div className="fw-page fw-appointments"><FacilitatorAppointmentsPage /></div>}
         />
         <Route
           path="work-hours"
-          element={<FacilitatorWorkHoursPage />}
+          element={<div className="fw-page fw-hours"><FacilitatorWorkHoursPage /></div>}
         />
-        <Route path="messages" element={<FacilitatorMessagesPage />} />
+        <Route path="messages" element={<div className="fw-page fw-messages"><FacilitatorMessagesPage /></div>} />
         {/* Shared resource library — same `resources` collection the Super Admin manages */}
         <Route path="resources" element={<ResourcesBrowsePage actorRole={user?.role} />} />
         <Route path="profile" element={<FacilitatorProfilePage />} />

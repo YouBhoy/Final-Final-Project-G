@@ -43,10 +43,10 @@ export function FacilitatorMessagesPage() {
   const activeParticipantId = activeConversation?.participantIds.find(id => id !== user?.uid);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] bg-white rounded-lg shadow-sm border">
-      <div className="w-80 border-r flex flex-col">
+    <div className={`fw-inbox ${activeConversationId ? "has-conversation" : ""}`}>
+      <div className="fw-conversation-list">
         <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Conversations</h2>
+          <h1 className="text-lg font-semibold text-gray-900">Messages</h1><p className="fw-caption">Your student conversations, together.</p>
         </div>
         <ConversationList
           conversations={conversations}
@@ -60,11 +60,11 @@ export function FacilitatorMessagesPage() {
         />
       </div>
 
-      <div className="flex-1 flex flex-col">
+      <div className="fw-thread">
         {activeConversationId && activeParticipantId ? (
           <>
             <div className="p-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <button className="fw-back" onClick={()=>setActiveConversationId(null)}>← All conversations</button><h3 className="text-lg font-semibold text-gray-900">
                 {participantNames[activeParticipantId] || 'Loading...'}
               </h3>
             </div>

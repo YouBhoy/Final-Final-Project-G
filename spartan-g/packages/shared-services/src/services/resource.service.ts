@@ -55,6 +55,11 @@ type ResourceWriterContext = {
  * Every mutation is recorded in the existing `audit_logs` collection.
  */
 class ResourceService {
+  /** Public educational library: same published entries shown to students. */
+  async listPublic(): Promise<(ResourceDocument & { id: string })[]> {
+    return resourceRepository.getPublished(['all', 'students']);
+  }
+
   /** Published resources — Students, Facilitators and Super Admin. */
   async listPublished(actorRole: Role): Promise<(ResourceDocument & { id: string })[]> {
     if (!hasPermission(actorRole, PERMISSIONS.VIEW_OWN_PROFILE)) {

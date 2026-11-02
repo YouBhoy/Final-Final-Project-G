@@ -1,3 +1,5 @@
+import "../../styles/student-warm.css";
+import "../../styles/staff-warm.css";
 import { useState, type ReactNode } from "react";
 import { Sidebar, type NavItem } from "./Sidebar";
 import { Header } from "./Header";
@@ -46,11 +48,12 @@ export function PortalLayout({
 }: PortalLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const topNav = navPlacement === "top";
+  const studentPortal = navItems.some(item=>item.to.startsWith("/student/"));
   // The drawer is the fallback wherever the permanent nav isn't shown.
   const drawerHideClass = topNav ? "lg:hidden" : "md:hidden";
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
+    <div className={`min-h-screen bg-[var(--color-bg)] ${studentPortal ? "student-portal-warm" : "staff-portal-warm"}`}>
       {/* Desktop sidebar (fixed, full height) — side placement only */}
       {!topNav && (
         <div className="z-20 hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
@@ -84,7 +87,7 @@ export function PortalLayout({
 
       {/* Content column — offset on desktop to make room for the fixed sidebar */}
       <div className={`relative isolate min-h-screen ${topNav ? "" : "md:ml-64"}`}>
-        {backgroundImage && (
+        {backgroundImage && !studentPortal && portalName === "" && (
           <div
             aria-hidden="true"
             className={`portal-photo-background pointer-events-none fixed bottom-0 left-0 right-0 top-16 -z-10 ${topNav ? "" : "md:left-64"}`}

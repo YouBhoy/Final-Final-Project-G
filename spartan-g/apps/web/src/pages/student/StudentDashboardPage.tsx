@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { StudentProfileBanner } from "../../components/StudentProfileBanner";
+import "../../styles/student-warm.css";
+import { useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { appointmentService } from "@spartan-g/shared-services";
@@ -49,9 +51,6 @@ const STATUS_TONE: Record<AppointmentStatus, string> = {
 };
 
 /* Shared class strings ---------------------------------------------------- */
-
-const RED_SURFACE =
-  "bg-[linear-gradient(135deg,var(--color-primary)_0%,var(--color-primary-dark)_100%)]";
 
 const FOCUS =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]";
@@ -268,11 +267,12 @@ interface ActivityItem {
 /* ─── Page ─────────────────────────────────────────────────────────────── */
 
 export function StudentDashboardPage() {
+  useEffect(()=>{document.title="Student Dashboard | SPARTAN-G";},[]);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data, loading, error, reload } = useStudentDashboard();
 
-  const studentName = user?.displayName?.split(" ")[0] ?? "Student";
+
   const total = data?.assessments.total ?? 0;
   const completed = data?.assessments.completed ?? 0;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -335,40 +335,14 @@ export function StudentDashboardPage() {
   const quickActions = [
     { label: "Find a Facilitator", icon: ICON.search, to: "/student/facilitators" },
     { label: "Book Appointment", icon: ICON.clock, to: "/student/appointments" },
-    { label: "Take Assessment", icon: ICON.clipboard, to: "/student/assessments" },
+    { label: "Explore Resources", icon: ICON.clipboard, to: "/resources" },
     { label: "Send Message", icon: ICON.chat, to: "/student/messages" },
   ];
 
   return (
-    <div className="space-y-8">
-      {/* ─── Welcome banner (compact; the one big red area) ─────────────── */}
-      <section
-        aria-labelledby="sd-hero-heading"
-        className={`relative overflow-hidden rounded-[var(--radius-xl)] px-6 py-5 sm:px-8 sm:py-6 ${RED_SURFACE}`}
-      >
-        <HeroPattern />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white/95">Welcome back, {studentName}</p>
-            <h1
-              id="sd-hero-heading"
-              className="mt-0.5 font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-white sm:text-3xl"
-            >
-              Student Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-white/90">
-              Here&rsquo;s your latest wellbeing activity.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate("/student/profile")}
-            className="inline-flex shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-white/50 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            View profile
-          </button>
-        </div>
-      </section>
-
+    <div className="student-dashboard space-y-8">
+      <StudentProfileBanner />
+      <section className="student-support-callout"><div><p className="student-eyebrow">You don’t have to navigate it alone</p><h2>Support, your way.</h2><p>Talk to a facilitator about what’s on your mind, including guidance on referrals.</p></div><div className="student-support-actions"><button onClick={()=>navigate('/student/facilitators')} className="student-main-button">Find a facilitator ↗</button><button onClick={()=>navigate('/student/appointments')} className="student-soft-button">Request an appointment ↗</button></div></section>
       {error && (
         <div
           role="alert"
@@ -418,16 +392,16 @@ export function StudentDashboardPage() {
 
       {/* ─── Assessment progress + Quick actions ────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <section aria-labelledby="sd-assess-heading" className={`${CARD} lg:col-span-2`}>
+        <section aria-labelledby="sd-assess-heading" className={`${CARD} student-progress-card lg:col-span-2`}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id="sd-assess-heading" className={T_CARD_TITLE}>
-                Assessment progress
+                Pick up where you left off.
               </h2>
               <p className={`${T_SMALL} mt-1`}>
                 {total === 0
                   ? "No assessments are available yet."
-                  : "Complete your assessments to track your wellbeing journey."}
+                  : "Your wellbeing assessments are here whenever you’re ready."}
               </p>
             </div>
             <p className="font-[family-name:var(--font-heading)] text-3xl font-bold leading-none text-[var(--color-text)]">
@@ -467,7 +441,7 @@ export function StudentDashboardPage() {
 
         <aside aria-labelledby="sd-actions-heading" className={CARD}>
           <h2 id="sd-actions-heading" className={T_CARD_TITLE}>
-            Quick actions
+            A little support, close by
           </h2>
           <ul className="-mx-2 mt-3 divide-y divide-[var(--color-border)]">
             {quickActions.map((action) => (

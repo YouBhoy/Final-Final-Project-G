@@ -24,7 +24,7 @@ function DashboardContent() {
     { label: 'Active campuses', value: overview.campuses.filter(campus => campus.isActive).length, description: 'Enabled campuses across the platform', to: '/admin/campuses', loading: campuses.loading, error: campuses.error },
     { label: 'Assessments submitted', value: submissions.data, description: 'This month to date', to: '/admin/statistics', loading: submissions.loading, error: submissions.error },
   ];
-  return <div className="space-y-6">
+  return <div className="staff-dashboard space-y-6">
     <section className="relative overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-primary)] px-6 py-8 text-white sm:px-8">
       <div className="flex flex-wrap items-start justify-between gap-5">
         <div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-accent)]">SPARTAN-G · Platform overview</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Admin Dashboard</h1><p className="mt-2 max-w-xl text-sm leading-6 text-white/80">A clear view of your campuses, student support coverage, and recent platform activity.</p></div>

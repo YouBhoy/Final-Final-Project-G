@@ -1,0 +1,28 @@
+/* Warm staff portals: layout and presentation only; role checks remain unchanged. */
+.staff-portal-warm{--color-bg:#f7f4ef;--color-surface:#fffdfa;--color-text:#302a27;--color-text-secondary:#71665f;--color-border:#e2d7cd;--color-primary:#800000;--color-primary-dark:#63000b;--color-primary-light:#a52c3e;--color-primary-pastel:#f3e6e4;background:#f7f4ef;color:#302a27}
+.staff-portal-warm aside{background:linear-gradient(160deg,#fffdf8,#f1e6dc);border-color:#ded0c3}
+.staff-portal-warm aside nav a{border-radius:9px;min-height:44px;font-size:15px}
+.staff-portal-warm aside nav a[aria-current=page]{background:linear-gradient(110deg,#720010,#a13c44);color:#fff7ef;box-shadow:inset 0 1px 0 #ffffff35,0 3px 9px #63000b20}
+.staff-portal-warm a:focus-visible,.staff-portal-warm button:focus-visible{outline:3px solid #b66a3d;outline-offset:3px}
+.staff-dashboard>section:first-child{background:linear-gradient(110deg,#fffaf5ed,#fff8eee6),url('/campus-background.jpg') center/cover!important;color:#302a27;border:1px solid #ded1c5;border-radius:16px;padding:36px}
+.staff-dashboard>section:first-child h1{font-family:Georgia,'Times New Roman',serif;font-size:44px;line-height:1.12;letter-spacing:-1.2px;font-weight:400;color:#302a27}
+.staff-dashboard>section:first-child p{color:#6a5550;font-size:16px;line-height:1.7}
+.staff-dashboard>section:first-child p:first-child{color:#800000;font-size:12px;letter-spacing:1.5px}
+.staff-dashboard>section:first-child button{color:#800000;background:linear-gradient(#fffdf9,#f0e2d5);border:1px solid #cdb5a5;box-shadow:0 2px 0 #c4aa97;min-height:44px;padding:10px 18px;cursor:pointer}
+.staff-dashboard h2{font-family:Georgia,'Times New Roman',serif;font-size:25px;font-weight:400;letter-spacing:-.4px;line-height:1.25}
+.staff-dashboard section[aria-label='Platform summary'] h2{font-family:inherit;font-size:14px;letter-spacing:0;font-weight:600}
+.staff-dashboard button[class*='bg-[var(--color-primary)]']{background:linear-gradient(#a52c3e,#800000);color:white;box-shadow:inset 0 1px 0 #ffffff40,0 3px 0 #58000b;min-height:44px;cursor:pointer}
+.staff-dashboard button[class*='bg-[var(--color-primary)]']:hover{background:linear-gradient(#b43b4d,#8a0010)}
+.staff-dashboard button:disabled{cursor:wait;opacity:.6}
+.staff-dashboard a{cursor:pointer}
+.staff-dashboard a[class*='hover:underline']{text-decoration:underline;text-underline-offset:4px;display:inline-flex;align-items:center;min-height:40px}
+.staff-dashboard section[aria-labelledby='admin-quick-actions'] a{display:flex;flex-direction:column;gap:12px;padding:22px;background:#fffdf9;box-shadow:0 3px 0 #e3d5c8;transition:box-shadow .18s ease,border-color .18s ease}
+.staff-dashboard section[aria-labelledby='admin-quick-actions'] a>span:first-child{display:flex;justify-content:space-between;gap:10px;font-size:16px}
+.staff-dashboard section[aria-labelledby='admin-quick-actions'] a:hover{border-color:#800000;box-shadow:0 6px 18px #62000b18}
+.staff-dashboard section[aria-labelledby='admin-quick-actions'] a:hover>span:first-child{text-decoration:underline;text-underline-offset:4px}
+@media(max-width:760px){.staff-dashboard>section:first-child{padding:25px}.staff-dashboard>section:first-child h1{font-size:34px}.staff-dashboard h2{font-size:24px}}
+@media(prefers-reduced-motion:reduce){.staff-dashboard a{transition:none!important}}
+
+.staff-dashboard section[aria-label='Platform summary']>div{box-shadow:none!important;border-radius:0;border:0;border-top:1px solid var(--color-border);background:transparent;cursor:default}
+.staff-dashboard section[aria-label='Platform summary'] a{min-height:44px;padding:10px 14px;border:1px solid #cfb8a7;border-radius:7px;background:#fffaf4;box-shadow:0 2px 0 #dfcfc2;text-decoration:none}
+.staff-dashboard section[aria-label='Platform summary'] a:hover{border-color:#800000;text-decoration:underline}
