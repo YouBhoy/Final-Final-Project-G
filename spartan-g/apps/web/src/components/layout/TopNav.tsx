@@ -21,10 +21,12 @@ interface TopNavProps {
  */
 export function TopNav({ items, className = "" }: TopNavProps) {
   const { pathname } = useLocation();
+  const wrapNavigation = items.some(item => item.to.startsWith("/facilitator/") || item.to.startsWith("/admin/"));
 
   return (
     <nav
       aria-label="Main navigation"
+      data-wrap-navigation={wrapNavigation || undefined}
       className={`rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2 shadow-card ${className}`}
     >
       <ul className="flex items-center gap-0.5 overflow-x-auto">

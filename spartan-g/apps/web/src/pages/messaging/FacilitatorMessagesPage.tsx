@@ -63,7 +63,7 @@ export function FacilitatorMessagesPage() {
       <div className="fw-thread">
         {activeConversationId && activeParticipantId ? (
           <>
-            <div className="p-4 border-b">
+            <div className="shrink-0 p-4 border-b">
               <button className="fw-back" onClick={()=>setActiveConversationId(null)}>← All conversations</button><h3 className="text-lg font-semibold text-gray-900">
                 {participantNames[activeParticipantId] || 'Loading...'}
               </h3>

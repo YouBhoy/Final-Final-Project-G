@@ -62,7 +62,7 @@ function PrivacyDashboardBackground() {
     </PortalLayout>
   );
   if (user?.role === 'facilitator') return (
-    <PortalLayout portalName="Facilitator Portal" portalTagline="Support your students' wellbeing" navItems={facilitatorNavItems}>
+    <PortalLayout navPlacement="top" portalName="Facilitator Portal" portalTagline="Support your students' wellbeing" navItems={facilitatorNavItems}>
       <FacilitatorDashboardPage />
     </PortalLayout>
   );

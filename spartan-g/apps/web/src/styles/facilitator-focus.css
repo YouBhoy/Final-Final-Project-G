@@ -18,3 +18,6 @@
 .ff-updates button:disabled .ff-action-label{text-decoration:none;color:var(--color-text-secondary);font-weight:400}
 .ff-messages+.ff-link{margin-top:12px}
 @media(prefers-reduced-motion:reduce){.ff-messages a,.ff-updates button{transition:none}}
+
+/* Match the student portal's cream surfaces, editorial headings and tactile actions. */
+.facilitator-focus .ff-panel{border-radius:12px;border-color:#e2d7cd;background:#fffdfa;padding:24px}.facilitator-focus .ff-heading h2{font:400 27px/1.2 Georgia,serif;letter-spacing:-.5px}.facilitator-focus .ff-primary{background:linear-gradient(#a52c3e,#800000);border-color:#790818;box-shadow:inset 0 1px 0 #ffffff55,0 3px 0 #53000b,0 7px 12px #71000015;padding:12px 20px;border-radius:8px;font-size:14px}.facilitator-focus .ff-secondary{background:linear-gradient(#fffefa,#f3eae1);border-color:#d8c7b9;box-shadow:inset 0 1px 0 white,0 2px 0 #cbb8a8;color:#562c2a;border-radius:8px;padding:12px 20px;font-size:14px}.facilitator-focus .ff-primary:active,.facilitator-focus .ff-secondary:active{transform:translateY(2px)}

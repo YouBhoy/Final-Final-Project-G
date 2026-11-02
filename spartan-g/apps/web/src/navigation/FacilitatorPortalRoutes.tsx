@@ -17,6 +17,7 @@ export function FacilitatorPortalRoutes() {
   const { user } = useAuth();
   return (
     <PortalLayout
+      navPlacement="top"
       portalName="Facilitator Portal"
       portalTagline="Support your students' wellbeing"
       navItems={facilitatorNavItems}

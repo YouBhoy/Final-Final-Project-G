@@ -1,3 +1,4 @@
+import { StaffProfileBanner } from "../../components/StaffProfileBanner";
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,7 +14,7 @@ export function FacilitatorDashboardPage(){
  const appointments=data?.upcomingAppointments??[];const messages=data?.recentConversations??[];
  const alerts=(risk?.high??0)+(risk?.medium??0)+(risk?.low??0);
  function openNotification(item:UiNotification){if(!item.isRead)void appointmentService.markNotificationRead(item.id).catch(()=>undefined);const route=notificationRoute(user?.role,item);if(route)navigate(route)}
- return <div className="facilitator-focus"><header className="ff-welcome"><div><p className="ff-kicker">Your facilitator workspace</p><h1>Welcome back, {user?.displayName?.split(' ')[0]||'Facilitator'}.</h1><p>Focus on the people who need you today.</p></div><div><time>{new Date().toLocaleDateString('en-PH',{weekday:'long',month:'long',day:'numeric',timeZone:'Asia/Manila'})}</time><button className="ff-link" disabled={loading} onClick={reload}>{loading?'Refreshing…':'Refresh overview'}</button></div></header>
+ return <div className="facilitator-focus"><StaffProfileBanner role="Facilitator" description="Focus on the people who need you today." loading={loading} onRefresh={reload} />
  {error&&<p role="alert" className="ff-error">Some information is unavailable: {error} <button onClick={reload}>Retry</button></p>}
  {loading&&!data?<p role="status">Loading your workspace…</p>:<div className="ff-layout"><div className="ff-main">
  <section className="ff-panel" aria-labelledby="ff-attention"><div className="ff-heading"><h2 id="ff-attention">Needs your attention</h2><span className="ff-kicker">Start here</span></div>

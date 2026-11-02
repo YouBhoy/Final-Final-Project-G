@@ -15,6 +15,7 @@ import { adminNavItems } from "./navConfigs";
 export function SuperAdminPortalRoutes() {
   return (
     <PortalLayout
+      navPlacement="top"
       portalName="Super Admin Portal"
       portalTagline="Manage the SPARTAN-G platform"
       navItems={adminNavItems}

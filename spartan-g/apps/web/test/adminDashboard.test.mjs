@@ -120,9 +120,14 @@ test('results from an older refresh cannot replace the latest data', async () =>
 });
 
 const authUrl = moduleUrl('export function useAuth() { return { user: globalThis.__dashboardTest.actor }; }');
+const staffBannerUrl = moduleUrl(transpile(await readFile(new URL('../src/components/StaffProfileBanner.tsx', import.meta.url), 'utf8'))
+  .replace(/(['"])react\/jsx-runtime\1/g, JSON.stringify(import.meta.resolve('react/jsx-runtime')))
+  .replace(/(['"])\.\.\/hooks\/useAuth\1/g, JSON.stringify(authUrl))
+  .replace(/(['"])@spartan-g\/shared-types\1/g, JSON.stringify(campusUrl)));
 const cardUrl = moduleUrl(transpile(await readFile(new URL('../src/components/ui/Card.tsx', import.meta.url), 'utf8'))
   .replace(/(['"])react\/jsx-runtime\1/g, JSON.stringify(import.meta.resolve('react/jsx-runtime'))));
 const pageCode = transpile(await readFile(new URL('../src/pages/admin/AdminDashboardPage.tsx', import.meta.url), 'utf8'))
+  .replace(/(['"])\.\.\/\.\.\/components\/StaffProfileBanner\1/g, JSON.stringify(staffBannerUrl))
   .replace(/(['"])react-router-dom\1/g, JSON.stringify(import.meta.resolve('react-router-dom')))
   .replace(/(['"])react\/jsx-runtime\1/g, JSON.stringify(import.meta.resolve('react/jsx-runtime')))
   .replace(/(['"])\.\.\/\.\.\/hooks\/useAuth\1/g, JSON.stringify(authUrl))
