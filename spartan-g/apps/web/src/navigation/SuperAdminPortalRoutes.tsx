@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PortalLayout } from "../components/layout/PortalLayout";
-import { PlaceholderPage } from "../components/PlaceholderPage";
+import { AdminSettingsPage } from "../pages/admin/AdminSettingsPage";
 import { AdminCampusesPage } from "../pages/admin/AdminCampusesPage";
 import { AdminUsersPage } from "../pages/admin/AdminUsersPage";
 import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
@@ -34,15 +34,7 @@ export function SuperAdminPortalRoutes() {
         <Route path="campuses" element={<AdminCampusesPage />} />
         <Route path="resources" element={<AdminResourcesPage />} />
         <Route path="audit-logs" element={<AdminAuditLogsPage />} />
-        <Route
-          path="settings"
-          element={
-            <PlaceholderPage
-              title="Platform Settings"
-              description="Configure system-wide preferences and integrations."
-            />
-          }
-        />
+        <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </PortalLayout>
