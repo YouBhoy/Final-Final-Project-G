@@ -24,7 +24,9 @@ source = source.replaceAll("'firebase/firestore'", JSON.stringify(import.meta.re
   .replace(/import \{ getFirestoreDb \} from '[^']+';/, 'const getFirestoreDb = () => { throw new Error("Test must pass emulator db explicitly"); };');
 const { bookAppointmentClient: book, acceptAppointmentClient: accept } = await import(moduleUrl(source));
 const { getBookingWindow } = await import(windowUrl);
+const outboxModule = moduleUrl(transpile(await readFile(new URL('../../../packages/shared-services/src/notifications/message-outbox.ts', import.meta.url), 'utf8')));
 const messagingBoundary = moduleUrl(`
+export { MESSAGE_OUTBOX_COLLECTION, messageOutboxId, messageOutbox } from ${JSON.stringify(outboxModule)};
 export { serverTimestamp, where, orderBy, collection, doc, runTransaction, Timestamp } from ${JSON.stringify(import.meta.resolve('firebase/firestore'))};
 export const getFirestoreDb = () => globalThis.__messagingTestDb;
 export const PERMISSIONS = { SEND_MESSAGES: 'send' }, hasPermission = () => true;
@@ -137,14 +139,24 @@ test('confirmed messaging commits identity sharing with the message; failed send
     await denied(messagingService.sendMessage(conversationId, ids.s1, 'Wrong recipient', 'student', undefined, ids.f2));
     assert.equal((await consentRef.get()).exists, false);
     assert.equal((await sent()).size, 0);
-    await messagingService.sendMessage(conversationId, ids.s1, 'Confirmed support request', 'student', undefined, ids.f1);
+    const messageId = await messagingService.sendMessage(conversationId, ids.s1, 'Confirmed support request', 'student', undefined, ids.f1);
     assert.equal((await sent()).size, 1);
+    const events = () => admin.collection('notification_outbox').where('conversationId', '==', conversationId).get();
+    const event = (await admin.doc(`notification_outbox/message_${messageId}`).get()).data();
+    assert.deepEqual(Object.keys(event).sort(), ['conversationId', 'createdAt', 'kind', 'messageId', 'schemaVersion', 'senderId']);
+    assert.equal(event.messageId, messageId);
+    assert.equal(event.conversationId, conversationId);
+    assert.equal(event.senderId, ids.s1);
+    assert.equal(event.kind, 'message.created');
+    assert.equal(event.schemaVersion, 1);
+    assert.ok(event.createdAt.isEqual((await admin.doc(`messages/${messageId}`).get()).data().createdAt));
     assert.equal((await consentRef.get()).data().studentId, ids.s1);
     assert.equal((await consentRef.get()).data().facilitatorId, ids.f1);
     await consentRef.delete();
     await admin.doc(`users/${ids.f1}`).update({ isActive: false });
     await denied(messagingService.sendMessage(conversationId, ids.s1, 'Must fail atomically', 'student', undefined, ids.f1));
     assert.equal((await sent()).size, 1);
+    assert.equal((await events()).size, 1);
     assert.equal((await consentRef.get()).exists, false);
   } finally { delete globalThis.__messagingTestDb; }
 });

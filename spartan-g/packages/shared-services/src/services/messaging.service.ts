@@ -1,3 +1,4 @@
+import { MESSAGE_OUTBOX_COLLECTION, messageOutboxId, messageOutbox } from '../notifications/message-outbox';
 import {
   PERMISSIONS,
   Role,
@@ -96,6 +97,7 @@ class MessagingService {
     try {
       // Use transaction to ensure atomic message + conversation update
       const messageRef = doc(collection(db, COLLECTIONS.MESSAGES));
+      const outboxRef = doc(db, MESSAGE_OUTBOX_COLLECTION, messageOutboxId(messageRef.id));
       const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, conversationId);
 
       await runTransaction(db, async (transaction) => {
@@ -134,6 +136,9 @@ class MessagingService {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         } as MessageDocument);
+
+        // Durable metadata is committed with the message, never as a later send.
+        transaction.set(outboxRef, messageOutbox(messageRef.id, conversationId, senderId, serverTimestamp()));
 
         // Update conversation with last message metadata
         const updateData: Partial<ConversationDocument> = {

@@ -8,10 +8,13 @@ const { transformSync } = require('esbuild');
 
 // Replace Firebase boundaries with instrumented doubles; execute the real registration code.
 const doubles = `
-export const calls = { authCreated: 0, users: [], profiles: [] };
+export const calls = { authCreated: 0, users: [], profiles: [], persistence: [], tabSessions: [] };
 const auth = {}, db = {};
-const browserLocalPersistence = {};
-async function setPersistence() {}
+const inMemoryPersistence = 'memory', browserSessionPersistence = 'session';
+async function setPersistence(_, mode) { calls.persistence.push(mode); }
+function clearPortalTabSession() { calls.tabSessions.push('clear'); }
+function beginPortalTabSession(uid) { calls.tabSessions.push(uid); }
+async function signOut() {}
 const serverTimestamp = () => 'server-time';
 const doc = (_, collection, uid) => ({ collection, uid });
 async function createUserWithEmailAndPassword(_, email) {
@@ -50,5 +53,7 @@ for (const [name, path] of [
     assert.equal(module.calls.users[0].role, 'student');
     assert.equal(module.calls.users[0].isActive, true);
     assert.equal(module.calls.profiles[0].uid, 'new-student');
+    assert.deepEqual(module.calls.persistence, ['memory', 'session']);
+    assert.deepEqual(module.calls.tabSessions, ['clear', 'new-student']);
   });
 }
