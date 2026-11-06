@@ -17,6 +17,8 @@ import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 import com.spartang.mobile.garden.GardenHttpPackage
 import com.spartang.mobile.appcheck.SpartanAppCheckPackage
+import com.spartang.mobile.notifications.PrivateClipboardPackage
+import com.spartang.mobile.security.SecurityMetadataPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -27,6 +29,8 @@ class MainApplication : Application(), ReactApplication {
             val packages = PackageList(this).packages
             packages.add(GardenHttpPackage())
             packages.add(SpartanAppCheckPackage())
+            packages.add(PrivateClipboardPackage())
+            packages.add(SecurityMetadataPackage())
             // Packages that cannot be autolinked yet can be added manually here, for example:
             // packages.add(new MyReactNativePackage());
             return packages

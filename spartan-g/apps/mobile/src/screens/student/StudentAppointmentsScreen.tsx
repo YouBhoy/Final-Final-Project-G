@@ -15,6 +15,11 @@ import { useAuthStore, appointmentService, userService } from '@spartan-g/shared
 import type { AppointmentDocument } from '@spartan-g/shared-types';
 import { lightColors, palette, formatDateTime } from '@spartan-g/shared-ui';
 
+import { Feather } from '@expo/vector-icons';
+import { StudentPageNotice, studentPageColors as colors } from '../../components/StudentPageDesign';
+import { AppointmentsHeader } from '../../components/PortalIllustrations';
+import { appointmentDateParts, appointmentTimeLabel } from './portal-presentation';
+
 const STATUS_ORDER = ['requested', 'accepted', 'completed', 'cancelled', 'rejected', 'no_show'];
 
 /* Status filter — same chip pattern as the campus filter on FindFacilitatorScreen */
@@ -59,6 +64,7 @@ export function StudentAppointmentsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
 
   const filteredAppointments = useMemo(() => {
@@ -70,6 +76,7 @@ export function StudentAppointmentsScreen() {
   const loadAppointments = useCallback(async () => {
     if (!session) return;
     try {
+      setLoadError(null);
       const data = await appointmentService.getStudentAppointments(session.uid, session.role);
       data.sort((a, b) => {
         const aIdx = STATUS_ORDER.indexOf(a.status);
@@ -93,6 +100,7 @@ export function StudentAppointmentsScreen() {
       setFacilitatorNames(names);
     } catch (error) {
       console.error('Failed to load appointments:', error);
+      setLoadError('Check your connection and appointment access, then try again.');
     } finally {
       setIsLoading(false);
     }
@@ -121,182 +129,37 @@ export function StudentAppointmentsScreen() {
     }
   }, [session, loadAppointments]);
 
-  if (isLoading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={lightColors.primary} />
-        <Text style={styles.loadingText}>Loading appointments...</Text>
-      </View>
-    );
-  }
-
-  if (appointments.length === 0) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyIcon}>{'\uD83D\uDCC5'}</Text>
-        <Text style={styles.emptyTitle}>No Appointments</Text>
-        <Text style={styles.emptyDescription}>
-          You haven't booked any appointments yet. Browse facilitators to find someone to talk to.
-        </Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('StudentTabs', { screen: 'StudentCourses' })}
-          style={styles.findButton}
-        >
-          <Text style={styles.findButtonText}>Find a Facilitator</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={palette.spartanRed} />
-      }
-    >
-      <Text style={styles.title}>My Appointments</Text>
-
-      {/* Status filter chips */}
-      <View style={styles.chipRow}>
-        {STATUS_FILTERS.map(f => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.chip, statusFilter === f.key && styles.chipActive]}
-            onPress={() => setStatusFilter(f.key)}
-          >
-            <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.appointmentList}>
-        {filteredAppointments.length === 0 ? (
-          <View style={styles.filterEmptyCard}>
-            <Text style={styles.filterEmptyText}>
-              No {STATUS_FILTERS.find(f => f.key === statusFilter)?.label.toLowerCase()} appointments.
-            </Text>
-          </View>
-        ) : (
-        filteredAppointments.map(apt => (
-          <View key={apt.id} style={styles.appointmentCard}>
-            <View style={styles.appointmentHeader}>
+  return <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.contentContainer} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={palette.spartanRed} />}>
+      <AppointmentsHeader />
+      <View style={styles.body}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {STATUS_FILTERS.map(f=><TouchableOpacity key={f.key} testID={'appointment-filter-'+f.key} style={[styles.chip,statusFilter===f.key&&styles.chipActive]} onPress={()=>setStatusFilter(f.key)} accessibilityRole="button" accessibilityState={{selected:statusFilter===f.key}}><Text style={[styles.chipText,statusFilter===f.key&&styles.chipTextActive]}>{f.label}</Text></TouchableOpacity>)}
+        </ScrollView>
+        {isLoading?<StudentPageNotice title="Loading appointments..." loading />:loadError?<StudentPageNotice title="Unable to load appointments" message={loadError} onRetry={onRefresh} />:appointments.length===0?<View style={styles.emptyCard}><StudentPageNotice title="No Appointments" message="You haven't booked any appointments yet. Browse facilitators to find someone to talk to." /><TouchableOpacity onPress={()=>navigation.navigate('StudentTabs',{screen:'StudentCourses'})} style={styles.findButton} accessibilityRole="button"><Text style={styles.findButtonText}>Find a Facilitator</Text></TouchableOpacity></View>:filteredAppointments.length===0?<StudentPageNotice title={'No '+STATUS_FILTERS.find(f=>f.key===statusFilter)?.label.toLowerCase()+' appointments.'} />:<View style={styles.appointmentList}>{filteredAppointments.map(apt=>{
+          const date=appointmentDateParts(apt.scheduledAt);
+          const statusText=apt.status==='no_show'?'No Show':apt.status.charAt(0).toUpperCase()+apt.status.slice(1).replace(/_/g,' ');
+          return <View key={apt.id} testID={'appointment-card-'+apt.id} style={[styles.appointmentCard,{borderLeftColor:getStatusColor(apt.status)}]}>
+            <View style={styles.cardContent}>
+              <View style={[styles.dateTile,{backgroundColor:apt.status==='completed'?'#E7F7EE':'#FFF0F2'}]}><Feather name="calendar" size={19} color={getStatusColor(apt.status)} /><Text style={styles.dateMonth}>{date?.month.toUpperCase()??'DATE'}</Text><Text style={[styles.dateDay,{color:getStatusColor(apt.status)}]}>{date?.day??'—'}</Text><Text style={styles.dateYear}>{date?.year??'Unavailable'}</Text></View>
               <View style={styles.appointmentInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.facilitatorName}>
-                    {facilitatorNames[apt.facilitatorId] || 'Facilitator'}
-                  </Text>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusBg(apt.status) }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(apt.status) }]}>
-                      {apt.status === 'no_show' ? 'No Show' : apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.appointmentTime}>{formatDateTime(apt.scheduledAt)}</Text>
-                <Text style={styles.appointmentDuration}>{apt.durationMinutes} minutes</Text>
-                {apt.notes && (
-                  <Text style={styles.notesText}>Note: {apt.notes}</Text>
-                )}
-                {apt.outcomeNotes && apt.status === 'completed' && (
-                  <Text style={styles.outcomeText}>
-                    <Text style={{ fontWeight: '600' }}>Outcome:</Text> {apt.outcomeNotes}
-                  </Text>
-                )}
-              </View>
-              <View style={styles.actionColumn}>
-                {apt.status === 'requested' && (
-                  <TouchableOpacity
-                    onPress={() => handleCancel(apt.id)}
-                    disabled={actionLoading === apt.id}
-                    style={styles.cancelButton}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('StudentTabs', { screen: 'StudentMessages' })}
-                  style={styles.messageButton}
-                >
-                  <Text style={styles.messageButtonText}>Message</Text>
-                </TouchableOpacity>
+                <View style={styles.nameRow}><Text style={styles.facilitatorName}>{facilitatorNames[apt.facilitatorId]||'Facilitator'}</Text><View style={[styles.statusBadge,{backgroundColor:getStatusBg(apt.status)}]}><Feather name={apt.status==='requested'||apt.status==='reschedule_requested'?'clock':apt.status==='accepted'||apt.status==='completed'?'check-circle':'x-circle'} size={13} color={getStatusColor(apt.status)} /><Text style={[styles.statusText,{color:getStatusColor(apt.status)}]}>{statusText}</Text></View></View>
+                <View style={styles.detailRow}><Feather name="clock" size={16} color={colors.slate} /><Text style={styles.detailText}>{appointmentTimeLabel(apt.scheduledAt,apt.durationMinutes)}</Text></View>
+                {!!apt.notes&&<View style={styles.detailRow}><Feather name="file-text" size={16} color={colors.slate} /><Text style={[styles.detailText,{fontStyle:'italic'}]}>Note: {apt.notes}</Text></View>}
+                {!!apt.outcomeNotes&&apt.status==='completed'&&<View style={styles.detailRow}><Feather name="file-text" size={16} color={colors.slate} /><Text style={styles.detailText}>Outcome: {apt.outcomeNotes}</Text></View>}
               </View>
             </View>
-          </View>
-        ))
-        )}
+            <View style={styles.actions}>
+              {apt.status==='requested'&&<TouchableOpacity testID={'cancel-'+apt.id} onPress={()=>handleCancel(apt.id)} disabled={actionLoading===apt.id} style={styles.cancelButton} accessibilityRole="button" accessibilityLabel="Cancel requested appointment" accessibilityState={{disabled:actionLoading===apt.id}}><Feather name="trash-2" size={16} color={colors.red} /><Text style={styles.cancelText}>{actionLoading===apt.id?'Canceling...':'Cancel'}</Text></TouchableOpacity>}
+              <TouchableOpacity testID={'message-'+apt.id} onPress={()=>navigation.navigate('StudentTabs',{screen:'StudentMessages'})} style={styles.messageButton} accessibilityRole="button"><Feather name="message-circle" size={17} color={colors.ink} /><Text style={styles.messageText}>Message</Text></TouchableOpacity>
+            </View>
+          </View>;
+        })}</View>}
       </View>
     </ScrollView>
-  );
+  </View>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: lightColors.background },
-  contentContainer: { padding: 16, gap: 16, paddingBottom: 40 },
-  centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: lightColors.background, padding: 24, gap: 12 },
-  loadingText: { fontSize: 14, color: lightColors.textSecondary, marginTop: 8 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: lightColors.text },
-  emptyDescription: { fontSize: 14, color: lightColors.textSecondary, textAlign: 'center', lineHeight: 20 },
-  findButton: { backgroundColor: lightColors.primary, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 12, marginTop: 8 },
-  findButtonText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  title: { fontSize: 22, fontWeight: '700', color: lightColors.text },
-  appointmentList: { gap: 10 },
-  appointmentCard: { backgroundColor: lightColors.surface, borderWidth: 1, borderColor: lightColors.border, borderRadius: 12, padding: 14 },
-  appointmentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  appointmentInfo: { flex: 1, marginRight: 12 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  facilitatorName: { fontSize: 15, fontWeight: '700', color: lightColors.text },
-  statusBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  statusText: { fontSize: 10, fontWeight: '600' },
-  appointmentTime: { fontSize: 13, color: lightColors.textSecondary },
-  appointmentDuration: { fontSize: 11, color: lightColors.textMuted, marginTop: 1 },
-  notesText: { fontSize: 13, color: lightColors.textSecondary, fontStyle: 'italic', marginTop: 6 },
-  outcomeText: { fontSize: 13, color: lightColors.textSecondary, marginTop: 6, lineHeight: 18 },
-  actionColumn: { gap: 6 },
-  cancelButton: { borderWidth: 1.5, borderColor: lightColors.error, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
-  cancelButtonText: { fontSize: 12, fontWeight: '600', color: lightColors.error },
-  messageButton: { borderWidth: 1.5, borderColor: lightColors.text, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
-  messageButtonText: { fontSize: 12, fontWeight: '600', color: lightColors.text },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    backgroundColor: lightColors.surface,
-  },
-  chipActive: {
-    backgroundColor: palette.spartanRed,
-    borderColor: palette.spartanRed,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: lightColors.textSecondary,
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-  filterEmptyCard: {
-    borderWidth: 2,
-    borderColor: lightColors.border,
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    backgroundColor: lightColors.surface,
-    padding: 32,
-    alignItems: 'center',
-  },
-  filterEmptyText: {
-    fontSize: 14,
-    color: lightColors.textMuted,
-    textAlign: 'center',
-  },
+const styles=StyleSheet.create({
+ container:{flex:1,backgroundColor:colors.background},contentContainer:{paddingBottom:128,flexGrow:1},body:{paddingHorizontal:16,gap:15},chipRow:{gap:8,paddingTop:3,paddingBottom:8},chip:{minHeight:46,paddingHorizontal:18,paddingVertical:12,borderRadius:25,backgroundColor:'#FFFFFF',justifyContent:'center',borderWidth:1,borderColor:'#F4E5E9',elevation:1,shadowColor:'#A36C7A',shadowOpacity:0.06,shadowRadius:7,shadowOffset:{width:0,height:3}},chipActive:{backgroundColor:colors.red,borderColor:colors.red},chipText:{fontSize:14,fontWeight:'500',color:colors.ink},chipTextActive:{color:'#FFFFFF'},
+ appointmentList:{gap:14},appointmentCard:{borderLeftWidth:5,borderRadius:23,padding:14,backgroundColor:'#FFFFFF',shadowColor:'#946173',shadowOpacity:0.045,shadowRadius:9,shadowOffset:{width:0,height:4},elevation:2},cardContent:{flexDirection:'row',alignItems:'flex-start',gap:12},dateTile:{width:51,borderRadius:15,alignItems:'center',paddingVertical:11,paddingHorizontal:3,gap:3},dateMonth:{fontSize:10,fontWeight:'600',color:'#8B4C56'},dateDay:{fontSize:27,fontWeight:'700'},dateYear:{fontSize:10,color:colors.slate,textAlign:'center'},appointmentInfo:{flex:1,minWidth:0},nameRow:{gap:7,alignItems:'flex-start',marginBottom:10},facilitatorName:{fontSize:17,fontWeight:'700',lineHeight:23,color:colors.ink},statusBadge:{borderRadius:7,paddingHorizontal:7,paddingVertical:5,flexDirection:'row',alignItems:'center',gap:4,flexShrink:1},statusText:{fontSize:11,fontWeight:'600',flexShrink:1},detailRow:{flexDirection:'row',alignItems:'flex-start',gap:7,marginTop:6},detailText:{flex:1,minWidth:0,fontSize:13,lineHeight:20,color:colors.slate},actions:{flexDirection:'row',flexWrap:'wrap',justifyContent:'flex-end',gap:8,marginTop:13},cancelButton:{minHeight:44,flexDirection:'row',gap:6,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.red,borderRadius:12,paddingHorizontal:12,paddingVertical:9},cancelText:{fontSize:13,fontWeight:'600',color:colors.red},messageButton:{minHeight:44,flexDirection:'row',gap:6,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.ink,borderRadius:12,paddingHorizontal:12,paddingVertical:9},messageText:{fontSize:13,fontWeight:'600',color:colors.ink},emptyCard:{gap:8},findButton:{alignSelf:'center',minHeight:46,padding:13,borderRadius:23,backgroundColor:colors.red},findButtonText:{fontSize:14,fontWeight:'600',color:'#FFFFFF'},
 });

@@ -5,6 +5,7 @@ import { getMessagingAdapter } from '../firebase/messaging-adapter';
 class NotificationService {
   async registerDevice(uid: string, deploymentTarget: DeploymentTarget): Promise<string | null> {
     const adapter = getMessagingAdapter();
+    if (adapter.managesRegistration) return null;
     const result = await adapter.registerForPushNotifications(deploymentTarget);
     if (!result) return null;
 
@@ -20,6 +21,7 @@ class NotificationService {
   }
 
   async getUserTokens(uid: string) {
+    if (getMessagingAdapter().managesRegistration) return [];
     return deviceTokenRepository.getByUserId(uid);
   }
 
@@ -29,6 +31,9 @@ class NotificationService {
    * logged in. Best-effort — never blocks or fails the sign-out flow.
    */
   async unregisterDevice(uid: string): Promise<void> {
+    // Native preparation never deletes/overwrites existing production registrations.
+    // Local coordinator clears queued taps and OS previews on account departure.
+    if (getMessagingAdapter().managesRegistration) return;
     // Deterministic doc IDs (`${uid}_${target}`) work even under strict rules
     // where LIST queries on device_tokens can be rejected entirely — deleting
     // a non-existent document is a no-op.

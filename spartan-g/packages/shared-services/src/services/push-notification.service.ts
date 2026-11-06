@@ -1,4 +1,5 @@
 import { deviceTokenRepository } from '../repositories/device-token.repository';
+import { getMessagingAdapter } from '../firebase/messaging-adapter';
 
 const EXPO_PUSH_API = 'https://exp.host/--/api/v2/push/send';
 
@@ -52,6 +53,9 @@ class PushNotificationService {
     data: Record<string, string>,
   ): Promise<void> {
     try {
+      // Native delivery is owned by the separately approved trusted backend.
+      // Never send previews or query another account's legacy tokens from the APK.
+      if (getMessagingAdapter().managesRegistration) return;
       const tokens = await deviceTokenRepository.getByUserId(recipientId);
 
       if (!tokens || tokens.length === 0) {

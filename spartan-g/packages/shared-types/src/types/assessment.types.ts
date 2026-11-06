@@ -53,6 +53,8 @@ export interface AssessmentAttemptDocument extends FirestoreDocument {
   score?: number;               // percentage, set after grading
   feedback?: string;
   attemptNumber: number;
+  /** Optimistic concurrency for drafts. Missing on legacy drafts means zero. */
+  draftRevision?: number;
   /** Risk evaluation metadata — set after submission if evaluation runs. */
   overallRiskLevel?: RiskLevel;
   overallRiskScore?: number;     // 0–100 composite

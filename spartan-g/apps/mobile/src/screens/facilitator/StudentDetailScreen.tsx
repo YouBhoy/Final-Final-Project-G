@@ -34,6 +34,7 @@ import { lightColors, palette } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
 import { AssessmentOverviewCard } from './AssessmentOverviewCard';
 import { assessmentDisplay, assessmentDate } from './assessment-overview';
+import { FacilitatorHeader, PortalBackground, AcademicArt, PortalCard, portalStyles } from './FacilitatorPageDesign';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -247,6 +248,7 @@ function AttemptDropdownRow({
   const dassResult = calculateDASS21Score(answers);
   const available = assessmentDisplay(attempt);
   const isAnyCritical = available.isCritical;
+  const recordedRisk = available.riskAvailable ? attempt.overallRiskLevel : null;
 
   const aiScores: AiSummaryScores = {
     phqScore: phqResult.score,
@@ -280,11 +282,7 @@ function AttemptDropdownRow({
               Submitted: {formatDate(attempt.submittedAt)}
             </Text>
           </View>
-          {isAnyCritical && (
-            <View style={styles.attemptCriticalBadge}>
-              <Text style={styles.attemptCriticalBadgeText}>⚠ Critical</Text>
-            </View>
-          )}
+          <View style={[styles.attemptCriticalBadge, { backgroundColor: recordedRisk === 'critical' || recordedRisk === 'high' ? '#FDE2E5' : '#EFF2F7' }]}><Text style={[styles.attemptCriticalBadgeText, {color: recordedRisk === 'critical' || recordedRisk === 'high' ? '#A51C31' : '#596980'}]}>{recordedRisk ? recordedRisk.charAt(0).toUpperCase() + recordedRisk.slice(1) : 'UNKNOWN / unavailable'}</Text></View>
         </View>
         <View style={[styles.chevronContainer, isExpanded && styles.chevronRotated]}>
           <Feather name="chevron-down" size={22} color={lightColors.textSecondary} />
@@ -372,7 +370,7 @@ function AttemptDropdownRow({
             >
               <View style={styles.level2HeaderLeft}>
                 <Feather name="cpu" size={16} color={lightColors.primary} />
-                <Text style={styles.level2HeaderText}>{geminiKeyPresent ? 'AI-Generated Summary' : 'Assessment overview'}</Text>
+                <Text style={styles.level2HeaderText}>{geminiKeyPresent ? 'AI-Generated Summary' : 'Assessment Overview'}</Text>
               </View>
               <View style={[styles.chevronContainer, isSummaryExpanded && styles.chevronRotated]}>
                 <Feather name="chevron-down" size={18} color={lightColors.textMuted} />
@@ -436,7 +434,7 @@ export function StudentDetailScreen({ route, navigation }: Props) {
       setIsLoading(true); setError(null); setDataOwner(null); setAttempts([]); setSettingsAvailable(false); setSettingsWarning(null); setScoresError(null); setScoresLoading(true);
       setExpandedAttempts(new Set()); setExpandedResults(new Set()); setExpandedSummaries(new Set());
       try {
-        if (!session || authStatus !== 'authenticated') throw new Error('Staff permission required');
+        if (!session || authStatus !== 'authenticated' || !['facilitator', 'super_admin'].includes(session.role)) throw new Error('Staff permission required');
         const history = await facilitatorStudentsService.getStudentHistory(studentId, assessmentId);
         if (!current()) return;
         setAttempts(history.attempts); setAttemptCount(history.attempts.length);
@@ -576,9 +574,11 @@ export function StudentDetailScreen({ route, navigation }: Props) {
   const currentEffectiveMax = Math.max(defaultMaxAttempts, overrideValue);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <View style={portalStyles.screen}><PortalBackground/><ScrollView style={styles.container} contentContainerStyle={{paddingBottom:128}} keyboardShouldPersistTaps="handled">
+      <FacilitatorHeader title="Student Details" subtitle="View student assessment history and results." back={() => navigation.goBack()} />
+      <View style={{paddingHorizontal:14,gap:16,marginTop:-14}}>
       {/* ─── Student Header ──────────────────────────────────── */}
-      <View style={styles.studentHeader}>
+      <View style={[styles.studentHeader, portalStyles.card, {backgroundColor:'#FFF6F7',overflow:'hidden'}]}><AcademicArt/>
         <View style={styles.studentAvatar}>
           <Text style={styles.studentAvatarText}>
             {studentName.charAt(0).toUpperCase()}
@@ -593,6 +593,7 @@ export function StudentDetailScreen({ route, navigation }: Props) {
       {/* ════════════════════════════════════════════════════════ */}
       {/* SECTION 1: Adjust Attempts                             */}
       {/* ════════════════════════════════════════════════════════ */}
+      <PortalCard>
       <View style={styles.sectionHeader}>
         <Feather name="sliders" size={18} color={lightColors.primary} />
         <Text style={styles.sectionTitle}>Adjust Attempts</Text>
@@ -706,6 +707,7 @@ export function StudentDetailScreen({ route, navigation }: Props) {
       </> : <View style={styles.infoCard}><Text style={styles.infoText}>{settingsWarning || 'Attempt-limit changes are administrator-only. Student assessment history is available below.'}</Text></View>}
 
       {/* ════════════════════════════════════════════════════════ */}
+      </PortalCard>
       {/* SECTION 2: Assessment Results                           */}
       {/* ════════════════════════════════════════════════════════ */}
       <View style={styles.sectionDivider} />
@@ -747,14 +749,14 @@ export function StudentDetailScreen({ route, navigation }: Props) {
           ))}
         </View>
       )}
-    </ScrollView>
+      </View></ScrollView></View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: lightColors.background,
+    backgroundColor: '#FFF9FA',
   },
   contentContainer: {
     padding: 16,
@@ -1060,7 +1062,7 @@ const styles = StyleSheet.create({
     backgroundColor: lightColors.surface,
     borderWidth: 1,
     borderColor: lightColors.border,
-    borderRadius: 12,
+    borderRadius: 22,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -1077,6 +1079,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   attemptHeaderLeft: {
+    flexWrap: 'wrap',
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1275,7 +1278,7 @@ const styles = StyleSheet.create({
   },
   generateButton: {
     backgroundColor: lightColors.primary,
-    borderRadius: 8,
+    borderRadius: 17,
     paddingVertical: 10,
     paddingHorizontal: 16,
     alignSelf: 'flex-start',

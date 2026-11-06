@@ -1,15 +1,15 @@
 import { COLLECTIONS, StudentGardenDocument } from '@spartan-g/shared-types';
 import { getFirestoreDb, doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp } from '../firebase/firestore';
-import { increment } from 'firebase/firestore';
+import { getDocFromServer, increment } from 'firebase/firestore';
 
 class GardenRepository {
-  async getGarden(studentId: string): Promise<(StudentGardenDocument & { id: string }) | null> {
+  async getGarden(studentId: string, fromServer = false): Promise<(StudentGardenDocument & { id: string }) | null> {
     const db = getFirestoreDb();
     const docRef = doc(db, COLLECTIONS.STUDENT_GARDENS, studentId);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await (fromServer ? getDocFromServer(docRef) : getDoc(docRef));
     if (!docSnap.exists()) return null;
     const data = docSnap.data() as Omit<StudentGardenDocument, 'id'>;
-    return { id: docSnap.id, ...data };
+    return { ...data, id: docSnap.id };
   }
 
   async createGarden(studentId: string): Promise<void> {

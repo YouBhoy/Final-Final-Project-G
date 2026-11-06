@@ -7,20 +7,16 @@ import {
   AssessmentAttemptDocument,
   AssessmentAnswer,
   AssessmentDefinitionDocument,
-  evaluateAssessmentRisk,
-  type RiskEvaluationResult,
-  type RiskFlag,
 } from '@spartan-g/shared-types';
-import { Timestamp, serverTimestamp, where, orderBy } from '../firebase/firestore';
+import { Timestamp, serverTimestamp, where, orderBy, runTransaction, doc, getFirestoreDb } from '../firebase/firestore';
+import { draftRevision } from './assessment-draft';
+import { getDocFromServer } from 'firebase/firestore';
 import { assessmentRepository } from '../repositories/assessment.repository';
 import { assessmentTemplateRepository } from '../repositories/assessment-template.repository';
 import { assessmentQuestionRepository } from '../repositories/assessment-question.repository';
 import { assessmentResponseRepository } from '../repositories/assessment-response.repository';
 import { assessmentAttemptRepository } from '../repositories/assessment-attempt.repository';
-import { riskAlertService } from './risk-alert.service';
 import { assessmentOverrideService } from './assessment-override.service';
-import { gardenService } from './garden.service';
-import { isGardenBackendEnabled, getGardenOperations } from './garden-backend';
 
 class AssessmentService {
   // =================== Phase 3A Methods (Template-based assessments) ===================
@@ -218,26 +214,42 @@ class AssessmentService {
     const now = serverTimestamp() as Timestamp;
     const attemptId = `${assessmentId}_${studentId}_${attemptCount + 1}`;
 
-    await assessmentAttemptRepository.create(attemptId, {
+    await runTransaction(getFirestoreDb(), async tx => {
+      const ref=doc(getFirestoreDb(),'assessment_attempts',attemptId), saved=(await tx.get(ref)).data();
+      if(saved) {
+        if(saved.studentId===studentId&&saved.assessmentId===assessmentId&&saved.status==='in_progress') return;
+        throw new Error('The assessment attempt already exists. Refresh your assessments.');
+      }
+      tx.set(ref, {
       assessmentId,
       studentId,
       answers: [],
       status: 'in_progress',
       startedAt: now,
       attemptNumber: attemptCount + 1,
-    } as unknown as AssessmentAttemptDocument);
+      draftRevision: 0,
+      createdAt: now,
+      updatedAt: now,
+      });
+    });
 
     return attemptId;
   }
 
   async saveAnswer(attemptId: string, answer: AssessmentAnswer): Promise<void> {
-    const attempt = await this.getAttempt(attemptId);
+    const ref=doc(getFirestoreDb(),'assessment_attempts',attemptId);
+    for(let retry=0;retry<3;retry++) {
+    let observed:number|undefined;
+    try {
+    await runTransaction(getFirestoreDb(), async tx => {
+    const attempt = (await tx.get(ref)).data();
     if (!attempt) {
       throw new Error('Attempt not found');
     }
     if (attempt.status !== 'in_progress') {
       throw new Error('Cannot modify a submitted or graded attempt');
     }
+    observed=draftRevision(attempt.draftRevision);
 
     // Replace serverTimestamp() sentinel with a plain Date (serverTimestamp() is not supported inside arrays)
     const safeAnswer: AssessmentAnswer = {
@@ -258,92 +270,32 @@ class AssessmentService {
       updatedAnswers = [...attempt.answers, safeAnswer];
     }
 
-    await assessmentAttemptRepository.update(attemptId, {
+    tx.update(ref, {
       answers: updatedAnswers,
-    } as Partial<AssessmentAttemptDocument>);
+      draftRevision: draftRevision(attempt.draftRevision)+1,
+      updatedAt: serverTimestamp(),
+    });
+    });
+    return;
+    } catch(error) {
+      // Rules can reject a stale optimistic commit before the SDK emits ABORTED.
+      // Retry only after an authorized server read proves a competing draft revision.
+      if(retry===2||(error as {code?:string}).code!=='permission-denied'||observed===undefined)throw error;
+      const fresh=(await getDocFromServer(ref)).data();
+      if(!fresh||fresh.status!=='in_progress'||draftRevision(fresh.draftRevision)===observed)throw error;
+    }
+    }
   }
 
   async submitAttempt(
     attemptId: string,
     answers: AssessmentAnswer[],
+    trustedSubmit?: (attemptId:string, answers:AssessmentAnswer[])=>Promise<void>,
   ): Promise<void> {
-    const attempt = await this.getAttempt(attemptId);
-    if (!attempt) {
-      throw new Error('Attempt not found');
-    }
-    // Idempotent: if already submitted or graded, skip the update
-    if (attempt.status !== 'in_progress') {
-      return;
-    }
-
-    // ─── Phase 4A: Risk evaluation (computed BEFORE status update) ──
-    // Compute risk metadata synchronously from the answers (data is in memory).
-    // We include it in the same update call as the submission to avoid
-    // a second Firestore write that would fail the rules check
-    // (student update rule requires resource.data.status == 'in_progress').
-    const answersRecord: Record<string, string> = {};
-    for (const answer of answers) {
-      answersRecord[answer.questionId] = answer.value;
-    }
-
-    let overallRiskLevel: string | undefined;
-    let overallRiskScore: number | undefined;
-    let riskFlags: RiskFlag[] | undefined;
-    let evaluation: RiskEvaluationResult | undefined;
-
-    try {
-      evaluation = evaluateAssessmentRisk(answersRecord);
-      overallRiskLevel = evaluation.overallRiskLevel;
-      overallRiskScore = evaluation.overallRiskScore;
-      riskFlags = evaluation.riskFlags;
-    } catch {
-      // If scoring fails (e.g. non-standard question IDs), skip gracefully
-    }
-
-    const now = serverTimestamp() as Timestamp;
-
-    await assessmentAttemptRepository.update(attemptId, {
-      answers,
-      status: 'submitted',
-      submittedAt: now,
-      ...(overallRiskLevel !== undefined ? { overallRiskLevel } : {}),
-      ...(overallRiskScore !== undefined ? { overallRiskScore } : {}),
-      ...(riskFlags !== undefined ? { riskFlags } : {}),
-    } as Partial<AssessmentAttemptDocument>);
-
-    // ─── Create risk alert if needed (separate collection, no rules conflict) ──
-    if (overallRiskLevel === 'moderate' || overallRiskLevel === 'high' || overallRiskLevel === 'critical') {
-      try {
-        const assessmentDef = await this.getAssessmentDefinition(attempt.assessmentId);
-        const facilitatorId = assessmentDef?.facilitatorId ?? 'unknown';
-
-        // Pass the real evaluation object from evaluateAssessmentRisk() directly.
-        // It contains domainResults (phq9, gad7, dass21) which createAlert uses
-        // for the alert title severity description.
-        // evaluation is guaranteed to be defined here because we only reach this
-        // block when overallRiskLevel is non-undefined (set alongside evaluation).
-        if (!evaluation) return;
-        await riskAlertService.createAlert({
-          studentId: attempt.studentId,
-          facilitatorId,
-          assessmentAttemptId: attemptId,
-          evaluation,
-        });
-      } catch {
-        // Alert creation failure should not block submission
-      }
-    }
-
-    // GARDEN HOOK — added for Phase 1 gamification, must never block/fail submission
-    try {
-      if (isGardenBackendEnabled()) {
-        await getGardenOperations().confirmAssessment(attempt.studentId, attemptId);
-      } else {
-        await gardenService.recordCheckIn(attempt.studentId);
-      }
-    } catch (err) {
-      console.error('Garden check-in failed (non-fatal):', err);
-    }
+    // No direct client risk writes or non-atomic post-submission alert fallback.
+    // Each platform must supply its authenticated, account-bound HTTP adapter.
+    if (!trustedSubmit) throw new Error('Secure assessment submission is not configured. Your draft has not been finalized.');
+    await trustedSubmit(attemptId, answers);
   }
 
 }

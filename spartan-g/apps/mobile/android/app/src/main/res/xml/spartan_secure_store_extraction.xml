@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keystore keys do not transfer. Preserve other backup/device-transfer domains. -->
+<data-extraction-rules>
+  <cloud-backup>
+    <exclude domain="sharedpref" path="SecureStore" />
+    <exclude domain="sharedpref" path="SecureStore.xml" />
+  </cloud-backup>
+  <device-transfer>
+    <exclude domain="sharedpref" path="SecureStore" />
+    <exclude domain="sharedpref" path="SecureStore.xml" />
+  </device-transfer>
+</data-extraction-rules>

@@ -23,6 +23,7 @@ import { COLLECTIONS } from '@spartan-g/shared-types';
 import { pushNotificationService } from './push-notification.service';
 import { notificationRepository } from '../repositories/notification.repository';
 import { userService } from './user.service';
+import { MESSAGE_OUTBOX_COLLECTION, messageOutbox, messageOutboxId } from '../notifications/message-outbox';
 /**
  * MessagingService - Core business logic for messaging.
  * 
@@ -96,6 +97,7 @@ class MessagingService {
     try {
       // Use transaction to ensure atomic message + conversation update
       const messageRef = doc(collection(db, COLLECTIONS.MESSAGES));
+      const outboxRef = doc(db, MESSAGE_OUTBOX_COLLECTION, messageOutboxId(messageRef.id));
       const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, conversationId);
 
       await runTransaction(db, async (transaction) => {
@@ -124,6 +126,9 @@ class MessagingService {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         } satisfies WithFieldValue<Omit<MessageDocument, 'id'>>);
+
+        // Durable metadata is committed with the message, never as a later send.
+        transaction.set(outboxRef, messageOutbox(messageRef.id, conversationId, senderId, serverTimestamp()));
 
         // Update conversation with last message metadata
         const updateData: PartialWithFieldValue<Omit<ConversationDocument, 'id'>> = {

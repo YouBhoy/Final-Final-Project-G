@@ -31,7 +31,7 @@ export abstract class BaseRepository<T extends DocumentData> {
     try {
       const snapshot = await getDoc(this.getDocRef(id));
       if (!snapshot.exists()) return null;
-      return { id: snapshot.id, ...(snapshot.data() as T) };
+      return { ...(snapshot.data() as T), id: snapshot.id };
     } catch (error) {
       throw new RepositoryError(`Failed to get ${this.collectionName}/${id}`, 'repo/get', error);
     }
@@ -43,7 +43,7 @@ export abstract class BaseRepository<T extends DocumentData> {
         ? query(this.getCollectionRef(), ...constraints)
         : query(this.getCollectionRef());
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as T) }));
+      return snapshot.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
     } catch (error: any) {
       const message = error?.message || 'Unknown error';
       throw new Error(`Failed to list ${this.collectionName}: ${message}`);
@@ -96,7 +96,7 @@ export abstract class BaseRepository<T extends DocumentData> {
           callback(null);
           return;
         }
-        callback({ id: snapshot.id, ...(snapshot.data() as T) });
+        callback({ ...(snapshot.data() as T), id: snapshot.id });
       },
       (error) => {
         throw new RepositoryError(`Subscription error on ${this.collectionName}/${id}`, 'repo/subscribe', error);
@@ -113,7 +113,7 @@ export abstract class BaseRepository<T extends DocumentData> {
     return onSnapshot(
       q,
       (snapshot) => {
-        callback(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as T) })));
+        callback(snapshot.docs.map((d) => ({ ...(d.data() as T), id: d.id })));
       },
       (error) => {
         const repositoryError = new RepositoryError(`Query subscription error on ${this.collectionName}`, 'repo/subscribe-query', error);

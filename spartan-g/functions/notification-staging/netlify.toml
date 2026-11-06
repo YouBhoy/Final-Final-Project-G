@@ -1,0 +1,15 @@
+# LOCAL PROPOSAL. Separate notification site only; never use the assessment finalizer site.
+[build]
+  publish = "public"
+[functions]
+  directory = "entries"
+  node_bundler = "esbuild"
+  external_node_modules = ["firebase-admin"]
+[build.environment]
+  NODE_VERSION = "22"
+  AWS_LAMBDA_JS_RUNTIME = "nodejs22.x"
+  NOTIFICATION_PROJECT_ID = "spartan-g-assessment-staging"
+  NOTIFICATION_DATABASE = "(default)"
+  NOTIFICATIONS_STAGING_ENABLED = "false"
+# Deliberately no site ID, hostname, credential, public send route or deployment command.
+# Runtime settings must be reviewed site environment variables; toml build values are not function secrets.

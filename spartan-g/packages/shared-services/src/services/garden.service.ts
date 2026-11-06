@@ -1,7 +1,44 @@
 import { gardenRepository } from '../repositories/garden.repository';
 import { clientGardenRewardsAvailable } from '../config/garden-capabilities';
 
+export type GardenLoadResult =
+  | { status: 'ready'; garden: NonNullable<Awaited<ReturnType<typeof gardenRepository.getGarden>>> }
+  | { status: 'empty' }
+  | { status: 'error'; code: 'permission-denied' | 'unauthenticated' | 'network' | 'invalid-data' | 'unknown'; message: string };
+
 class GardenService {
+  /** Authoritative read only. Missing data is distinct from a failed read; no reward or initialization writes. */
+  async loadGarden(studentId: string): Promise<GardenLoadResult> {
+    if (!studentId) return { status: 'error', code: 'unauthenticated', message: 'Sign in again to open your Garden.' };
+    try {
+      const savedGarden = await gardenRepository.getGarden(studentId, true);
+      if (!savedGarden) return { status: 'empty' };
+      // Older Gardens predate daily watering. Supply only its absent marker in
+      // this read result; never write it back or replace a present invalid value.
+      const garden = Object.prototype.hasOwnProperty.call(savedGarden, 'lastWateredDate')
+        ? savedGarden
+        : { ...savedGarden, lastWateredDate: '' };
+      const validDay = (value: unknown) => typeof value === 'string' && (value === '' ||
+        (/^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value));
+      if (garden.studentId !== studentId || garden.id !== studentId ||
+          !Number.isSafeInteger(garden.level) || garden.level < 1 ||
+          ![garden.xp, garden.seeds, garden.streakCount].every(value => Number.isSafeInteger(value) && value >= 0) ||
+          !validDay(garden.lastCheckInDate) || !validDay(garden.lastWateredDate)) {
+        return { status: 'error', code: 'invalid-data', message: 'Your saved Garden could not be read safely. Its progress has not been changed.' };
+      }
+      return { status: 'ready', garden };
+    } catch (error) {
+      // Never log the raw exception: it may contain account/document identifiers.
+      const rawCode = (error as { code?: unknown })?.code;
+      const code = typeof rawCode === 'string' ? rawCode.replace(/^firestore\//, '') : '';
+      if (code === 'permission-denied') return { status: 'error', code, message: 'Garden access was denied. Your saved progress has not been changed. Please contact support if retrying does not help.' };
+      if (code === 'unauthenticated') return { status: 'error', code, message: 'Your session could not be verified. Sign in again to open your Garden.' };
+      if (['unavailable', 'deadline-exceeded', 'network-request-failed', 'cancelled'].includes(code ?? ''))
+        return { status: 'error', code: 'network', message: 'Could not connect to your Garden. Check your connection and try again.' };
+      return { status: 'error', code: 'unknown', message: 'Garden could not be loaded. Please try again. Your saved progress has not been changed.' };
+    }
+  }
+
   /**
    * Get the student's garden doc, creating it if it doesn't exist.
    * Never throws — returns null on error.

@@ -1,0 +1,5 @@
+import type { AssessmentQuestion } from '@spartan-g/shared-types';
+export const instruments=[{id:'phq',title:'PHQ-9',subtitle:'Over the last two weeks',description:'Patient Health Questionnaire'},{id:'gad',title:'GAD-7',subtitle:'Over the last two weeks',description:'Generalized Anxiety Questionnaire'},{id:'dass',title:'DASS-21',subtitle:'Over the past week',description:'Depression, Anxiety and Stress Scale'}] as const;
+export function instrumentFor(id:string){return instruments.find(g=>new RegExp('^'+g.id+'[0-9]+$').test(id))??{id:'other',title:'Assessment',subtitle:'Follow the questionnaire instructions',description:'Your check-in'};}
+export function answered(question:AssessmentQuestion,map:Record<string,string>){return question.options?.length?question.options.some(o=>o.id===map[question.id]):typeof map[question.id]==='string'&&map[question.id].trim()!=='';}
+export function answerLabel(question:AssessmentQuestion,map:Record<string,string>){return question.options?.find(o=>o.id===map[question.id])?.label??map[question.id]??'Not answered yet';}

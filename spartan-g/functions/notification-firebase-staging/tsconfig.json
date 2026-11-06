@@ -1,0 +1,4 @@
+{
+  "extends": "../notification-staging/tsconfig.json",
+  "include": ["*.ts", "../notification-preparation/*.ts", "../notification-staging/fcm-transport.ts", "../notification-staging/control.ts", "../../services/student-support/*.ts"]
+}

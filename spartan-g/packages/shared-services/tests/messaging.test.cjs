@@ -80,6 +80,7 @@ function harness(seed = {}) {
   }
   const { messagingService } = loadTs('packages/shared-services/src/services/messaging.service.ts', {
     ...common,
+    '../notifications/message-outbox': loadTs('packages/shared-services/src/notifications/message-outbox.ts'),
     '../repositories/message.repository': repositories.message,
     '../repositories/conversation.repository': repositories.conversation,
     '../repositories/notification.repository': repositories.notification,

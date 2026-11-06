@@ -1,0 +1,47 @@
+// Invocation-only staging DSL. Does not alter production Gradle files or run by default.
+def contractPath=System.getenv('SPARTAN_STAGING_NATIVE_CONTRACT')
+if(!contractPath)throw new GradleException('Staging native contract required.')
+def contractFile=new File(contractPath).canonicalFile
+def plan=new groovy.json.JsonSlurper().parse(contractFile)
+def hash={File f->java.security.MessageDigest.getInstance('SHA-256').digest(f.bytes).encodeHex().toString()}
+if(hash(new File(plan.sourceValidation))!=plan.sourceValidationSha256)throw new GradleException('Source validation changed.')
+def validated=new groovy.json.JsonSlurper().parse(new File(plan.sourceValidation))
+if(validated.passed!=true||validated.profile!='staging-v25')throw new GradleException('Local staging validation required.')
+validated.files.each { item ->
+ def source=new File(plan.sourceRoot,item.path).canonicalFile
+ if(!source.toPath().startsWith(new File(plan.sourceRoot).canonicalFile.toPath())||hash(source)!=item.sha256)throw new GradleException('Validated source changed.')
+}
+if(plan.profile!='staging-v25'||plan.projectId!='spartan-g-assessment-staging'||plan.applicationId!='com.spartang.mobile.staging'||plan.namespace!='com.spartang.mobile'||plan.versionCode!=25||plan.submissionEnabled!=false||plan.notificationSendingEnabled!=false)throw new GradleException('Invalid staging identity.')
+if(System.getenv('SPARTAN_ANDROID_PROFILE')!='staging-v25'||System.getenv('EXPO_PUBLIC_ASSESSMENT_FINALIZER_ENABLED')!='false')throw new GradleException('Staging disabled environment required.')
+if(System.getenv('EXPO_NO_METRO_WORKSPACE_ROOT')!='1'||System.getenv('ENTRY_FILE')!='index.ts')throw new GradleException('Staging entry root mismatch.')
+if(hash(new File(plan.manifest))!=plan.manifestSha256||hash(new File(plan.googleServices))!=plan.googleServicesSha256)throw new GradleException('Staging inputs changed.')
+def google=new groovy.json.JsonSlurper().parse(new File(plan.googleServices))
+if(google.project_info.project_id!=plan.projectId||google.client.size()!=1||google.client[0].client_info.android_client_info.package_name!=plan.applicationId||google.client[0].client_info.mobilesdk_app_id!=plan.androidAppId)throw new GradleException('Staging Google services mismatch.')
+gradle.beforeProject { p ->
+ if(p.path==':app'){
+  def output=new File(plan.appBuildDirectory).canonicalFile
+  if(output.parentFile!=p.projectDir.canonicalFile||!output.name.startsWith('spartang-v25-staging-'))throw new GradleException('Isolated staging output required.')
+  p.layout.buildDirectory.set(output)
+  p.plugins.withId('com.android.application'){
+   p.extensions.getByName('androidComponents').finalizeDsl { dsl ->
+    if(dsl.namespace!='com.spartang.mobile'||dsl.defaultConfig.applicationId!='com.spartang.mobile'||dsl.defaultConfig.versionCode!=1)throw new GradleException('Production baseline changed.')
+    dsl.defaultConfig.applicationId=plan.applicationId
+    dsl.defaultConfig.versionCode=25
+    dsl.androidResources.ignoreAssetsPatterns.add('*.map')
+    dsl.sourceSets.getByName('main').manifest.srcFile(new File(plan.manifest))
+   }
+  }
+ }
+}
+gradle.projectsEvaluated {
+ def app=gradle.rootProject.findProject(':app');if(app==null)return
+ if(gradle.startParameter.taskNames!=[':app:assembleRelease'])throw new GradleException('Only one staging assembleRelease is allowed.')
+ app.tasks.named('processReleaseGoogleServices').configure { task ->
+  // Verified against Google Services plugin 4.4.1: Property<Collection<File>>.
+  task.googleServicesJsonFiles.set([new File(plan.googleServices)])
+  task.applicationId.set('com.spartang.mobile.staging')
+ }
+ gradle.taskGraph.whenReady { graph ->
+  if(graph.allTasks.any{it.name.toLowerCase().startsWith('install')||it.path==':app:bundleRelease'})throw new GradleException('Installation/AAB tasks prohibited.')
+ }
+}

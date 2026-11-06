@@ -14,6 +14,7 @@ import { forestNoteService } from '@spartan-g/shared-services';
 import { ForestTree } from './ForestTree';
 import { formatLongDate, formatTime, type ForestCheckIn } from './forestUtils';
 import { SPECIES_LABEL } from './forestLayout';
+import { useSensitiveCapture } from '../../../../security/ScreenCaptureBoundary';
 
 // ─── TreeDetailSheet ───────────────────────────────────────────────────────
 // Bottom sheet shown when a tree is tapped: date, time, place, streak info and
@@ -46,6 +47,7 @@ export function TreeDetailSheet({
   onClose,
   onViewResults,
 }: TreeDetailSheetProps) {
+  const captureReady = useSensitiveCapture(!!checkIn);
   const [noteText, setNoteText] = useState('');
   const [noteSaved, setNoteSaved] = useState('');
   const [editing, setEditing] = useState(false);
@@ -109,7 +111,7 @@ export function TreeDetailSheet({
 
   return (
     <Modal
-      visible={!!checkIn}
+      visible={!!checkIn && captureReady}
       transparent
       animationType="slide"
       onRequestClose={onClose}

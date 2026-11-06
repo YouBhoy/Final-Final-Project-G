@@ -77,6 +77,7 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
 
   // ─── Period / selection / motion ─────────────────────────────────────────
   const [mode, setMode] = useState<PeriodMode>('month');
@@ -103,7 +104,9 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
 
   const load = useCallback(
     async (options?: { silent?: boolean }) => {
-      if (!session) return;
+      const request = ++requestId.current;
+      if (!session || session.role !== 'student') { setCheckIns([]); setLoading(false); setRefreshing(false); return; }
+      const current = () => request === requestId.current && useAuthStore.getState().session === session;
       if (!options?.silent) setLoading(true);
       try {
         const all = await assessmentService.getAttemptsByStudent(session.uid);
@@ -123,13 +126,13 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
           def: defCache.get(attempt.assessmentId) ?? null,
         }));
 
+        if (!current()) return;
         setCheckIns(buildForestCheckIns(entries));
         setError(null);
       } catch {
-        setError('Unable to load your forest. Please try again.');
+        if (current()) setError('Unable to load your forest. Please try again.');
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (current()) { setLoading(false); setRefreshing(false); }
       }
     },
     [session],
@@ -139,6 +142,7 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   useFocusEffect(
     useCallback(() => {
       load();
+      return () => { requestId.current++; };
     }, [load]),
   );
 

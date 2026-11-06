@@ -11,6 +11,8 @@ export interface PushRegistrationResult {
 }
 
 export interface MessagingAdapter {
+  /** Native Stage 1 prepares ownership locally; the legacy Firestore token writer must stay off. */
+  managesRegistration?: boolean;
   registerForPushNotifications(
     deploymentTarget: DeploymentTarget,
   ): Promise<PushRegistrationResult | null>;

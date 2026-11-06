@@ -1,6 +1,7 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+export default ({ config }: ConfigContext): ExpoConfig => {
+ const base: ExpoConfig = {
   ...config,
   name: 'SPARTAN-G',
   slug: 'spartan-g-mobile',
@@ -25,6 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#FFFFFF',
     },
     package: 'com.spartang.mobile',
+    permissions: ['android.permission.POST_NOTIFICATIONS'],
     // Matches windowSoftInputMode="adjustResize" in the generated
     // AndroidManifest.xml. The auth screens rely on this window resize for
     // keyboard avoidance (KeyboardAvoidingView is iOS-only there) — keep 'resize'.
@@ -35,6 +37,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-asset',
     'expo-font',
+    ['expo-local-authentication', { faceIDPermission: 'Use device biometrics to unlock Spartan-G locally.' }],
+    // Keep custom exclude-only Android XML: the SDK default includes only shared preferences.
+    ['expo-secure-store', { configureAndroidBackup: false, faceIDPermission: 'Use device biometrics to unlock Spartan-G locally.' }],
     [
       'expo-build-properties',
       {
@@ -45,7 +50,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     [
       'expo-notifications',
-      { color: '#DC2626' },
+      { icon: './assets/notification-icon.png', color: '#DC2626', defaultChannel: 'spartan.general.v1' },
     ],
   ],
   extra: {
@@ -53,4 +58,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       projectId: '1d7d33b2-e60a-4c12-a276-e4d51353ed37',
     },
   },
-});
+ };
+ // Normal builds retain the original configuration; staging requires explicit local preflight.
+ if (process.env.SPARTAN_PRESENTATION_PROFILE) return require('./presentation/profile.cjs').expoOverrides(base, process.env) as ExpoConfig;
+ if (!process.env.SPARTAN_ANDROID_PROFILE) return base;
+ return require('./staging/profile.cjs').expoOverrides(base, process.env) as ExpoConfig;
+};

@@ -14,7 +14,8 @@ export function getFirebaseApp(): FirebaseApp {
     if (existing && existing.options.projectId !== localEmulators.projectId) throw new Error('Local Firebase app mismatch.');
     return existing ?? initializeApp(env.firebase, localEmulators.appName);
   }
-  if (!getApps().length) {
+  const existing = getApps().find(candidate => candidate.name === '[DEFAULT]');
+  if (!existing) {
     app = initializeApp({
       apiKey: env.firebase.apiKey,
       authDomain: env.firebase.authDomain,
@@ -25,7 +26,8 @@ export function getFirebaseApp(): FirebaseApp {
       measurementId: env.firebase.measurementId,
     });
   } else {
-    app = getApps()[0]!;
+    if (existing.options.projectId !== env.firebase.projectId) throw new Error('Firebase project mismatch.');
+    app = existing;
   }
   return app;
 }

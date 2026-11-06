@@ -1,5 +1,8 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ExpandableTabBar } from './ExpandableTabBar';
+import { navigationBarHeight } from './expandable-navigation';
 import {
   FacilitatorMobileStackParamList,
   FacilitatorMobileTabParamList,
@@ -7,7 +10,7 @@ import {
 import { lightColors, palette } from '@spartan-g/shared-ui';
 import { Feather } from '@expo/vector-icons';
 import { SafeScreen } from '../components/SafeScreen';
-import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
+import { FacilitatorDashboardScreen } from '../screens/facilitator/FacilitatorDashboardScreen';
 import { FacilitatorAssessmentsScreen } from '../screens/assessment/FacilitatorAssessmentsScreen';
 import { FacilitatorStudentsScreen } from '../screens/facilitator/FacilitatorStudentsScreen';
 import { WorkHoursScreen } from '../screens/facilitator/WorkHoursScreen';
@@ -25,52 +28,55 @@ const Tab = createBottomTabNavigator<FacilitatorMobileTabParamList>();
 const Stack = createNativeStackNavigator<FacilitatorMobileStackParamList>();
 
 function FacilitatorTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
+      tabBar={props => <ExpandableTabBar {...props} portal="facilitator" />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: lightColors.primary,
         tabBarInactiveTintColor: lightColors.textMuted,
+        tabBarStyle: { height: navigationBarHeight(insets.bottom) },
       }}
     >
       <Tab.Screen name="FacilitatorDashboard" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Feather name="grid" size={size} color={color} /> }}>
         {() => (
           <SafeScreen backgroundColor={palette.spartanRedDark}>
-            <DashboardScreen portalName="Facilitator Portal" />
+            <FacilitatorDashboardScreen />
           </SafeScreen>
         )}
       </Tab.Screen>
       <Tab.Screen name="Appointments" options={{ title: 'Appts', tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} /> }}>
         {() => (
-          <SafeScreen>
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
             <AppointmentsScreen />
           </SafeScreen>
         )}
       </Tab.Screen>
       <Tab.Screen name="Messaging" options={{ title: 'Chats', tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}>
         {() => (
-          <SafeScreen>
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
             <FacilitatorMessagesScreen />
           </SafeScreen>
         )}
       </Tab.Screen>
       <Tab.Screen name="WorkHoursSchedule" options={{ title: 'Hours', tabBarIcon: ({ color, size }) => <Feather name="clock" size={size} color={color} /> }}>
         {() => (
-          <SafeScreen>
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
             <WorkHoursScreen />
           </SafeScreen>
         )}
       </Tab.Screen>
       <Tab.Screen name="AssessmentOverrides" options={{ title: 'Students', tabBarIcon: ({ color, size }) => <Feather name="users" size={size} color={color} /> }}>
         {() => (
-          <SafeScreen>
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
             <AssessmentOverrideListScreen />
           </SafeScreen>
         )}
       </Tab.Screen>
       <Tab.Screen name="FacilitatorProfile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} /> }}>
         {() => (
-          <SafeScreen>
+          <SafeScreen backgroundColor={palette.spartanRedDark}>
             <FacilitatorProfileScreen />
           </SafeScreen>
         )}
@@ -128,9 +134,10 @@ export function FacilitatorNavigator() {
       </Stack.Screen>
       <Stack.Screen
         name="StudentDetail"
-        component={StudentDetailScreen}
-        options={{ title: 'Student Details' }}
-      />
+        options={{ headerShown: false }}
+      >
+        {props => <SafeScreen backgroundColor={palette.spartanRedDark}><StudentDetailScreen {...props} /></SafeScreen>}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

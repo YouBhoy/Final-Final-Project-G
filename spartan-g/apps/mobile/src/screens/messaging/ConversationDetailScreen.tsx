@@ -20,6 +20,7 @@ import { useAuthStore, messagingService, userService } from '@spartan-g/shared-s
 import type { MessageDocument } from '@spartan-g/shared-types';
 import { lightColors, formatTimeOnly } from '@spartan-g/shared-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StudentPageBackground, studentPageColors as colors } from '../../components/StudentPageDesign';
 
 type ConversationDetailRouteProp = RouteProp<
   StudentMobileStackParamList & FacilitatorMobileStackParamList,
@@ -156,12 +157,15 @@ export function ConversationDetailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
+      <StudentPageBackground chat />
       <FlatList
         ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesList}
         renderItem={renderMessage}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -184,12 +188,15 @@ export function ConversationDetailScreen() {
           multiline
           maxLength={4000}
           editable={!isSending}
+          accessibilityLabel="Message text"
         />
         <TouchableOpacity
           style={[styles.sendButton, (!inputText.trim() || isSending) && styles.sendButtonDisabled]}
           onPress={handleSend}
           disabled={!inputText.trim() || isSending}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
         >
           <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
@@ -199,22 +206,22 @@ export function ConversationDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: lightColors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: lightColors.background, padding: 24, gap: 12 },
   loadingText: { fontSize: 14, color: lightColors.textSecondary, marginTop: 8 },
-  messagesList: { padding: 16, paddingBottom: 8, flexGrow: 1 },
-  messageRow: { marginBottom: 12 },
+  messagesList: { padding: 18, paddingBottom: 12, flexGrow: 1 },
+  messageRow: { marginBottom: 16 },
   messageRowSent: { alignItems: 'flex-end' },
   messageRowReceived: { alignItems: 'flex-start' },
-  messageBubble: { maxWidth: '78%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  sentBubble: { backgroundColor: lightColors.primary, borderBottomRightRadius: 4 },
-  receivedBubble: { backgroundColor: lightColors.surface, borderWidth: 1, borderColor: lightColors.border, borderBottomLeftRadius: 4 },
-  messageText: { fontSize: 15, lineHeight: 20 },
+  messageBubble: { maxWidth: '84%', borderRadius: 22, paddingHorizontal: 17, paddingVertical: 12 },
+  sentBubble: { backgroundColor: '#CF1840', borderBottomRightRadius: 5 },
+  receivedBubble: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#FFF0F2', borderBottomLeftRadius: 5 },
+  messageText: { fontSize: 15, lineHeight: 22 },
   sentText: { color: '#FFFFFF' },
-  receivedText: { color: lightColors.text },
+  receivedText: { color: colors.ink },
   messageTime: { fontSize: 11, marginTop: 4 },
-  sentTime: { color: 'rgba(255,255,255,0.7)' },
-  receivedTime: { color: lightColors.textMuted },
+  sentTime: { color: '#FFFFFF', textAlign: 'right' },
+  receivedTime: { color: colors.slate },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
   emptyIcon: { fontSize: 48, marginBottom: 8 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: lightColors.text },
@@ -223,29 +230,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: lightColors.border,
-    backgroundColor: lightColors.surface,
+    gap: 9,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,245,246,0.98)',
   },
   textInput: {
     flex: 1,
-    backgroundColor: lightColors.background,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 20,
+    borderColor: '#F5DFE5',
+    borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: lightColors.text,
+    color: colors.ink,
     maxHeight: 100,
-    marginRight: 8,
+    minHeight: 48,
   },
   sendButton: {
-    backgroundColor: lightColors.primary,
-    borderRadius: 20,
-    paddingHorizontal: 20,
+    backgroundColor: colors.red,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     justifyContent: 'center',
+    minHeight: 48,
   },
   sendButtonDisabled: { opacity: 0.5 },
   sendButtonText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },

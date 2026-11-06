@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import {
   Animated,
   Image,
+  type ImageSourcePropType,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -23,6 +24,8 @@ interface GardenHeroSceneProps {
   onWaterPress: () => void;
   accessibilityLabel?: string;
   wateringDisabled?: boolean;
+  /** Optional packaged scenery; tree stage and progress stay data-driven. */
+  backgroundSource?: ImageSourcePropType;
 }
 
 type HeroStage = 'sprout' | 'young' | 'mature' | 'flourishing';
@@ -103,7 +106,7 @@ function HeroTree({ stage, halo = false, haloScale = 1.06, haloOpacity = 0.42 }:
     </View>
   );
 }
-export function GardenHeroScene({ level, onWaterPress, accessibilityLabel, wateringDisabled = false }: GardenHeroSceneProps) {
+export function GardenHeroScene({ level, onWaterPress, accessibilityLabel, wateringDisabled = false, backgroundSource }: GardenHeroSceneProps) {
   const stage = stageFromLevel(level);
   const stageEffects = STAGE_EFFECTS[stage];
   const treeBaselineY = SCENE_HEIGHT - 22;
@@ -183,7 +186,7 @@ export function GardenHeroScene({ level, onWaterPress, accessibilityLabel, water
 
   return (
     <View style={styles.scene}>
-      <Image source={require('../../../../assets/garden-hero-background.jpg')} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      <Image source={backgroundSource ?? require('../../../../assets/garden-hero-background.jpg')} resizeMode="cover" style={StyleSheet.absoluteFill} />
       <Svg width="100%" height="100%" viewBox="0 0 760 380" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
         <Defs>
           <RadialGradient id="garden-spotlight" cx="50%" cy={`${(spotlightCenterY / 380) * 100}%`} rx={`${(stageEffects.spotlightRx / 760) * 100}%`} ry={`${(stageEffects.spotlightRy / 380) * 100}%`}>

@@ -1,0 +1,62 @@
+// Invocation-only production-connected presentation profile. Never runs by default.
+def location = System.getenv('SPARTAN_PRESENTATION_CONTRACT')
+if (!location) throw new GradleException('Presentation contract required.')
+def plan = new groovy.json.JsonSlurper().parse(new File(location))
+def hash = { File f -> java.security.MessageDigest.getInstance('SHA-256').digest(f.bytes).encodeHex().toString() }
+// Included plugin builds inherit this init script with their own currentDir.
+// Bind to the original invocation, and accept only the installed plugin roots.
+def applicationGradle = gradle
+while (applicationGradle.parent != null) applicationGradle = applicationGradle.parent
+def applicationDirectory = applicationGradle.startParameter.currentDir.canonicalFile
+def expectedRoot = new File(applicationDirectory, '../../..').canonicalFile
+if (applicationDirectory != new File(expectedRoot, 'apps/mobile/android').canonicalFile) throw new GradleException('Presentation application directory mismatch.')
+def allowedPluginDirectories = [
+ 'node_modules/@react-native/gradle-plugin',
+ 'node_modules/expo-modules-autolinking/android/expo-gradle-plugin',
+ 'node_modules/expo-modules-core/expo-module-gradle-plugin',
+ 'node_modules/expo-dev-launcher/expo-dev-launcher-gradle-plugin'
+].collect { new File(expectedRoot, it).canonicalFile }
+for (def included = gradle; included != applicationGradle; included = included.parent) {
+ def directory = included.startParameter.currentDir.canonicalFile
+ if (!directory.toPath().startsWith(expectedRoot.toPath()) || !allowedPluginDirectories.contains(directory)) throw new GradleException('Unexpected presentation included build.')
+}
+def expectedValidation = new File(expectedRoot, 'docs/android-presentation-preflight-20261102/VALIDATED_SOURCE.json').canonicalFile
+if (new File(plan.sourceRoot).canonicalFile != expectedRoot || new File(plan.sourceValidation).canonicalFile != expectedValidation || new File(plan.googleServices).canonicalFile != new File(expectedRoot, 'apps/mobile/android/app/google-services.json').canonicalFile) throw new GradleException('Presentation source binding mismatch.')
+if (hash(expectedValidation) != new File(expectedRoot, 'docs/android-presentation-preflight-20261102/VALIDATED_SOURCE.sha256').text.trim()) throw new GradleException('Approved presentation manifest changed.')
+if (plan.profile != 'production-presentation-v31' || plan.projectId != 'spartan-g-a2d80' || plan.applicationId != 'com.spartang.mobile' || plan.versionCode != 31 || plan.submissionEnabled != false || plan.presentationScreenshots != true || plan.privateDistributionOnly != true) throw new GradleException('Presentation identity mismatch.')
+if (System.getenv('SPARTAN_PRESENTATION_PROFILE') != plan.profile || System.getenv('SPARTAN_ANDROID_PROFILE') != 'production' || System.getenv('EXPO_PUBLIC_FIREBASE_PROJECT_ID') != plan.projectId || System.getenv('EXPO_PUBLIC_ASSESSMENT_FINALIZER_ENABLED') != 'false' || System.getenv('EXPO_NO_METRO_WORKSPACE_ROOT') != '1') throw new GradleException('Presentation environment mismatch.')
+if (hash(new File(plan.sourceValidation)) != plan.sourceValidationSha256 || hash(new File(plan.googleServices)) != plan.googleServicesSha256) throw new GradleException('Presentation inputs changed.')
+def validated = new groovy.json.JsonSlurper().parse(new File(plan.sourceValidation))
+if (validated.profile != plan.profile || validated.passed != true || validated.apkBuilt != false || validated.files.size() < 300) throw new GradleException('Presentation validation required.')
+validated.files.each { item ->
+ def source = new File(plan.sourceRoot, item.path).canonicalFile
+ if (!source.toPath().startsWith(new File(plan.sourceRoot).canonicalFile.toPath()) || hash(source) != item.sha256) throw new GradleException('Validated presentation source changed.')
+}
+def google = new groovy.json.JsonSlurper().parse(new File(plan.googleServices))
+if (google.project_info.project_id != plan.projectId || google.client.size() != 1 || google.client[0].client_info.android_client_info.package_name != plan.applicationId) throw new GradleException('Production Google services mismatch.')
+// Dependency builds pass the same security checks but must not receive app tasks.
+if (gradle != applicationGradle) return
+
+gradle.beforeProject { p ->
+ if (p.path == ':app') {
+  def output = new File(plan.appBuildDirectory).canonicalFile
+  if (output.parentFile != p.projectDir.canonicalFile || !output.name.startsWith('spartang-v31-presentation-')) throw new GradleException('Isolated presentation output required.')
+  p.layout.buildDirectory.set(output)
+  p.plugins.withId('com.android.application') {
+   p.extensions.getByName('androidComponents').finalizeDsl { dsl ->
+    if (dsl.namespace != 'com.spartang.mobile' || dsl.defaultConfig.applicationId != 'com.spartang.mobile' || dsl.defaultConfig.versionCode != 1) throw new GradleException('Production baseline changed.')
+    if (dsl.defaultConfig.buildConfigFields['SPARTAN_PRIVATE_DOCUMENTATION']?.value != 'false' || dsl.defaultConfig.versionName != '1.0.0') throw new GradleException('Production privacy baseline changed.')
+    dsl.defaultConfig.versionCode = 31
+    dsl.defaultConfig.buildConfigField('boolean', 'SPARTAN_PRIVATE_DOCUMENTATION', 'true')
+    dsl.defaultConfig.manifestPlaceholders['spartangApplicationLabel'] = 'SPARTAN-G PRIVATE v31'
+    dsl.androidResources.ignoreAssetsPatterns.add('*.map')
+   }
+  }
+ }
+}
+gradle.projectsEvaluated {
+ def app = gradle.rootProject.findProject(':app')
+ if (gradle.startParameter.taskNames != [':app:assembleRelease']) throw new GradleException('Only the separately approved presentation release task is allowed.')
+ app.tasks.named('processReleaseGoogleServices').configure { task -> task.googleServicesJsonFiles.set([new File(plan.googleServices)]); task.applicationId.set('com.spartang.mobile') }
+ gradle.taskGraph.whenReady { graph -> if (graph.allTasks.any { it.name.toLowerCase().startsWith('install') || it.path == ':app:bundleRelease' }) throw new GradleException('Installation and AAB tasks prohibited.') }
+}

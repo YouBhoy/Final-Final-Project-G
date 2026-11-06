@@ -85,10 +85,7 @@ class RiskAlertService {
     if (!hasPermission(actorRole, PERMISSIONS.VIEW_RISK_ALERTS)) {
       throw new PermissionError();
     }
-    return riskAlertRepository.subscribeQuery(
-      [],
-      callback,
-    );
+    return riskAlertRepository.subscribeAuthorized(facilitatorId,callback);
   }
 }
 

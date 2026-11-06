@@ -1,0 +1,1 @@
+{"extends":"../notification-preparation/tsconfig.json","compilerOptions":{"lib":["ES2022","DOM"]},"include":["**/*.ts","../notification-preparation/*.ts","../../services/student-support/*.ts"]}

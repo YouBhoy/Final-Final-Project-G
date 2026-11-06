@@ -23,6 +23,7 @@ export type StudentMobileTabParamList = {
   StudentGarden: undefined;
   StudentAppointments: undefined;
   StudentMessages: undefined;
+  StudentResources: undefined;
   StudentProfile: undefined;
 };
 

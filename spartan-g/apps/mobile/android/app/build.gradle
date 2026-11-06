@@ -2,6 +2,11 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+if (System.getenv('SPARTAN_PRESENTATION_PROFILE') &&
+        (System.getenv('SPARTAN_PRESENTATION_PROFILE') != 'production-presentation-v31' || !System.getenv('SPARTAN_PRESENTATION_CONTRACT'))) {
+    throw new GradleException('Use the protected presentation launcher and reviewed native contract.')
+}
+
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
@@ -104,6 +109,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
+        // Only the reviewed, contract-bound init script enables private capture.
+        buildConfigField 'boolean', 'SPARTAN_PRIVATE_DOCUMENTATION', 'false'
+        manifestPlaceholders['spartangApplicationLabel'] = '@string/app_name'
     }
     signingConfigs {
         debug {
@@ -257,3 +265,15 @@ dependencies {
 }
 
 apply plugin: 'com.google.gms.google-services'
+
+// A staging JS profile must never be packaged under the production Android identity.
+def selectedAndroidProfile = providers.environmentVariable('SPARTAN_ANDROID_PROFILE').orNull
+if (selectedAndroidProfile && !(selectedAndroidProfile in ['production', 'staging-v25'])) {
+    throw new GradleException('Unknown Android build profile.')
+}
+if (selectedAndroidProfile == 'staging-v25') {
+    def stagingInit = new File(projectDir, '../../staging/native.gradle').canonicalFile
+    if (!gradle.startParameter.initScripts.any { it.canonicalFile == stagingInit }) {
+        throw new GradleException('Staging requires the protected launcher and native identity configuration.')
+    }
+}

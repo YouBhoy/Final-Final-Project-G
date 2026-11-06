@@ -17,6 +17,7 @@ import {
   useWindowDimensions,
   Platform,
   Animated,
+  AppState,
 } from 'react-native';
 import type { GestureResponderEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -24,28 +25,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { lightColors, palette } from '@spartan-g/shared-ui';
 import { useAuthStore, systemAssistantService, SYSTEM_ASSISTANT_GREETING, SYSTEM_ASSISTANT_SIGN_IN, SYSTEM_ASSISTANT_MAX_INPUT } from '@spartan-g/shared-services';
 import { navigationRef } from '../../../navigation/navigationRef';
+import { useSensitiveCapture } from '../../../security/ScreenCaptureBoundary';
+import { ASSISTANT_CATEGORIES, type AssistantAction } from '@spartan-g/shared-services/src/services/system-assistant';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const BUBBLE_SIZE = 60;
 const MARGIN = 20;
-const CHAT_HEIGHT = Math.min(460, SCREEN_HEIGHT - 48);
 const INITIAL_LEFT = SCREEN_WIDTH - BUBBLE_SIZE - MARGIN;
 const INITIAL_TOP = SCREEN_HEIGHT - BUBBLE_SIZE - MARGIN - 110;
 
 interface ChatBubbleMsg {
   role: 'user' | 'assistant';
   text: string;
+  actions?: readonly AssistantAction[];
 }
 
 export function AssistantBubble() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const chatWidth = Math.min(340, Math.max(0, width - 32));
   const session = useAuthStore((s) => s.session);
   const authStatus = useAuthStore((s) => s.status);
   const owner = authStatus === 'authenticated' && session?.role === 'student' ? session.uid : null;
   const [open, setOpen] = useState(false);
+  const captureReady = useSensitiveCapture(open);
   const position = useRef(
     new Animated.ValueXY({ x: INITIAL_LEFT, y: INITIAL_TOP }),
   ).current;
@@ -55,7 +59,9 @@ export function AssistantBubble() {
   const [loading, setLoading] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
-  const [chatOwner, setChatOwner] = useState(owner);
+  const [chatOwner, setChatOwner] = useState(session);
+  const [category, setCategory] = useState<number | null>(null);
+  const [retry, setRetry] = useState<string | null>(null);
 
   const startPosRef = useRef({ x: 0, y: 0 });
   const startValueRef = useRef({ x: 0, y: 0 });
@@ -66,7 +72,7 @@ export function AssistantBubble() {
   const mountedRef = useRef(true);
   const requestRef = useRef(0);
   const sendingRef = useRef(false);
-  const visibleMessages = chatOwner === owner ? messages : [];
+  const visibleMessages = owner && chatOwner === session ? messages : [];
 
   useEffect(() => {
     mountedRef.current = true;
@@ -81,8 +87,18 @@ export function AssistantBubble() {
     setInput('');
     setBanner(null);
     setLoading(false);
-    setChatOwner(owner);
-  }, [owner]);
+    setChatOwner(session);
+    setCategory(null); setRetry(null); setOpen(false);
+  }, [session, owner]);
+
+  useEffect(() => {
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active') return;
+      requestRef.current += 1; sendingRef.current = false;
+      setOpen(false); setLoading(false); Keyboard.dismiss();
+    });
+    return () => listener.remove();
+  }, []);
 
   useFocusEffect(() => {
     try {
@@ -153,36 +169,52 @@ export function AssistantBubble() {
     Keyboard.dismiss();
     setOpen(false);
   }, []);
-  const send = useCallback(async () => {
+  const send = useCallback(async (question?: string) => {
     const currentAuth = useAuthStore.getState();
-    if (!owner || currentAuth.status !== 'authenticated' || currentAuth.session?.uid !== owner || currentAuth.session.role !== 'student') {
+    if (!owner || currentAuth.status !== 'authenticated' || currentAuth.session !== session || currentAuth.session?.role !== 'student') {
       setBanner(SYSTEM_ASSISTANT_SIGN_IN);
       return;
     }
-    const trimmed = input.trim();
+    const trimmed = (question ?? input).trim();
     if (!trimmed || sendingRef.current) return;
     sendingRef.current = true;
     const request = ++requestRef.current;
     const currentTurn = () => {
       const auth = useAuthStore.getState();
       return mountedRef.current && requestRef.current === request
-        && auth.status === 'authenticated' && auth.session?.uid === owner && auth.session.role === 'student';
+        && auth.status === 'authenticated' && auth.session === session && auth.session?.role === 'student';
     };
 
     setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
     setInput('');
     setLoading(true);
     setBanner(null);
+    setRetry(null);
 
     try {
       const result = await systemAssistantService.reply(trimmed);
-      if (currentTurn()) setMessages((prev) => [...prev, { role: 'assistant', text: result.text }]);
+      if (currentTurn()) {
+        setMessages((prev) => [...prev, { role: 'assistant', text: result.text, actions: result.actions }]);
+        if (result.status === 'unavailable') { setRetry(trimmed); setBanner('Information unavailable. Retry only when you are ready.'); }
+      }
     } catch {
-      if (currentTurn()) setBanner("I couldn't check that right now. Please try again.");
+      if (currentTurn()) { setRetry(trimmed); setBanner("I couldn't check that right now. Please try again."); }
     } finally {
       if (currentTurn()) { sendingRef.current = false; setLoading(false); }
     }
-  }, [input, owner]);
+  }, [input, owner, session]);
+
+  const follow = (action: AssistantAction) => {
+    const auth = useAuthStore.getState();
+    if (!owner || auth.session !== session || auth.status !== 'authenticated' || auth.session?.role !== 'student' || !navigationRef.isReady()) return;
+    closeChat();
+    if (action === 'forest') navigationRef.navigate('Student', { screen: 'Forest' });
+    else {
+      const tabs = { appointments: 'StudentAppointments', assessments: 'StudentAssignments', messages: 'StudentMessages', facilitators: 'StudentCourses', garden: 'StudentGarden', resources: 'StudentResources', profile: 'StudentProfile' } as const;
+      if (!Object.prototype.hasOwnProperty.call(tabs, action)) return;
+      navigationRef.navigate('Student', { screen: 'StudentTabs', params: { screen: tabs[action] } });
+    }
+  };
 
   useEffect(() => {
     if (messages.length > 0) scrollToEnd();
@@ -219,7 +251,7 @@ export function AssistantBubble() {
       )}
 
       {!hidden && (
-        <Modal visible={open} transparent animationType="fade" onRequestClose={closeChat}>
+        <Modal visible={open && captureReady} transparent animationType="fade" onRequestClose={closeChat}>
           <View style={styles.modalOverlay}>
             <Pressable testID="sparty-backdrop" style={StyleSheet.absoluteFillObject}
               accessibilityRole="button" accessibilityLabel="Close Sparty" onPress={closeChat} />
@@ -228,16 +260,14 @@ export function AssistantBubble() {
               <View style={[styles.chatViewport, {
                 paddingTop: Math.max(16, insets.top), paddingBottom: Math.max(16, insets.bottom),
               }]} pointerEvents="box-none">
-            <View testID="sparty-chat-card" style={[styles.chatCard, { width: chatWidth, height: CHAT_HEIGHT }]}>
+            <View testID="sparty-chat-card" style={[styles.chatCard, { width: chatWidth, height: Math.min(620, Math.max(180, height - insets.top - insets.bottom - 32)) }]}>
               <View style={styles.chatHeader}>
                 <Image
                   source={require('../../../../assets/floating-assistant-icon.png')}
                   style={styles.chatAvatar}
                 />
-                <Text style={styles.chatTitle}>Sparty</Text>
-                <Text style={styles.chatClose} onPress={closeChat}>
-                  ✕
-                </Text>
+                <View style={{ flex: 1 }}><Text style={styles.chatTitle}>Sparty</Text><Text style={styles.availability}>{owner ? 'System help available · AI off' : 'Sign in required · AI off'}</Text></View>
+                <Pressable accessibilityRole="button" accessibilityLabel="Close Sparty" style={styles.closeTarget} onPress={closeChat}><Feather name="x" color="#FFFFFF" size={22} /></Pressable>
               </View>
 
               <View style={styles.chatAvoidArea}>
@@ -271,10 +301,11 @@ export function AssistantBubble() {
                       <Text style={m.role === 'user' ? styles.userText : styles.assistantText}>
                         {m.text}
                       </Text>
+                      {m.actions?.map(action => <Pressable key={action} accessibilityRole="button" style={styles.question} onPress={() => follow(action)}><Text style={styles.questionText}>Open {action === 'forest' ? 'My Forest / History' : action} →</Text></Pressable>)}
                     </View>
                   </View>
                 ))}
-                {chatOwner === owner && loading && (
+                {chatOwner === session && loading && (
                   <View style={styles.assistantRow}>
                     <Image
                       source={require('../../../../assets/floating-assistant-icon.png')}
@@ -285,11 +316,17 @@ export function AssistantBubble() {
                     </View>
                   </View>
                 )}
+                {!!owner && <View style={styles.suggestions}>
+                  <Text style={styles.suggestionTitle}>{category === null ? 'What would you like help with?' : ASSISTANT_CATEGORIES[category].title}</Text>
+                  {category !== null && <Pressable accessibilityRole="button" style={styles.question} onPress={() => setCategory(null)}><Text style={styles.questionText}>‹ All topics</Text></Pressable>}
+                  {category === null ? ASSISTANT_CATEGORIES.map((c, index) => <Pressable key={c.title} accessibilityRole="button" style={styles.question} onPress={() => setCategory(index)}><Text style={styles.questionText}>{c.title} ›</Text></Pressable>) : ASSISTANT_CATEGORIES[category].questions.map(question => <Pressable key={question} accessibilityRole="button" accessibilityState={{ disabled: loading }} disabled={loading} style={styles.question} onPress={() => void send(question)}><Text style={styles.questionText}>{question}</Text></Pressable>)}
+                </View>}
               </ScrollView>
 
-              {chatOwner === owner && banner && (
+              {chatOwner === session && banner && (
                 <View style={styles.chatBanner}>
                   <Text style={styles.chatBannerText}>{banner}</Text>
+                  {!!retry && <Pressable accessibilityRole="button" style={styles.question} disabled={loading} onPress={() => void send(retry)}><Text style={styles.questionText}>Retry question</Text></Pressable>}
                 </View>
               )}
 
@@ -298,17 +335,17 @@ export function AssistantBubble() {
                   // Deterministic system help only; no Gemini request or personal chat write.
                   editable
                   style={styles.chatInput}
-                  value={chatOwner === owner ? input : ''}
+                  value={chatOwner === session ? input : ''}
                   onChangeText={setInput}
                   onFocus={() => { inputFocusedRef.current = true; scrollToEnd(); }}
                   onBlur={() => { inputFocusedRef.current = false; }}
-                  placeholder="Ask me anything…"
+                  placeholder="Ask about Spartan-G…"
                   placeholderTextColor={lightColors.textMuted}
                   multiline
                   maxLength={SYSTEM_ASSISTANT_MAX_INPUT}
                   accessibilityLabel="Message Sparty"
                 />
-                <TouchableOpacity style={styles.sendButton} onPress={send} activeOpacity={0.7}
+                <TouchableOpacity style={styles.sendButton} onPress={() => void send()} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityLabel="Send message to Sparty"
                   disabled={!owner || loading || !input.trim()} accessibilityState={{ disabled: !owner || loading || !input.trim() }}>
                   <Feather name="send" size={20} color={palette.white} />
@@ -407,7 +444,7 @@ const styles = StyleSheet.create({
   chatBody: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFAF5',
     paddingHorizontal: 8,
   },
   chatEmpty: {
@@ -492,4 +529,10 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     paddingVertical: 4,
   },
+  availability: { color: '#FFE4E6', fontSize: 11, marginTop: 2 },
+  closeTarget: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  suggestions: { margin: 8, gap: 6, paddingBottom: 12 },
+  suggestionTitle: { color: '#5C2430', fontWeight: '600', fontSize: 14, marginBottom: 3 },
+  question: { minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#FDECEF', justifyContent: 'center', marginTop: 4 },
+  questionText: { color: '#981C34', fontSize: 13, lineHeight: 19 },
 });

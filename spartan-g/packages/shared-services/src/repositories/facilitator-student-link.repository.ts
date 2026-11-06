@@ -30,11 +30,11 @@ class FacilitatorStudentLinkRepository extends BaseRepository<FacilitatorStudent
   }
 
   async getAcceptedLinks(facilitatorId: string) {
-    return this.getAll([
+    const records=await this.getAll([
       where('facilitatorId', '==', facilitatorId),
       where('status', '==', 'accepted'),
-      orderBy('requestedAt', 'desc'),
     ]);
+    return records.sort((a,b)=>(b.requestedAt?.toMillis?.()??0)-(a.requestedAt?.toMillis?.()??0));
   }
 
   async findLink(facilitatorId: string, studentId: string) {

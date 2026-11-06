@@ -31,8 +31,8 @@ class AssessmentAttemptRepository extends BaseRepository<AssessmentAttemptDocume
       ]);
       return results[0] ?? null;
     } catch (err) {
-      console.error('[getInProgressAttempt] query failed:', err);
-      return null;
+      // A failed read is never evidence that creating a new draft is safe.
+      throw err;
     }
   }
 }

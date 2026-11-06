@@ -1,402 +1,60 @@
-import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Modal,
-} from 'react-native';
+﻿import { useRef, useState } from 'react';
+import { View, Text, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useAuthStore, appointmentService, userService, pushNotificationService } from '@spartan-g/shared-services';
 import type { AppointmentDocument } from '@spartan-g/shared-types';
-import { lightColors, formatDateTime } from '@spartan-g/shared-ui';
-
-function getAppointmentPushTitle(action: string): string | null {
-  switch (action) {
-    case 'accept': return 'Appointment Accepted';
-    case 'complete': return 'Appointment Completed';
-    case 'no-show': return 'Appointment Update';
-    case 'cancel': return 'Appointment Cancelled';
-    default: return null;
-  }
+import { useFacilitatorResource } from './useFacilitatorResource';
+import { appointmentGroups, recordDate } from './facilitator-presentation';
+import { PortalPage, PortalCard, PortalAction, IconTile, SectionHeading, FilterPills, StudentPageNotice, portalStyles as s, colors } from './FacilitatorPageDesign';
+type Appointment=AppointmentDocument&{id:string};
+const labels:Record<string,string>={requested:'Requested',accepted:'Accepted',completed:'Completed',cancelled:'Cancelled',rejected:'Rejected',no_show:'No Show',reschedule_requested:'Reschedule requested'};
+export function AppointmentsScreen(){
+ const r=useFacilitatorResource(async actor=>{
+  const rows=(await appointmentService.getAppointments(actor.uid,actor.role)).filter(a=>a.facilitatorId===actor.uid),names:Record<string,string>={};
+  for(const a of rows){if(useAuthStore.getState().session!==actor)throw Error('Session changed');if(!names[a.studentId])try{const user=await userService.getUser(a.studentId);if(user)names[a.studentId]=user.displayName||'Student';}catch{/* Existing authorized appointment remains visible without a profile lookup. */}}
+  return {rows,names};
+ },'Appointments could not be loaded. Check your staff permissions and connection.');
+ const [filter,setFilter]=useState('All'),[busy,setBusy]=useState(false),[actionError,setActionError]=useState<string|null>(null),locked=useRef(false);
+ const [selected,setSelected]=useState<Appointment|null>(null),[selectedOwner,setSelectedOwner]=useState(r.session),[modal,setModal]=useState<'complete'|'notes'|null>(null),[outcomeNotes,setOutcomeNotes]=useState('');
+ const open=(a:Appointment,kind:'complete'|'notes')=>{if(!r.isCurrent()||locked.current)return;setSelected(a);setSelectedOwner(r.session);setOutcomeNotes('');setModal(kind);};
+ const handleAction=async(action:'accept'|'complete'|'no-show'|'cancel',a:Appointment)=>{
+  if(!r.isCurrent()||!r.session||!r.data||locked.current||a.facilitatorId!==r.session.uid||!r.data.rows.some(x=>x.id===a.id))return;
+  if(action==='accept'?a.status!=='requested':a.status!=='accepted')return;
+  if(action==='complete'&&!outcomeNotes.trim())return;
+  const actor=r.session;locked.current=true;setBusy(true);setActionError(null);
+  try{
+   if(action==='accept')await appointmentService.acceptAppointment(a.id,actor.uid,actor.role);
+   else if(action==='complete')await appointmentService.completeAppointment(a.id,actor.uid,outcomeNotes,actor.role);
+   else if(action==='no-show')await appointmentService.markNoShow(a.id,actor.uid,actor.role);
+   else await appointmentService.cancelAppointment(a.id,actor.role,actor.uid);
+   if(useAuthStore.getState().session!==actor)return;
+   setModal(null);setSelected(null);setOutcomeNotes('');
+   // Preserve the established best-effort push operation after the existing service succeeds.
+   const studentName=r.data.names[a.studentId]??'Student';
+   const title=action==='accept'?'Appointment Accepted':action==='complete'?'Appointment Completed':action==='no-show'?'Appointment Update':'Appointment Cancelled';
+   const body=action==='accept'?'Your appointment with '+studentName+' has been accepted.':action==='complete'?'Your appointment with '+studentName+' has been completed.':action==='no-show'?'You were marked as no-show for your appointment with '+studentName+'.':'Your appointment with '+studentName+' has been cancelled.';
+   pushNotificationService.sendPushToRecipient(a.studentId,title,body,{url:'spartan-g://student/home'}).catch(()=>{});
+   await r.reload();
+  }catch{if(useAuthStore.getState().session===actor)setActionError('The appointment action could not be fully confirmed. It may already have saved. Reload before retrying; check your connection and permissions.');}
+  finally{locked.current=false;setBusy(false);}
+ };
+ const confirm=(action:'no-show'|'cancel',a:Appointment)=>Alert.alert(action==='cancel'?'Cancel appointment?':'Mark as no-show?','Confirm this appointment status change.',[{text:'No',style:'cancel'},{text:'Confirm',style:'destructive',onPress:()=>void handleAction(action,a)}]);
+ const groups=r.data?appointmentGroups(r.data.rows):null;
+ const card=(a:Appointment)=>{const d=recordDate(a.scheduledAt),end=d?new Date(d.getTime()+a.durationMinutes*60000):null;return <PortalCard key={a.id}><View style={[s.row,{alignItems:'flex-start'}]}><View style={{width:55,borderRadius:15,backgroundColor:'#FFF0F2',padding:8,alignItems:'center',gap:2}}><Text style={{color:colors.crimson,fontSize:12}}>{d?.toLocaleDateString('en-US',{month:'short'}).toUpperCase()||'—'}</Text><Text style={{color:colors.crimson,fontWeight:'800',fontSize:26}}>{d?.getDate()??'—'}</Text><Text style={s.small}>{d?.getFullYear()??''}</Text></View><View style={{flex:1,gap:8}}><Text style={s.name}>{r.data?.names[a.studentId]||'Student'}</Text><Text style={{color:a.status==='accepted'?'#4936CB':a.status==='completed'?'#00833F':colors.crimson,fontWeight:'600',fontSize:13}}>{labels[a.status]||'Status unavailable'}</Text><Text style={s.small}>{d&&end?d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+' – '+end.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Date unavailable'} ({a.durationMinutes} minutes)</Text></View></View>
+  {!!a.notes&&<Text style={s.text}>Note: {a.notes}</Text>}{!!a.outcomeNotes&&<Text style={s.text}>Outcome: {a.outcomeNotes}</Text>}
+  <View style={[s.row,{flexWrap:'wrap'}]}>{a.status==='requested'&&<><PortalAction testID={'appointment-accept-'+a.id} title="Accept" disabled={busy} filled onPress={()=>void handleAction('accept',a)}/><PortalAction title="Reject unavailable" disabled onPress={()=>{}}/></>}{a.status==='accepted'&&<><PortalAction testID={'appointment-complete-'+a.id} title="Complete" disabled={busy} filled onPress={()=>open(a,'complete')}/><PortalAction testID={'appointment-noshow-'+a.id} title="No Show" disabled={busy} onPress={()=>confirm('no-show',a)}/><PortalAction testID={'appointment-cancel-'+a.id} title="Cancel" disabled={busy} onPress={()=>confirm('cancel',a)}/></>}<PortalAction testID={'appointment-notes-'+a.id} title="Notes" icon="file-text" disabled={busy} onPress={()=>open(a,'notes')}/></View>
+ </PortalCard>;};
+ const section=(title:string,items:Appointment[],icon:'users'|'calendar'|'clock')=><PortalCard art={!items.length?'inbox':undefined}><SectionHeading title={title+' ('+items.length+')'} icon={icon}/>{items.length?items.map(card):<Text style={s.text}>{icon==='users'?'No pending appointment requests.':icon==='calendar'?'No upcoming appointments.':'No appointment history.'}</Text>}</PortalCard>;
+ return <PortalPage title="Appointments" subtitle="Manage requests, upcoming sessions, and history.">
+  {!r.authorized?<StudentPageNotice title="Sign in with an authorized staff account"/>:r.loading?<StudentPageNotice title="Loading appointments..." loading/>:r.error?<StudentPageNotice title="Appointments unavailable" message={r.error} onRetry={()=>void r.reload()}/>:groups&&<>
+   <View style={s.grid}>{[{name:'Upcoming',count:groups.upcoming.length,icon:'calendar' as const},{name:'Requests',count:groups.requests.length,icon:'clock' as const},{name:'Completed',count:groups.completed.length,icon:'file-text' as const}].map(x=><View key={x.name} style={[s.card,{flex:1,minWidth:94,padding:10}]}><IconTile icon={x.icon} small/><Text style={s.name}>{x.count}</Text><Text style={s.small}>{x.name}</Text></View>)}</View>
+   <FilterPills values={['All','Requests','Upcoming','History']} value={filter} onChange={setFilter}/>
+   <Text style={s.small}>Reject is unavailable in this build. Past accepted sessions remain in History.</Text>
+   {!!actionError&&<Text style={s.error} accessibilityLiveRegion="polite">{actionError}</Text>}
+   {(filter==='All'||filter==='Requests')&&section('Appointment Requests',groups.requests,'users')}
+   {(filter==='All'||filter==='Upcoming')&&section('Upcoming',groups.upcoming,'calendar')}
+   {(filter==='All'||filter==='History')&&section('History',groups.history,'clock')}
+   <PortalAction title="Reload appointments" disabled={busy} icon="refresh-cw" onPress={()=>void r.reload()}/>
+  </>}
+  <Modal visible={!!modal&&selectedOwner===r.session&&r.authorized} transparent animationType="fade" onRequestClose={()=>{if(!locked.current)setModal(null);}}><KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{flex:1,justifyContent:'center',padding:20,backgroundColor:'#20131C77'}}><View style={[s.card,{maxHeight:'85%'}]}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{gap:14}}><Text style={s.sectionTitle}>{modal==='complete'?'Complete Appointment':'Recorded Facilitator Notes'}</Text>{modal==='complete'?<TextInput testID="appointment-outcome" accessibilityLabel="Outcome notes" multiline value={outcomeNotes} onChangeText={setOutcomeNotes} placeholder="Enter outcome notes..." style={{minHeight:110,borderWidth:1,borderColor:'#E0D6DD',borderRadius:12,padding:13,color:colors.ink,textAlignVertical:'top'}}/>:<><Text style={s.text}>{selected?.facilitatorNotes||'No saved facilitator notes.'}</Text><Text style={s.small}>Read-only. Changes to facilitator notes cannot be saved in this build.</Text></>}{!!actionError&&<Text style={s.error}>{actionError}</Text>}<View style={[s.row,{flexWrap:'wrap'}]}><PortalAction title={modal==='complete'?'Cancel':'Close'} disabled={busy} onPress={()=>setModal(null)}/>{modal==='complete'&&<PortalAction testID="appointment-confirm-complete" title={busy?'Completing...':'Complete'} disabled={busy||!outcomeNotes.trim()} filled onPress={()=>{if(selected)void handleAction('complete',selected);}}/>}</View></ScrollView></View></KeyboardAvoidingView></Modal>
+ </PortalPage>;
 }
-
-function getAppointmentPushBody(action: string, studentName: string): string | null {
-  switch (action) {
-    case 'accept': return `Your appointment with ${studentName} has been accepted.`;
-    case 'complete': return `Your appointment with ${studentName} has been completed.`;
-    case 'no-show': return `You were marked as no-show for your appointment with ${studentName}.`;
-    case 'cancel': return `Your appointment with ${studentName} has been cancelled.`;
-    default: return null;
-  }
-}
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'requested': return '#92400E';
-    case 'accepted': return '#4338CA';
-    case 'completed': return '#16A34A';
-    case 'cancelled': return '#B91C1C';
-    case 'rejected': return '#475569';
-    case 'no_show': return '#6D28D9';
-    default: return lightColors.textSecondary;
-  }
-}
-
-function getStatusBg(status: string): string {
-  switch (status) {
-    case 'requested': return '#FEF3C7';
-    case 'accepted': return '#EEF2FF';
-    case 'completed': return '#DCFCE7';
-    case 'cancelled': return '#FEE2E2';
-    case 'rejected': return '#F1F5F9';
-    case 'no_show': return '#F3E8FF';
-    default: return lightColors.neutralBackground;
-  }
-}
-
-export function AppointmentsScreen() {
-  const session = useAuthStore((s) => s.session);
-
-  const [appointments, setAppointments] = useState<(AppointmentDocument & { id: string })[]>([]);
-  const [studentNames, setStudentNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [selectedAppointment, setSelectedAppointment] = useState<(AppointmentDocument & { id: string }) | null>(null);
-  const [outcomeNotes, setOutcomeNotes] = useState('');
-  const [facilitatorNotes, setFacilitatorNotes] = useState('');
-  const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [showNotesModal, setShowNotesModal] = useState(false);
-
-  const loadAppointments = useCallback(async () => {
-    if (!session) return;
-    try {
-      const data = await appointmentService.getAppointments(session.uid, session.role);
-      setAppointments(data);
-
-      const names: Record<string, string> = {};
-      for (const apt of data) {
-        if (!names[apt.studentId]) {
-          try {
-            const userDoc = await userService.getUser(apt.studentId);
-            if (userDoc) names[apt.studentId] = userDoc.displayName || 'Unknown Student';
-          } catch { /* ignore */ }
-        }
-      }
-      setStudentNames(names);
-    } catch (error) {
-      console.error('Failed to load appointments:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    loadAppointments();
-  }, [loadAppointments]);
-
-  const handleAction = useCallback(async (action: string, appointmentId: string) => {
-    if (!session) return;
-    setActionLoading(appointmentId);
-    let aptStudentId: string | null = null;
-    try {
-      switch (action) {
-        case 'accept': {
-          const apt = appointments.find(a => a.id === appointmentId);
-          aptStudentId = apt?.studentId ?? null;
-          await appointmentService.acceptAppointment(appointmentId, session.uid, session.role);
-          break;
-        }
-        case 'reject':
-          await appointmentService.rejectAppointment(appointmentId, session.uid, session.role);
-          break;
-        case 'complete': {
-          const apt = selectedAppointment;
-          aptStudentId = apt?.studentId ?? null;
-          if (!outcomeNotes.trim()) return;
-          await appointmentService.completeAppointment(appointmentId, session.uid, outcomeNotes, session.role);
-          setOutcomeNotes('');
-          setShowCompleteModal(false);
-          setSelectedAppointment(null);
-          break;
-        }
-        case 'no-show': {
-          const apt = appointments.find(a => a.id === appointmentId);
-          aptStudentId = apt?.studentId ?? null;
-          await appointmentService.markNoShow(appointmentId, session.uid, session.role);
-          break;
-        }
-        case 'cancel': {
-          const apt = appointments.find(a => a.id === appointmentId);
-          aptStudentId = apt?.studentId ?? null;
-          await appointmentService.cancelAppointment(appointmentId, session.role, session.uid);
-          break;
-        }
-      }
-      await loadAppointments();
-
-      // Send push notification to student (non-blocking)
-      if (aptStudentId) {
-        const pushTitle = getAppointmentPushTitle(action);
-        const pushBody = getAppointmentPushBody(action, studentNames[aptStudentId] ?? 'Student');
-        if (pushTitle && pushBody) {
-          pushNotificationService.sendPushToRecipient(
-            aptStudentId,
-            pushTitle,
-            pushBody,
-            { url: 'spartan-g://student/home' },
-          ).catch(() => { /* Intentionally swallowed */ });
-        }
-      }
-    } catch (error) {
-      console.error(`Failed to ${action} appointment:`, error);
-    } finally {
-      setActionLoading(null);
-    }
-  }, [session, outcomeNotes, loadAppointments, appointments, selectedAppointment, studentNames]);
-
-  if (isLoading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={lightColors.primary} />
-        <Text style={styles.loadingText}>Loading appointments...</Text>
-      </View>
-    );
-  }
-
-  const pendingRequests = appointments.filter(a => a.status === 'requested');
-  const upcoming = appointments.filter(a => a.status === 'accepted');
-  const history = appointments.filter(a => ['completed', 'cancelled', 'rejected', 'no_show'].includes(a.status));
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Pending Requests */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Appointment Requests ({pendingRequests.length})</Text>
-        {pendingRequests.length === 0 ? (
-          <Text style={styles.emptyText}>No pending appointment requests.</Text>
-        ) : (
-          <View style={styles.appointmentList}>
-            {pendingRequests.map(apt => (
-              <View key={apt.id} style={styles.appointmentCard}>
-                <View style={styles.appointmentHeader}>
-                  <View>
-                    <Text style={styles.studentName}>{studentNames[apt.studentId] || 'Student'}</Text>
-                    <Text style={styles.appointmentTime}>{formatDateTime(apt.scheduledAt)}</Text>
-                    <Text style={styles.appointmentDuration}>{apt.durationMinutes} minutes</Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusBg(apt.status) }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(apt.status) }]}>
-                      {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
-                    </Text>
-                  </View>
-                </View>
-                {apt.notes && (
-                  <Text style={styles.notesText}>"{apt.notes}"</Text>
-                )}
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    onPress={() => handleAction('accept', apt.id)}
-                    disabled={actionLoading === apt.id}
-                    style={[styles.actionButton, { backgroundColor: lightColors.successText }]}
-                  >
-                    <Text style={styles.actionButtonText}>Accept</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleAction('reject', apt.id)}
-                    disabled={actionLoading === apt.id}
-                    style={[styles.actionButton, { backgroundColor: lightColors.error }]}
-                  >
-                    <Text style={styles.actionButtonText}>Reject</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
-                    style={[styles.actionButton, { backgroundColor: lightColors.surface, borderWidth: 1, borderColor: lightColors.border }]}
-                  >
-                    <Text style={[styles.actionButtonText, { color: lightColors.textSecondary }]}>Notes</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Upcoming */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Upcoming ({upcoming.length})</Text>
-        {upcoming.length === 0 ? (
-          <Text style={styles.emptyText}>No upcoming appointments.</Text>
-        ) : (
-          <View style={styles.appointmentList}>
-            {upcoming.map(apt => (
-              <View key={apt.id} style={styles.appointmentCard}>
-                <View style={styles.appointmentHeader}>
-                  <View>
-                    <Text style={styles.studentName}>{studentNames[apt.studentId] || 'Student'}</Text>
-                    <Text style={styles.appointmentTime}>{formatDateTime(apt.scheduledAt)}</Text>
-                    <Text style={styles.appointmentDuration}>{apt.durationMinutes} minutes</Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusBg(apt.status) }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(apt.status) }]}>
-                      {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    onPress={() => { setSelectedAppointment(apt); setOutcomeNotes(''); setShowCompleteModal(true); }}
-                    style={[styles.actionButton, { backgroundColor: lightColors.infoBadgeText }]}
-                  >
-                    <Text style={styles.actionButtonText}>Complete</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleAction('no-show', apt.id)}
-                    disabled={actionLoading === apt.id}
-                    style={[styles.actionButton, { backgroundColor: '#7C3AED' }]}
-                  >
-                    <Text style={styles.actionButtonText}>No Show</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleAction('cancel', apt.id)}
-                    disabled={actionLoading === apt.id}
-                    style={[styles.actionButton, { backgroundColor: lightColors.textMuted }]}
-                  >
-                    <Text style={styles.actionButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
-                    style={[styles.actionButton, { backgroundColor: lightColors.surface, borderWidth: 1, borderColor: lightColors.border }]}
-                  >
-                    <Text style={[styles.actionButtonText, { color: lightColors.textSecondary }]}>Notes</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* History */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>History</Text>
-        {history.length === 0 ? (
-          <Text style={styles.emptyText}>No appointment history.</Text>
-        ) : (
-          <View style={styles.appointmentList}>
-            {history.map(apt => (
-              <View key={apt.id} style={styles.historyRow}>
-                <View>
-                  <Text style={styles.studentName}>{studentNames[apt.studentId] || 'Student'}</Text>
-                  <Text style={styles.appointmentTime}>{formatDateTime(apt.scheduledAt)}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusBg(apt.status) }]}>
-                  <Text style={[styles.statusText, { color: getStatusColor(apt.status) }]}>
-                    {apt.status === 'no_show' ? 'No Show' : apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Complete Modal */}
-      <Modal visible={showCompleteModal} transparent animationType="fade" onRequestClose={() => { setShowCompleteModal(false); setOutcomeNotes(''); }}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Complete Appointment</Text>
-            <Text style={styles.modalDescription}>
-              Add outcome notes for the appointment with {selectedAppointment ? studentNames[selectedAppointment.studentId] || 'student' : ''}.
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              value={outcomeNotes}
-              onChangeText={setOutcomeNotes}
-              placeholder="Enter outcome notes..."
-              placeholderTextColor={lightColors.textMuted}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                onPress={() => { setShowCompleteModal(false); setOutcomeNotes(''); }}
-                style={[styles.modalButton, { borderWidth: 1, borderColor: lightColors.border }]}
-              >
-                <Text style={[styles.modalButtonText, { color: lightColors.textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => selectedAppointment && handleAction('complete', selectedAppointment.id)}
-                style={[styles.modalButton, { backgroundColor: lightColors.primary }]}
-              >
-                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Complete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Notes Modal */}
-      <Modal visible={showNotesModal} transparent animationType="fade" onRequestClose={() => setShowNotesModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Facilitator Notes</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={facilitatorNotes}
-              onChangeText={setFacilitatorNotes}
-              placeholder="Private notes for this appointment..."
-              placeholderTextColor={lightColors.textMuted}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                onPress={() => setShowNotesModal(false)}
-                style={[styles.modalButton, { borderWidth: 1, borderColor: lightColors.border }]}
-              >
-                <Text style={[styles.modalButtonText, { color: lightColors.textSecondary }]}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </ScrollView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: lightColors.background },
-  contentContainer: { padding: 16, gap: 16, paddingBottom: 40 },
-  centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: lightColors.background, padding: 24, gap: 12 },
-  loadingText: { fontSize: 14, color: lightColors.textSecondary, marginTop: 8 },
-  sectionCard: { backgroundColor: lightColors.surface, borderWidth: 1, borderColor: lightColors.border, borderRadius: 12, padding: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: lightColors.text, marginBottom: 12 },
-  emptyText: { fontSize: 13, color: lightColors.textMuted, fontStyle: 'italic' },
-  appointmentList: { gap: 10 },
-  appointmentCard: { borderWidth: 1, borderColor: lightColors.border, borderRadius: 10, padding: 14 },
-  appointmentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
-  studentName: { fontSize: 14, fontWeight: '600', color: lightColors.text },
-  appointmentTime: { fontSize: 13, color: lightColors.textSecondary, marginTop: 2 },
-  appointmentDuration: { fontSize: 11, color: lightColors.textMuted, marginTop: 1 },
-  statusBadge: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 11, fontWeight: '600' },
-  notesText: { fontSize: 13, color: lightColors.textSecondary, fontStyle: 'italic', marginBottom: 8 },
-  actionRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  actionButton: { borderRadius: 6, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center', justifyContent: 'center', minHeight: 34 },
-  actionButtonText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
-  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: lightColors.border, borderRadius: 8, padding: 12 },
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
-  modalContent: { backgroundColor: lightColors.surface, borderRadius: 16, padding: 20, gap: 14 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: lightColors.text },
-  modalDescription: { fontSize: 14, color: lightColors.textSecondary, lineHeight: 20 },
-  modalInput: { borderWidth: 1, borderColor: lightColors.border, borderRadius: 8, padding: 12, fontSize: 14, color: lightColors.text, backgroundColor: lightColors.background, minHeight: 100, textAlignVertical: 'top' },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  modalButton: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', minHeight: 40 },
-  modalButtonText: { fontSize: 13, fontWeight: '600' },
-});

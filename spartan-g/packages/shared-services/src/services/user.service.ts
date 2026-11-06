@@ -12,6 +12,7 @@ import {
   PermissionError,
 } from '@spartan-g/shared-types';
 import { userRepository, profileRepository } from '../repositories';
+import { assertProfileWritesSupported } from './profile-write-policy';
 
 class UserService {
   async getUser(uid: string) {
@@ -28,6 +29,7 @@ class UserService {
     data: Partial<ProfileDocument>,
     actorUid: string,
   ) {
+    assertProfileWritesSupported();
     const canEditOthers = hasPermission(actorRole, PERMISSIONS.MANAGE_USERS);
     if (uid !== actorUid && !canEditOthers) {
       throw new PermissionError();
@@ -45,6 +47,7 @@ class UserService {
     campus: Campus,
     actorUid: string,
   ): Promise<void> {
+    assertProfileWritesSupported();
     const canEditOthers = hasPermission(actorRole, PERMISSIONS.MANAGE_USERS);
     if (uid !== actorUid && !canEditOthers) {
       throw new PermissionError();
@@ -54,6 +57,7 @@ class UserService {
   }
 
   async uploadAvatar(uid: string, blob: Blob, fileName: string): Promise<string> {
+    assertProfileWritesSupported();
     const storageRef = ref(getFirebaseStorage(), `${STORAGE_PATHS.AVATARS}/${uid}/${fileName}`);
     await uploadBytes(storageRef, blob);
     const url = await getDownloadURL(storageRef);

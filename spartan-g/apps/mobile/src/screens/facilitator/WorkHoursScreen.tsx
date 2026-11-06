@@ -1,340 +1,44 @@
-import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Switch,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+﻿import { useRef, useState } from 'react';
+import { View, Text, Switch } from 'react-native';
 import { useAuthStore, workHoursService } from '@spartan-g/shared-services';
-import type { WorkHoursScheduleDocument } from '@spartan-g/shared-types';
-import { formatWeekRange, startOfWeek } from '@spartan-g/shared-types';
-import { lightColors, formatWorkHours } from '@spartan-g/shared-ui';
+import { formatWeekRange, startOfWeek, weekKey } from '@spartan-g/shared-types';
+import { formatWorkHours } from '@spartan-g/shared-ui';
 import { TimePickerDropdown } from '../../components/TimePickerDropdown';
-
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-export function WorkHoursScreen() {
-  const session = useAuthStore((s) => s.session);
-
-  // Work hours are per-week: this screen always edits the current week only.
-  const currentWeekStart = startOfWeek(new Date());
-
-  const [schedules, setSchedules] = useState<(WorkHoursScheduleDocument & { id: string })[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [editingDay, setEditingDay] = useState<number | null>(null);
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('17:00');
-  const [saving, setSaving] = useState(false);
-  const [toggling, setToggling] = useState<number | null>(null);
-
-  const loadSchedules = useCallback(async () => {
-    if (!session) return;
-    try {
-      const data = await workHoursService.getSchedule(session.uid, session.role);
-      setSchedules(data);
-    } catch (error) {
-      console.error('Failed to load work hours:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    loadSchedules();
-  }, [loadSchedules]);
-
-  const handleToggleDay = useCallback(async (dayOfWeek: number) => {
-    if (!session) return;
-    const existing = schedules.find(s => s.dayOfWeek === dayOfWeek);
-
-    if (existing) {
-      setToggling(dayOfWeek);
-      try {
-        await workHoursService.toggleSchedule(existing.id, !existing.isActive, session.role);
-        await loadSchedules();
-      } catch (error) {
-        console.error('Failed to toggle day:', error);
-      } finally {
-        setToggling(null);
-      }
-    } else {
-      // No schedule exists — set editing mode to create one
-      setEditingDay(dayOfWeek);
-      setStartTime('09:00');
-      setEndTime('17:00');
-    }
-  }, [session, schedules, loadSchedules]);
-
-  const handleSaveTime = useCallback(async (dayOfWeek: number) => {
-    if (!session) return;
-    // Guard against invalid ranges (end before or equal to start).
-    // Lexicographic comparison is valid because times are zero-padded "HH:MM".
-    if (startTime >= endTime) return;
-    setSaving(true);
-    try {
-      const existing = schedules.find(s => s.dayOfWeek === dayOfWeek);
-      if (existing) {
-        await workHoursService.updateScheduleEntry(existing.id, {
-          startTime,
-          endTime,
-          isActive: true,
-        } as Partial<WorkHoursScheduleDocument>, session.role);
-      } else {
-        await workHoursService.createScheduleEntry({
-          facilitatorId: session.uid,
-          dayOfWeek,
-          startTime,
-          endTime,
-        }, session.role);
-      }
-      await loadSchedules();
-      setEditingDay(null);
-    } catch (error) {
-      console.error('Failed to save work hours:', error);
-    } finally {
-      setSaving(false);
-    }
-  }, [session, startTime, endTime, schedules, loadSchedules]);
-
-  const startEdit = useCallback((dayOfWeek: number) => {
-    const existing = schedules.find(s => s.dayOfWeek === dayOfWeek);
-    setStartTime(existing?.startTime || '09:00');
-    setEndTime(existing?.endTime || '17:00');
-    setEditingDay(dayOfWeek);
-  }, [schedules]);
-
-  if (isLoading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={lightColors.primary} />
-        <Text style={styles.loadingText}>Loading work hours...</Text>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Work Hours</Text>
-        <Text style={styles.subtitle}>
-          Hours you set only apply to the current week. Students can book during this week's active hours.
-        </Text>
-        <Text style={styles.weekLabel}>{formatWeekRange(currentWeekStart)}</Text>
-
-        <View style={styles.dayList}>
-          {DAYS.map((day, index) => {
-            const schedule = schedules.find(s => s.dayOfWeek === index);
-            const isActive = schedule?.isActive ?? false;
-            const isEditing = editingDay === index;
-            // Lexicographic compare works for zero-padded "HH:MM" strings.
-            const isValidRange = startTime < endTime;
-
-            return (
-              <View key={index} style={[styles.dayRow, isActive && styles.dayRowActive]}>
-                <View style={styles.dayLeft}>
-                  <Switch
-                    value={isActive}
-                    onValueChange={() => handleToggleDay(index)}
-                    trackColor={{ false: lightColors.border, true: lightColors.primary }}
-                    thumbColor={isActive ? '#FFFFFF' : '#F4F3F4'}
-                    disabled={toggling === index}
-                  />
-                  <Text style={[styles.dayName, !isActive && styles.dayNameInactive]}>
-                    {day}
-                  </Text>
-                </View>
-
-                {isEditing ? (
-                  <View>
-                    <View style={styles.editRow}>
-                      <TimePickerDropdown
-                        value={startTime}
-                        onChange={setStartTime}
-                        title="Start Time"
-                      />
-                      <Text style={styles.timeSeparator}>to</Text>
-                      <TimePickerDropdown
-                        value={endTime}
-                        onChange={setEndTime}
-                        title="End Time"
-                      />
-                      <TouchableOpacity
-                        onPress={() => handleSaveTime(index)}
-                        disabled={saving || !isValidRange}
-                        style={[styles.saveButton, (saving || !isValidRange) && styles.saveButtonDisabled]}
-                      >
-                        <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save'}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setEditingDay(null)}
-                        style={styles.cancelButton}
-                      >
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                      </TouchableOpacity>
-                    </View>
-                    {!isValidRange && (
-                      <Text style={styles.errorText}>End time must be after start time.</Text>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.timeDisplay}>
-                    <Text style={[styles.timeText, !isActive && styles.timeTextInactive]}>
-                      {isActive ? formatWorkHours(schedule?.startTime || '09:00', schedule?.endTime || '17:00') : 'Inactive'}
-                    </Text>
-                    <TouchableOpacity onPress={() => startEdit(index)} style={styles.editLink}>
-                      <Text style={styles.editLinkText}>
-                        {isActive ? 'Edit' : 'Set Hours'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      </View>
-    </ScrollView>
-  );
+import { useFacilitatorResource } from './useFacilitatorResource';
+import { hoursSummary } from './facilitator-presentation';
+import { PortalPage, PortalCard, PortalAction, IconTile, StudentPageNotice, portalStyles as s, colors } from './FacilitatorPageDesign';
+const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+export function WorkHoursScreen(){
+ const r=useFacilitatorResource(async actor=>{const week=startOfWeek(new Date());const rows=await workHoursService.getSchedule(actor.uid,actor.role,week);if(rows.some(x=>x.facilitatorId!==actor.uid))throw Error('Ownership mismatch');return {week,rows};},'Work hours could not be loaded. Check your staff permissions and connection.');
+ const [editingDay,setEditingDay]=useState<number|null>(null),[startTime,setStartTime]=useState('09:00'),[endTime,setEndTime]=useState('17:00');
+ const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),locked=useRef(false);
+ const canWrite=()=>r.isCurrent()&&!!r.data&&weekKey(r.data.week)===weekKey(new Date());
+ const edit=(day:number)=>{if(!canWrite()||locked.current)return;const old=r.data!.rows.find(x=>x.dayOfWeek===day);setEditingDay(day);setStartTime(old?.startTime||'09:00');setEndTime(old?.endTime||'17:00');setError(null);};
+ const mutate=async(day:number,toggle:boolean)=>{
+  if(!canWrite()||!r.session||!r.data||locked.current)return;
+  const actor=r.session,week=r.data.week,existing=r.data.rows.find(x=>x.dayOfWeek===day);
+  if(toggle&&!existing){edit(day);return;}
+  if(!toggle&&(!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)||startTime>=endTime)){setError('End time must be after start time.');return;}
+  locked.current=true;setBusy(true);setError(null);
+  try{
+   if(toggle&&existing)await workHoursService.toggleSchedule(existing.id,!existing.isActive,actor.role);
+   else if(existing)await workHoursService.updateScheduleEntry(existing.id,{startTime,endTime,isActive:true},actor.role);
+   else await workHoursService.createScheduleEntry({facilitatorId:actor.uid,dayOfWeek:day,startTime,endTime,weekStartDate:week},actor.role);
+   if(useAuthStore.getState().session!==actor)return;
+   setEditingDay(null);await r.reload();
+  }catch{if(useAuthStore.getState().session===actor)setError('The schedule change could not be confirmed. Reload before retrying; no unsaved availability is displayed.');}
+  finally{locked.current=false;setBusy(false);}
+ };
+ const stats=r.data?hoursSummary(r.data.rows):null;
+ return <PortalPage title="Work Hours" subtitle="Set your weekly availability for student bookings.">
+  {!r.authorized?<StudentPageNotice title="Sign in with an authorized staff account"/>:r.loading?<StudentPageNotice title="Loading work hours..." loading/>:r.error?<StudentPageNotice title="Work hours unavailable" message={r.error} onRetry={()=>void r.reload()}/>:<>
+   <PortalCard art="calendar"><View style={s.row}><IconTile icon="calendar"/><View style={{flex:1}}><Text style={[s.small,{color:colors.crimson,fontWeight:'700'}]}>CURRENT WEEK ONLY</Text><Text style={s.sectionTitle}>{r.data?formatWeekRange(r.data.week):'Week unavailable'}</Text></View></View><View style={s.grid}><View style={[s.row,{flex:1,minWidth:125}]}><IconTile icon="users" tone="green"/><View><Text style={s.small}>ACTIVE DAYS</Text><Text style={s.name}>{stats?.activeDays??'—'}</Text></View></View><View style={[s.row,{flex:1,minWidth:125}]}><IconTile icon="clock" tone="indigo"/><View><Text style={s.small}>TOTAL HOURS</Text><Text style={s.name}>{stats?.hours==null?'Unavailable':stats.hours+' hrs'}</Text></View></View></View></PortalCard>
+   <Text style={s.small}>Hours apply only to the displayed Monday–Sunday week. They do not repeat into another week. Your saved availability appears after confirmation.</Text>
+   {r.data && !canWrite() && <Text style={s.error}>The week has changed. Reload work hours before editing.</Text>}
+   {!!error&&<Text style={s.error} accessibilityLiveRegion="polite">{error}</Text>}
+   {DAYS.map((name,day)=>{const item=r.data?.rows.find(x=>x.dayOfWeek===day),active=item?.isActive===true;return <PortalCard key={day}><View style={[s.row,{flexWrap:'wrap'}]}><Switch testID={'hours-toggle-'+day} accessibilityLabel={name+' availability'} disabled={busy||!canWrite()} value={active} onValueChange={()=>void mutate(day,true)} trackColor={{true:colors.red,false:'#DCE1E8'}} thumbColor="#FFFFFF"/><View style={{flex:1,minWidth:95}}><Text style={s.name}>{name}</Text><Text style={[s.small,!active&&{fontStyle:'italic'}]}>{active&&item?formatWorkHours(item.startTime,item.endTime):'Inactive'}</Text></View><PortalAction testID={'hours-edit-'+day} title={item?'Edit Hours':'Set Hours'} disabled={busy||!canWrite()} onPress={()=>edit(day)} icon="chevron-right"/></View>
+    {editingDay===day&&<View style={{gap:10}}><View style={[s.row,{flexWrap:'wrap'}]}><TimePickerDropdown title="Start Time" value={startTime} onChange={setStartTime}/><Text style={s.text}>to</Text><TimePickerDropdown title="End Time" value={endTime} onChange={setEndTime}/></View>{startTime>=endTime&&<Text style={s.error}>End time must be after start time.</Text>}<View style={s.row}><PortalAction testID="hours-save" title={busy?'Saving...':'Save'} disabled={busy||startTime>=endTime} filled onPress={()=>void mutate(day,false)}/><PortalAction title="Cancel" disabled={busy} onPress={()=>setEditingDay(null)}/></View></View>}
+   </PortalCard>;})}<PortalAction title="Reload work hours" disabled={busy} icon="refresh-cw" onPress={()=>{setEditingDay(null);void r.reload();}}/>
+  </>}
+ </PortalPage>;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: lightColors.background,
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: lightColors.background,
-    padding: 24,
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-    marginTop: 8,
-  },
-  card: {
-    backgroundColor: lightColors.surface,
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    padding: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: lightColors.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  weekLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: lightColors.textSecondary,
-    marginTop: -12,
-    marginBottom: 16,
-  },
-  dayList: {
-    gap: 8,
-  },
-  dayRow: {
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 10,
-    padding: 12,
-  },
-  dayRowActive: {
-    backgroundColor: lightColors.surface,
-  },
-  dayLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
-  },
-  dayName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: lightColors.text,
-  },
-  dayNameInactive: {
-    color: lightColors.textMuted,
-  },
-  timeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginLeft: 60,
-  },
-  timeText: {
-    fontSize: 14,
-    color: lightColors.textSecondary,
-  },
-  timeTextInactive: {
-    color: lightColors.textMuted,
-    fontStyle: 'italic',
-  },
-  editLink: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  editLinkText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: lightColors.primary,
-  },
-  editRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginLeft: 60,
-    flexWrap: 'wrap',
-  },
-  timeSeparator: {
-    fontSize: 14,
-    color: lightColors.textMuted,
-  },
-  errorText: {
-    fontSize: 12,
-    color: lightColors.error,
-    marginTop: 8,
-    marginLeft: 60,
-  },
-  saveButton: {
-    backgroundColor: lightColors.primary,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  cancelButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  cancelButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: lightColors.textSecondary,
-  },
-});

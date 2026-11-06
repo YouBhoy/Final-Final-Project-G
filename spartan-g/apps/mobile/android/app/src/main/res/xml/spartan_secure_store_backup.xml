@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exclude only SecureStore; all other existing backup domains retain default behavior. -->
+<full-backup-content>
+  <exclude domain="sharedpref" path="SecureStore" />
+  <exclude domain="sharedpref" path="SecureStore.xml" />
+</full-backup-content>

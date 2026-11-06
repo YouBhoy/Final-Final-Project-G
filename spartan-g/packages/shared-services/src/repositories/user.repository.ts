@@ -2,8 +2,20 @@ import { COLLECTIONS } from '@spartan-g/shared-types';
 import { UserDocument } from '@spartan-g/shared-types';
 import { where } from '../firebase/firestore';
 import { BaseRepository } from './base.repository';
+import { facilitatorStudentLinkRepository } from './facilitator-student-link.repository';
 
 class UserRepository extends BaseRepository<UserDocument> {
+  async getAssignedStudents(facilitatorId:string):Promise<(UserDocument&{id:string})[]> {
+    const links=await facilitatorStudentLinkRepository.getAcceptedLinks(facilitatorId), result:(UserDocument&{id:string})[]=[];
+    for(const id of new Set(links.map(link=>link.studentId))) {
+      try{const user=await this.getById(id);if(user?.role==='student'&&user.isActive)result.push(user);}
+      catch(error){const raw=error as {code?:string;cause?:{code?:string}};
+        if(raw.code!=='permission-denied'&&raw.cause?.code!=='permission-denied')throw error;
+        result.push({id,uid:id,displayName:'Assigned student',email:'',role:'student',isActive:true} as UserDocument&{id:string});
+      }
+    }
+    return result;
+  }
   constructor() {
     super(COLLECTIONS.USERS);
   }
