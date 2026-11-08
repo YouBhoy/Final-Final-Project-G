@@ -8,6 +8,7 @@ import {
   Gender,
 } from '@spartan-g/shared-types';
 import type { Campus } from '@spartan-g/shared-types';
+import { CampusCombobox } from '../../components/ui/CampusCombobox';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -218,30 +219,13 @@ export function StudentFindFacilitatorPage() {
         />
       </div>
 
-      {/* Campus selection */}
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[{ key: 'all', label: 'All Campuses', location: 'View everyone' }, ...campuses].map((c) => {
-          const active = campusFilter === c.key;
-          return (
-            <button
-              key={c.key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setCampusFilter(c.key as Campus | 'all')}
-              className={`flex h-full flex-col justify-center rounded-[var(--radius-md)] px-4 py-3 text-left transition-colors ${
-                active
-                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                  : 'bg-[var(--color-bg-alt)] text-[var(--color-text)] hover:bg-[var(--color-primary-pastel)]'
-              }`}
-            >
-              <span className="break-words text-sm font-semibold leading-snug">{c.label}</span>
-              <span className={`mt-1 text-xs ${active ? 'text-white/80' : 'text-[var(--color-text-muted)]'}`}>
-                {c.location}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Campus selection: type to filter the list */}
+      <CampusCombobox
+        label="Campus"
+        options={[{ key: 'all', label: 'All Campuses' }, ...campuses]}
+        value={campusFilter}
+        onChange={(key) => setCampusFilter(key as Campus | 'all')}
+      />
 
       {facilitators.length > 0 && (
         <p className="mb-4 text-sm font-medium text-[var(--color-text-secondary)]" aria-live="polite">

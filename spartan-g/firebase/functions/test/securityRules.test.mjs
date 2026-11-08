@@ -56,6 +56,52 @@ test('message create permits participants and rejects outsiders, inactive accoun
   for (const body of ['', 'x'.repeat(4001), 123]) check(await send(ids.student,{ body }),403);
   check(await send(ids.student,{},[]),403);
 });
+test('message status only moves forward and only the recipient may advance it', async () => {
+  const ids = await setup(), path = `messages/${ids.conversation}_status_${++sequence}`;
+  const seed = { senderId: ids.student, conversationId: ids.conversation, body: 'Synthetic message', status: 'sent', readBy: [ids.student] };
+  check(await write('owner', path, seed), 200);
+  const stamp = ['deliveredAt', 'updatedAt'];
+  // The sender, outsiders and inactive accounts cannot mark their own or others' messages.
+  check(await write(ids.student, path, { status: 'delivered' }, true, stamp), 403);
+  check(await write(ids.outsider, path, { status: 'delivered' }, true, stamp), 403);
+  check(await write(ids.disabled, path, { status: 'delivered' }, true, stamp), 403);
+  // The recipient may record delivery once; a repeated delivery write is rejected (idempotent for clients).
+  check(await write(ids.facilitator, path, { status: 'delivered' }, true, stamp), 200);
+  check(await write(ids.facilitator, path, { status: 'delivered' }, true, stamp), 403);
+  // Other fields stay immutable.
+  check(await write(ids.facilitator, path, { body: 'edited' }, true, ['updatedAt']), 403);
+  // Reading needs status "read" with readAt, and the recipient in readBy.
+  check(await write(ids.facilitator, path, { status: 'delivered' }, true, ['readAt', 'updatedAt']), 403);
+  check(await write(ids.facilitator, path, { status: 'read', readBy: [ids.student, ids.facilitator] }, true, ['readAt', 'updatedAt']), 200);
+  // Never downgrade, and a stored status cannot be a client-only value.
+  check(await write(ids.facilitator, path, { status: 'delivered' }, true, ['updatedAt']), 403);
+  check(await write(ids.facilitator, path, { status: 'sending' }, true, ['updatedAt']), 403);
+});
+test('new messages cannot arrive pre-delivered or pre-read', async () => {
+  const ids = await setup();
+  const data = { senderId: ids.student, conversationId: ids.conversation, body: 'Synthetic message' };
+  const send = (changes = {}, times = ['createdAt', 'updatedAt']) => write(ids.student, `messages/${ids.conversation}_new_${++sequence}`, { ...data, ...changes }, false, times);
+  check(await send({ status: 'sent' }), 200);
+  check(await send({ status: 'read' }), 403);
+  check(await send({ status: 'delivered' }), 403);
+  check(await send({}, ['createdAt', 'updatedAt', 'deliveredAt']), 403);
+  check(await send({}, ['createdAt', 'updatedAt', 'readAt']), 403);
+});
+test('the conversation list status of the last message follows the same one-way rules', async () => {
+  const ids = await setup(), path = `conversations/${ids.conversation}`;
+  check(await write('owner', path, { lastMessageId: 'm1', lastMessageSenderId: ids.student, lastMessageStatus: 'sent' }, true), 200);
+  check(await write(ids.student, path, { lastMessageStatus: 'delivered' }, true), 403); // sender cannot advance it
+  check(await write(ids.outsider, path, { lastMessageStatus: 'delivered' }, true), 403);
+  check(await write(ids.facilitator, path, { lastMessageStatus: 'delivered' }, true), 200);
+  check(await write(ids.facilitator, path, { lastMessageStatus: 'read' }, true), 200);
+  check(await write(ids.facilitator, path, { lastMessageStatus: 'delivered' }, true), 403); // no downgrade
+  check(await write(ids.facilitator, path, { lastMessageStatus: 'sent' }, true), 403);
+  // A new send by the other participant resets it to "sent" together with the new last message.
+  check(await write(ids.facilitator, path, { lastMessageId: 'm2', lastMessageSenderId: ids.facilitator, lastMessageStatus: 'sent' }, true), 200);
+  // ...but nobody can reset it without sending (new id) or on someone else's behalf.
+  check(await write(ids.student, path, { lastMessageStatus: 'read' }, true), 200);
+  check(await write(ids.student, path, { lastMessageStatus: 'sent' }, true), 403);
+});
 test('device tokens cannot be taken over or rewritten by inactive users', async () => {
   const ids = await setup(), path = `device_tokens/${ids.student}_web`;
   check(await write(ids.student,path,{ uid: ids.student, token: 'synthetic-token' }),200);

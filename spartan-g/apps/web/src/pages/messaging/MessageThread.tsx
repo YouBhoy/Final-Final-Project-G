@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { messagingService } from '@spartan-g/shared-services';
 import { MessageBubble } from '../../components/messaging/MessageBubble';
+import { DateSeparator } from '../../components/messaging/DateSeparator';
 import { MessageInput } from '../../components/messaging/MessageInput';
+import { buildThreadItems, type PendingMessage } from '../../lib/messageStatus';
 import { useAuth } from '../../hooks/useAuth';
 import { useMessageIdentityConfirmation } from '../../hooks/useMessageIdentityConfirmation';
 import { MessageDocument } from '@spartan-g/shared-types';
@@ -11,10 +13,19 @@ interface MessageThreadProps {
   participantId: string;
 }
 
+/** True while this tab is visible and focused, so incoming messages are really on screen. */
+function isConversationInView() {
+  if (typeof document === 'undefined') return true;
+  return document.visibilityState === 'visible' && (typeof document.hasFocus !== 'function' || document.hasFocus());
+}
+
+let pendingCounter = 0;
+
 export function MessageThread({ conversationId, participantId }: MessageThreadProps) {
   const [messages, setMessages] = useState<(MessageDocument & { id: string })[]>([]);
+  const [pending, setPending] = useState<PendingMessage[]>([]);
+  const [isViewing, setIsViewing] = useState(isConversationInView);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [subscriptionKey, setSubscriptionKey] = useState(0);
@@ -22,20 +33,55 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
   const { user } = useAuth();
   const { requestConfirmation, confirmation } = useMessageIdentityConfirmation(conversationId, participantId);
   const markedMessageIdsRef = useRef<Set<string>>(new Set());
+  const activeConversationRef = useRef(conversationId);
+  activeConversationRef.current = conversationId;
+  const stickToBottomRef = useRef(true);
+
+  // Track tab visibility/focus: messages are only marked read while they can actually be seen.
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    const update = () => setIsViewing(isConversationInView());
+    document.addEventListener('visibilitychange', update);
+    window.addEventListener('focus', update);
+    window.addEventListener('blur', update);
+    return () => {
+      document.removeEventListener('visibilitychange', update);
+      window.removeEventListener('focus', update);
+      window.removeEventListener('blur', update);
+    };
+  }, []);
 
   useEffect(() => {
     markedMessageIdsRef.current.clear();
     setMessages([]);
+    setPending([]);
+    stickToBottomRef.current = true;
     setIsLoading(true);
     setError(null);
     setSendError(null);
   }, [conversationId]);
 
-  // Keep the newest message in view.
-  useEffect(() => {
+  const items = useMemo(
+    () => buildThreadItems(messages, pending, user?.uid),
+    [messages, pending, user?.uid],
+  );
+
+  // Open at the newest message, and follow new ones: always for my own sends, and for
+  // incoming messages only while the reader is already near the bottom.
+  const handleScroll = () => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length, isLoading]);
+    if (el) stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  };
+  const lastItem = items[items.length - 1];
+  const lastItemKey = lastItem ? lastItem.key : '';
+  const lastItemIsOwn = lastItem?.kind === 'message' && lastItem.own;
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el && (stickToBottomRef.current || lastItemIsOwn)) {
+      el.scrollTop = el.scrollHeight;
+      stickToBottomRef.current = true;
+    }
+  }, [lastItemKey, lastItemIsOwn, isLoading, conversationId]);
 
   useEffect(() => {
     if (!user) {
@@ -58,10 +104,6 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
       },
     );
 
-    void messagingService.markConversationAsRead(conversationId, user.uid, user.role).catch((readError) => {
-      console.error('Failed to mark conversation as read:', readError);
-    });
-
     return () => {
       if (unsubscribe) {
         unsubscribe();
@@ -69,8 +111,16 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
     };
   }, [conversationId, subscriptionKey, user?.role, user?.uid]);
 
+  // Opening the conversation resets its unread badge, but only while it is actually in view.
   useEffect(() => {
-    if (!user || isLoading) {
+    if (!user || !isViewing) return;
+    void messagingService.markConversationAsRead(conversationId, user.uid, user.role).catch((readError) => {
+      console.error('Failed to mark conversation as read:', readError);
+    });
+  }, [conversationId, isViewing, user?.role, user?.uid]);
+
+  useEffect(() => {
+    if (!user || isLoading || !isViewing) {
       return;
     }
 
@@ -91,34 +141,72 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
 
     void Promise.all(
       unreadMessages.map((message) => messagingService.markMessageAsRead(message.id, user.uid, user.role)),
-    ).catch((readError) => {
+    ).then(() => {
+      // Messages that arrive while the chat is open must also clear the list badge.
+      if (activeConversationRef.current === conversationId) {
+        return messagingService.markConversationAsRead(conversationId, user.uid, user.role);
+      }
+    }).catch((readError) => {
       console.error('Failed to mark messages as read:', readError);
     });
-  }, [messages, isLoading, user]);
+  }, [messages, isLoading, isViewing, user]);
 
-  const handleSendMessage = async (body: string): Promise<boolean> => {
-    if (!user) return false;
+  // Drop pending bubbles once the real message has arrived in the snapshot.
+  useEffect(() => {
+    if (pending.length === 0) return;
+    const ids = new Set(messages.map((message) => message.id));
+    if (pending.some((p) => p.serverId && ids.has(p.serverId))) {
+      setPending((current) => current.filter((p) => !(p.serverId && ids.has(p.serverId))));
+    }
+  }, [messages, pending]);
 
-    setIsSending(true);
-    setSendError(null);
-    try {
-      if (!await requestConfirmation()) return false;
-      await messagingService.sendMessage(
+  /**
+   * Optimistic send: the bubble shows immediately with the "sending" icon, becomes "sent"
+   * once the server confirms, and "failed" (with a retry) if the write is rejected.
+   * Sends are independent, so typing fast never blocks the input.
+   */
+  const dispatchSend = useCallback((body: string, tempId: string) => {
+    if (!user) return;
+    const sendingIn = conversationId;
+    const update = (change: Partial<PendingMessage>) => {
+      if (activeConversationRef.current !== sendingIn) return;
+      setPending((current) => current.map((p) => (p.tempId === tempId ? { ...p, ...change } : p)));
+    };
+    messagingService
+      .sendMessage(
         conversationId,
         user.uid,
         body,
         user.role,
         undefined,
         user.role === 'student' ? participantId : undefined,
-      );
-      return true;
-    } catch (sendError) {
-      console.error('Failed to send message:', sendError);
-      setSendError('Your message could not be sent. Please try again.');
-      return false;
-    } finally {
-      setIsSending(false);
-    }
+      )
+      .then((serverId) => update({ serverId: typeof serverId === 'string' ? serverId : undefined, state: 'sending' }))
+      .catch((sendFailure) => {
+        console.error('Failed to send message:', sendFailure);
+        update({ state: 'failed' });
+      });
+  }, [conversationId, participantId, user]);
+
+  const handleSendMessage = async (body: string): Promise<boolean> => {
+    if (!user) return false;
+
+    setSendError(null);
+    if (!await requestConfirmation()) return false;
+
+    const tempId = `pending-${Date.now()}-${++pendingCounter}`;
+    setPending((current) => [...current, { tempId, body, state: 'sending', createdAtMs: Date.now() }]);
+    dispatchSend(body, tempId);
+    return true;
+  };
+
+  const handleRetry = async (tempId: string) => {
+    const failed = pending.find((p) => p.tempId === tempId);
+    if (!failed || !user) return;
+    // A student's identity-sharing consent is saved with the send, so re-confirm if needed.
+    if (!await requestConfirmation()) return;
+    setPending((current) => current.map((p) => (p.tempId === tempId ? { ...p, state: 'sending' } : p)));
+    dispatchSend(failed.body, tempId);
   };
 
   if (isLoading) {
@@ -150,8 +238,8 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-        {messages.length === 0 ? (
+      <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+        {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <svg
               className="w-12 h-12 text-[var(--color-text-muted)] mb-3"
@@ -174,13 +262,20 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
             </p>
           </div>
         ) : (
-          messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              isCurrentUser={message.senderId === user?.uid}
-            />
-          ))
+          items.map((item) =>
+            item.kind === 'separator' ? (
+              <DateSeparator key={item.key} label={item.label} />
+            ) : (
+              <MessageBubble
+                key={item.key}
+                message={item.message}
+                isCurrentUser={item.own}
+                status={item.status}
+                showStatusLabel={item.isLastOwn}
+                onRetry={item.tempId ? () => void handleRetry(item.tempId as string) : undefined}
+              />
+            ),
+          )
         )}
       </div>
       {sendError && (
@@ -193,8 +288,6 @@ export function MessageThread({ conversationId, participantId }: MessageThreadPr
       )}
       <MessageInput
         onSend={handleSendMessage}
-        disabled={isSending}
-        isSending={isSending}
         placeholder="Type a message..."
       />
       {confirmation}

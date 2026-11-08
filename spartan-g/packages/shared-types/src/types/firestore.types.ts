@@ -142,6 +142,8 @@ export interface ConversationDocument extends FirestoreDocument {
   lastMessageType?: MessageType;
   /** Per-participant unread count — incremented on send, reset on read. */
   unreadCount?: Record<string, number>;
+  /** Delivery status of the last message (denormalized so the chat list can show it). */
+  lastMessageStatus?: 'sent' | 'delivered' | 'read';
 }
 
 export interface MessageDocument extends FirestoreDocument {
@@ -151,8 +153,16 @@ export interface MessageDocument extends FirestoreDocument {
   attachmentUrl?: string;
   /** Array of UIDs who have read this message (replaces single isRead boolean). */
   readBy?: string[];
-  /** Client-managed status for optimistic updates. */
-  status?: 'sending' | 'sent' | 'failed';
+  /**
+   * Delivery status. Stored values only ever move forward: sent -> delivered -> read.
+   * 'sending' and 'failed' are client-only states that are never written to Firestore.
+   * Messages created before this field existed have no status; derive it from readBy.
+   */
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  /** Set by the recipient's client the first time the message reaches it. */
+  deliveredAt?: Timestamp;
+  /** Set by the recipient's client when the conversation is open and visible. */
+  readAt?: Timestamp;
   /** ID of the message this is replying to. */
   replyTo?: string;
   /** Whether this message has been edited. */

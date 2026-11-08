@@ -4,6 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'SPARTAN-G',
   slug: 'spartan-g-mobile',
+  owner: 'just8ns-team',
   version: '1.0.0',
   orientation: 'portrait',
   scheme: 'spartan-g',
@@ -26,4 +27,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       { color: '#DC2626' },
     ],
   ],
+  extra: {
+    ...config.extra,
+    eas: {
+      projectId: '1d7d33b2-e60a-4c12-a276-e4d51353ed37',
+    },
+  },
 });

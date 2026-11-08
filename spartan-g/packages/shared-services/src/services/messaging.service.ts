@@ -16,6 +16,10 @@ import {
   collection,
   doc,
   runTransaction,
+  updateDoc,
+  getDocs,
+  query,
+  limit,
   Timestamp,
 } from '../firebase/firestore';
 import { conversationRepository } from '../repositories/conversation.repository';
@@ -133,6 +137,7 @@ class MessagingService {
           body: normalizedBody,
           attachmentUrl: attachmentUrl || null,
           readBy: [senderId], // Sender has read their own message
+          status: 'sent', // Advanced to 'delivered' / 'read' by the recipient's client
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         } as MessageDocument);
@@ -147,6 +152,7 @@ class MessagingService {
           lastMessageId: messageRef.id,
           lastMessageSenderId: senderId,
           lastMessageType: messageType,
+          lastMessageStatus: 'sent',
         };
 
         // Increment unread count for other participants
@@ -373,11 +379,25 @@ class MessagingService {
           throw new Error('User is not a participant in this conversation');
         }
 
+        const updateData: Record<string, any> = {};
+
         // Reset unread count for this user
         if (conversation.unreadCount && conversation.unreadCount[userId] > 0) {
-          transaction.update(conversationRef, {
-            [`unreadCount.${userId}`]: 0,
-          });
+          updateData[`unreadCount.${userId}`] = 0;
+        }
+
+        // The recipient opening the conversation means the last message was read.
+        if (
+          conversation.lastMessageId &&
+          conversation.lastMessageSenderId &&
+          conversation.lastMessageSenderId !== userId &&
+          conversation.lastMessageStatus !== 'read'
+        ) {
+          updateData.lastMessageStatus = 'read';
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          transaction.update(conversationRef, updateData);
         }
       });
     } catch (error: any) {
@@ -391,7 +411,10 @@ class MessagingService {
   }
 
   /**
-   * Mark a specific message as read by a user.
+   * Mark a specific message as read by a user (the recipient).
+   *
+   * Idempotent: an already-read message is left alone, and a concurrent write from
+   * another tab that wins the race is treated as success. Status only moves forward.
    */
   async markMessageAsRead(
     messageId: string,
@@ -402,23 +425,36 @@ class MessagingService {
       throw new PermissionError();
     }
 
+    const db = getFirestoreDb();
+    const messageRef = doc(db, COLLECTIONS.MESSAGES, messageId);
+
     try {
-      const message = await messageRepository.getById(messageId);
-      if (!message) {
-        throw new Error(`Message ${messageId} not found`);
-      }
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+        if (!messageDoc.exists()) {
+          throw new Error(`Message ${messageId} not found`);
+        }
+        const message = messageDoc.data() as MessageDocument;
 
-      const conversation = await conversationRepository.getById(message.conversationId);
-      if (!conversation || !conversation.participantIds.includes(userId)) {
-        throw new Error('User is not a participant in this conversation');
-      }
+        const conversationDoc = await transaction.get(doc(db, COLLECTIONS.CONVERSATIONS, message.conversationId));
+        const participantIds = (conversationDoc.data() as ConversationDocument | undefined)?.participantIds;
+        if (!participantIds?.includes(userId)) {
+          throw new Error('User is not a participant in this conversation');
+        }
 
-      // Add user to readBy array if not already present
-      if (!message.readBy?.includes(userId)) {
-        await messageRepository.update(messageId, {
-          readBy: [...(message.readBy || []), userId],
-        } as Partial<MessageDocument>);
-      }
+        // Only the recipient reads a message; senders already have it in readBy.
+        if (message.senderId === userId) return;
+        if (message.readBy?.includes(userId) && message.status === 'read') return;
+
+        const update: Record<string, any> = {
+          readBy: message.readBy?.includes(userId) ? message.readBy : [...(message.readBy || []), userId],
+          status: 'read',
+          updatedAt: serverTimestamp(),
+        };
+        if (!message.deliveredAt) update.deliveredAt = serverTimestamp();
+        if (!message.readAt) update.readAt = serverTimestamp();
+        transaction.update(messageRef, update);
+      });
     } catch (error: any) {
       console.error('[MessagingService] Failed to mark message as read:', {
         messageId,
@@ -427,6 +463,67 @@ class MessagingService {
       });
       throw new Error(error.message || 'Failed to mark message as read');
     }
+  }
+
+  /**
+   * Record that this user's app has received the newest messages in a conversation.
+   *
+   * Called by the always-mounted delivery tracker, so it works even when the recipient is
+   * on another page or has the tab in the background. It never marks anything as read.
+   * Safe to call repeatedly or from several tabs: each message and the conversation only
+   * ever move from 'sent' to 'delivered', and a lost race is ignored.
+   */
+  async markConversationDelivered(
+    conversation: ConversationDocument & { id: string },
+    userId: string,
+    actorRole: Role,
+  ): Promise<void> {
+    if (!hasPermission(actorRole, PERMISSIONS.SEND_MESSAGES)) {
+      throw new PermissionError();
+    }
+
+    const unread = conversation.unreadCount?.[userId] ?? 0;
+    const fromOther = Boolean(conversation.lastMessageSenderId) && conversation.lastMessageSenderId !== userId;
+    const alreadyAdvanced = conversation.lastMessageStatus === 'delivered' || conversation.lastMessageStatus === 'read';
+    if (!fromOther || unread <= 0 || alreadyAdvanced) return;
+
+    const db = getFirestoreDb();
+    const newest = await getDocs(query(
+      collection(db, COLLECTIONS.MESSAGES),
+      where('conversationId', '==', conversation.id),
+      orderBy('createdAt', 'desc'),
+      limit(Math.min(Math.max(unread, 1), 50)),
+    ));
+
+    await Promise.all(newest.docs.map(async (snapshot) => {
+      const message = snapshot.data() as MessageDocument;
+      if (message.senderId === userId || message.readBy?.includes(userId) || (message.status && message.status !== 'sent')) return;
+      try {
+        await updateDoc(snapshot.ref, {
+          status: 'delivered',
+          deliveredAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error: any) {
+        // Another tab already advanced it (rules reject a second write): that is success.
+        if (error?.code !== 'permission-denied') throw error;
+      }
+    }));
+
+    const conversationRef = doc(db, COLLECTIONS.CONVERSATIONS, conversation.id);
+    await runTransaction(db, async (transaction) => {
+      const current = await transaction.get(conversationRef);
+      if (!current.exists()) return;
+      const data = current.data() as ConversationDocument;
+      if (
+        data.lastMessageSenderId === userId ||
+        data.lastMessageStatus === 'delivered' ||
+        data.lastMessageStatus === 'read'
+      ) {
+        return;
+      }
+      transaction.update(conversationRef, { lastMessageStatus: 'delivered' });
+    });
   }
 }
 

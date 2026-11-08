@@ -15,6 +15,7 @@ export const state = { user: { uid: 'student', role: 'student' }, sends: [], fai
 export const useAuth = () => ({ user: state.user });
 export const Modal = ({open, title, children, onClose}) => open ? React.createElement('div', {role:'dialog'}, React.createElement('h2',null,title), children, React.createElement('button', {onClick:onClose}, 'Close')) : null;
 export const MessageBubble = () => null;
+export const DateSeparator = () => null;
 export const messagingService = {
   subscribeToMessages: (_, __, next) => { next([]); return () => {}; },
   markConversationAsRead: async () => {}, markMessageAsRead: async () => {},
@@ -24,11 +25,13 @@ export const messagingService = {
 const fixture = await import(fixtureUrl);
 const hookCode = reactImports(compile(read('../src/hooks/useMessageIdentityConfirmation.tsx')))
   .replace(/from (['"])(?:\.\/useAuth|\.\.\/components\/ui\/Modal)\1/g, `from ${JSON.stringify(fixtureUrl)}`);
+const libUrl = url(compile(read('../src/lib/messageStatus.ts')));
 const inputUrl = url(reactImports(compile(read('../src/components/messaging/MessageInput.tsx'))));
 const threadCode = reactImports(compile(read('../src/pages/messaging/MessageThread.tsx')))
   .replace(/(['"])\.\.\/\.\.\/hooks\/useMessageIdentityConfirmation\1/g, JSON.stringify(url(hookCode)))
   .replace(/(['"])\.\.\/\.\.\/components\/messaging\/MessageInput\1/g, JSON.stringify(inputUrl))
-  .replace(/from (['"])(?:@spartan-g\/shared-services|\.\.\/\.\.\/hooks\/useAuth|\.\.\/\.\.\/components\/messaging\/MessageBubble)\1/g, `from ${JSON.stringify(fixtureUrl)}`);
+  .replace(/(['"])\.\.\/\.\.\/lib\/messageStatus\1/g, JSON.stringify(libUrl))
+  .replace(/from (['"])(?:@spartan-g\/shared-services|\.\.\/\.\.\/hooks\/useAuth|\.\.\/\.\.\/components\/messaging\/MessageBubble|\.\.\/\.\.\/components\/messaging\/DateSeparator)\1/g, `from ${JSON.stringify(fixtureUrl)}`);
 const { MessageThread } = await import(url(threadCode));
 async function setup(role = 'student') {
   fixture.state.user = { uid: role, role };

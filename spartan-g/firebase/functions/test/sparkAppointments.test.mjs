@@ -27,7 +27,7 @@ const { getBookingWindow } = await import(windowUrl);
 const outboxModule = moduleUrl(transpile(await readFile(new URL('../../../packages/shared-services/src/notifications/message-outbox.ts', import.meta.url), 'utf8')));
 const messagingBoundary = moduleUrl(`
 export { MESSAGE_OUTBOX_COLLECTION, messageOutboxId, messageOutbox } from ${JSON.stringify(outboxModule)};
-export { serverTimestamp, where, orderBy, collection, doc, runTransaction, Timestamp } from ${JSON.stringify(import.meta.resolve('firebase/firestore'))};
+export { serverTimestamp, where, orderBy, collection, doc, runTransaction, updateDoc, getDocs, query, limit, Timestamp } from ${JSON.stringify(import.meta.resolve('firebase/firestore'))};
 export const getFirestoreDb = () => globalThis.__messagingTestDb;
 export const PERMISSIONS = { SEND_MESSAGES: 'send' }, hasPermission = () => true;
 export class PermissionError extends Error {}

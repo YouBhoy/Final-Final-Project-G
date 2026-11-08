@@ -1,4 +1,6 @@
 import { ConversationDocument } from '@spartan-g/shared-types';
+import { MessageStatusIcon } from './MessageStatusIcon';
+import { resolveConversationStatus } from '../../lib/messageStatus';
 
 interface ConversationItemProps {
   conversation: ConversationDocument & { id: string };
@@ -35,6 +37,8 @@ export function ConversationItem({
     conversation.participantIds[0];
   const otherParticipantName = participantNames[otherParticipantId] || 'Unknown User';
   const unreadCount = currentUserId ? conversation.unreadCount?.[currentUserId] || 0 : 0;
+  // Status of my own last message, shown before the preview text.
+  const ownLastStatus = currentUserId && conversation.lastMessagePreview ? resolveConversationStatus(conversation, currentUserId) : null;
 
   return (
     <button
@@ -66,13 +70,18 @@ export function ConversationItem({
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p
-            className={`truncate text-sm ${
+            className={`flex min-w-0 items-center gap-1 truncate text-sm ${
               unreadCount > 0
-                ? 'font-medium text-[var(--color-text)]'
+                ? 'font-bold text-[var(--color-text)]'
                 : 'text-[var(--color-text-secondary)]'
             }`}
           >
-            {conversation.lastMessagePreview || 'No messages yet'}
+            {ownLastStatus ? (
+              <span className="inline-flex shrink-0 items-center rounded bg-[var(--color-primary)] p-0.5">
+                <MessageStatusIcon status={ownLastStatus} size={12} />
+              </span>
+            ) : null}
+            <span className="truncate">{conversation.lastMessagePreview || 'No messages yet'}</span>
           </p>
           {unreadCount > 0 ? (
             <span

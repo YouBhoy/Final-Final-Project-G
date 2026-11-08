@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Sidebar, type NavItem } from "./Sidebar";
 import { Header } from "./Header";
 import { TopNav } from "./TopNav";
+import { useMessageDelivery } from "../../hooks/useMessageDelivery";
 
 interface PortalLayoutProps {
   /** The display name of the portal, shown in the header (e.g. "Student Portal"). */
@@ -47,6 +48,8 @@ export function PortalLayout({
   children,
 }: PortalLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Marks incoming chat messages as delivered on any portal page (students and facilitators).
+  useMessageDelivery();
   const topNav = navPlacement === "top";
   const studentPortal = navItems.some(item=>item.to.startsWith("/student/"));
   // The drawer is the fallback wherever the permanent nav isn't shown.
