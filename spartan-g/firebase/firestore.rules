@@ -319,6 +319,8 @@ service cloud.firestore {
           'SUPERADMIN_UPDATED_ADMIN_PROFILE',
           'SUPERADMIN_CHANGED_PASSWORD',
           'SUPERADMIN_UPDATED_ACCOUNT_NAME',
+          'SUPERADMIN_CHANGED_USER_ROLE',
+          'SUPERADMIN_ASSIGNED_STUDENT',
           'SUPERADMIN_CREATED_RESOURCE',
           'SUPERADMIN_UPDATED_RESOURCE',
           'SUPERADMIN_DELETED_RESOURCE',
@@ -502,16 +504,14 @@ service cloud.firestore {
         || (isFacilitator() && resource.data.facilitatorId == request.auth.uid)
         || (isStudent() && resource.data.studentId == request.auth.uid);
       allow create: if validLink(linkId, request.resource.data)
-        && (isSuperAdmin()
-          || (isStudent() && request.resource.data.studentId == request.auth.uid
+        && ((isStudent() && request.resource.data.studentId == request.auth.uid
             && request.resource.data.status == 'pending'
             && request.resource.data.requestedAt == request.time
             && !request.resource.data.keys().hasAny(['respondedAt', 'appointmentId']))
           || acceptingBooking(request.resource.data));
       allow update: if validLink(linkId, request.resource.data)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId', 'facilitatorId', 'requestedAt', 'createdAt'])
-        && (isSuperAdmin()
-          || (isFacilitator() && resource.data.facilitatorId == request.auth.uid
+        && ((isFacilitator() && resource.data.facilitatorId == request.auth.uid
             && resource.data.status == 'pending'
             && request.resource.data.status in ['accepted', 'rejected']
             && request.resource.data.respondedAt == request.time
@@ -593,6 +593,39 @@ service cloud.firestore {
     }
 
     // ─── Work Hours Schedules ──────────────────────────────────
+    // Message metadata is written atomically with the corresponding message.
+    // Clients can create only their own immutable event; reads and edits stay
+    // server-only. Without this rule, Firestore rejects the entire send
+    // transaction even when the conversation itself is authorized.
+    match /notification_outbox/{eventId} {
+      function validMessageOutbox() {
+        let data = request.resource.data;
+        let messagePath = /databases/$(database)/documents/messages/$(data.messageId);
+        let conversationPath = /databases/$(database)/documents/conversations/$(data.conversationId);
+        let message = getAfter(messagePath).data;
+        let conversation = getAfter(conversationPath).data;
+        return isActiveUser()
+          && data.keys().hasAll(['schemaVersion', 'kind', 'messageId', 'conversationId', 'senderId', 'createdAt'])
+          && data.keys().hasOnly(['schemaVersion', 'kind', 'messageId', 'conversationId', 'senderId', 'createdAt'])
+          && data.schemaVersion == 1
+          && data.kind == 'message.created'
+          && data.messageId is string && data.conversationId is string
+          && data.senderId == request.auth.uid
+          && eventId == 'message_' + data.messageId
+          && data.createdAt == request.time
+          && !exists(messagePath) && existsAfter(messagePath)
+          && message.senderId == request.auth.uid
+          && message.conversationId == data.conversationId
+          && message.createdAt == request.time
+          && existsAfter(conversationPath)
+          && conversation.participantIds is list
+          && request.auth.uid in conversation.participantIds;
+      }
+
+      allow create: if validMessageOutbox();
+      allow read, update, delete: if false;
+    }
+
     match /work_hours_schedules/{scheduleId} {
       allow read: if isFacilitatorOrAdmin()
         || (isActiveUser() && resource.data.facilitatorId != null);

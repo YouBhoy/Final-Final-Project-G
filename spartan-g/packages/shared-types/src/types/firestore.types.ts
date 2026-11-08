@@ -102,6 +102,8 @@ export interface RiskAlertDocument extends FirestoreDocument {
 export interface AppointmentDocument extends FirestoreDocument {
   studentId: string;
   facilitatorId: string;
+  /** Student campus captured when the appointment was requested, if available. */
+  campus?: string;
   scheduledAt: Timestamp;
   durationMinutes: number;
   status: 'requested' | 'accepted' | 'completed' | 'cancelled' | 'rejected' | 'no_show' | 'reschedule_requested';

@@ -5,10 +5,12 @@ import { saveStudentProfile } from "../../lib/adminStudentProfile";
 import { adminStudentAlias } from '../../lib/pseudonymization';
 import { listStudentOverrides, type StudentOverride } from "../../lib/assessmentOverrides";
 import { AssessmentOverrideDialog } from "../../components/admin/AssessmentOverrideDialog";
-import { userRepository, profileRepository, adminService } from "@spartan-g/shared-services";
+import { auditService, userRepository, profileRepository, adminService } from "@spartan-g/shared-services";
 import {
+  AUDIT_ACTIONS,
   CAMPUS_LABELS,
   ROLE_LABELS,
+  ROLES,
   getErrorMessage,
   type Campus,
   type Gender,
@@ -76,6 +78,8 @@ export function AdminUserDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [roleSaving, setRoleSaving] = useState(false);
+  const [roleChangeMessage, setRoleChangeMessage] = useState<string | null>(null);
 
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrides, setOverrides] = useState<StudentOverride[]>([]);
@@ -127,6 +131,42 @@ export function AdminUserDetailPage() {
 
   const isSelf = !!actor && actor.uid === uid;
   const canOverride = !!actor && actor.role === "super_admin" && target?.role === "student";
+  const canMakeFacilitator = !!actor && actor.role === ROLES.SUPER_ADMIN && target?.role === ROLES.STUDENT && !isSelf;
+  const makeFacilitator = async () => {
+    if (!actor || !target || !canMakeFacilitator) return;
+    const targetLabel = accountLabel || "this account";
+    if (!window.confirm(`Are you sure you want to make ${targetLabel} a facilitator? This gives the account facilitator portal access, but does not assign students.`)) return;
+
+    setRoleSaving(true);
+    setRoleChangeMessage(null);
+    try {
+      await userRepository.update(target.id, { role: ROLES.FACILITATOR });
+      setTarget(current => current ? { ...current, role: ROLES.FACILITATOR } : current);
+      let auditWarning: string | null = null;
+      try {
+        await auditService.record({
+          actorId: actor.uid,
+          actorEmail: actor.email,
+          action: AUDIT_ACTIONS.SUPERADMIN_CHANGED_USER_ROLE,
+          resource: "users",
+          resourceId: target.id,
+          metadata: {
+            targetUserId: target.id,
+            previousRole: ROLES.STUDENT,
+            newRole: ROLES.FACILITATOR,
+            changedFields: ["role"],
+          },
+        });
+      } catch (auditError) {
+        auditWarning = `The role changed, but the audit entry could not be saved: ${getErrorMessage(auditError)}`;
+      }
+      setRoleChangeMessage(auditWarning ?? `${targetLabel} is now a facilitator.`);
+    } catch (error) {
+      setRoleChangeMessage(`Could not change the role: ${getErrorMessage(error)}`);
+    } finally {
+      setRoleSaving(false);
+    }
+  };
 
   const loadOverrides = useCallback(async () => {
     if (!uid || !canOverride) return;
@@ -321,6 +361,11 @@ export function AdminUserDetailPage() {
             >
               Edit Profile
             </Button>
+            {canMakeFacilitator && (
+              <Button variant="outline" onClick={() => void makeFacilitator()} isLoading={roleSaving}>
+                Make facilitator
+              </Button>
+            )}
             {canOverride && (
               <Button variant="outline" onClick={() => setOverrideOpen(true)}>
                 Override Attempts
@@ -338,6 +383,13 @@ export function AdminUserDetailPage() {
           This is your own account — use the Profile page in the sidebar to edit it.
         </div>
       )}
+
+      {roleChangeMessage && (
+        <div className={`rounded-lg border px-4 py-3 text-sm ${roleChangeMessage.startsWith("Could not") || roleChangeMessage.startsWith("The role changed") ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`} role="status">
+          {roleChangeMessage}
+        </div>
+      )}
+
 
       {saveSuccess && !editing && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700" role="status">

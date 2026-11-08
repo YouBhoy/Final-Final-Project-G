@@ -132,19 +132,47 @@ export function AdminUsersPage() {
         />
       ) : (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 lg:hidden">
+            {filtered.map((u) => (
+              <article key={u.id} className="min-w-0 space-y-3 p-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+                    {(u.displayName || u.email || "?").charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <button type="button" onClick={() => navigate(`/admin/users/${u.id}`)} className="max-w-full truncate text-left text-sm font-semibold text-indigo-700 hover:underline">
+                      {u.displayName || "—"}{u.id === actor?.uid && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
+                    </button>
+                    <p className="break-all text-xs text-gray-600">{u.email || "—"}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">Role</span><Badge variant={ROLE_BADGE[u.role] ?? "neutral"}>{ROLE_LABELS[u.role] ?? u.role}</Badge></div>
+                  <div><span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">Status</span>{u.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}</div>
+                  <div className="col-span-2 min-w-0"><span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">Campus</span><p className="break-words text-sm text-gray-700">{u.campus ? (CAMPUS_LABELS[u.campus] ?? u.campus) : "—"}</p></div>
+                </div>
+                <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-2">
+                  <button type="button" onClick={() => navigate(`/admin/users/${u.id}`)} className="rounded-md px-2.5 py-1.5 text-sm text-indigo-600 hover:bg-indigo-50">View</button>
+                  {u.role === ROLES.STUDENT && actor?.role === ROLES.SUPER_ADMIN && (
+                    <button type="button" onClick={() => setOverrideStudent({ id: u.id, name: u.displayName || u.email || "this student" })} className="rounded-md px-2.5 py-1.5 text-sm text-amber-700 hover:bg-amber-50">Override</button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden w-full lg:block">
+            <table className="w-full table-fixed divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   {["Name / Alias", "Email", "Role", "Campus", "Status"].map((h) => (
                     <th
                       key={h}
-                      className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                      className={`px-2 py-3 text-left text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:px-3 sm:text-xs ${h === "Name / Alias" ? "w-[19%]" : h === "Email" ? "w-[22%]" : h === "Role" ? "w-[12%]" : h === "Campus" ? "w-[18%]" : "w-[11%]"}`}
                     >
                       {h}
                     </th>
                   ))}
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th className="w-[18%] px-2 py-3 text-right text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:px-3 sm:text-xs">
                     Actions
                   </th>
                 </tr>
@@ -153,15 +181,15 @@ export function AdminUsersPage() {
                 {filtered.map((u) => (
                   <tr
                     key={u.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="hover:bg-gray-50"
                     onClick={() => navigate(`/admin/users/${u.id}`)}
                   >
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="break-words px-2 py-3 sm:px-3 sm:py-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
                           {(u.displayName || u.email || "?").charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="min-w-0 break-words text-xs font-medium text-gray-900 sm:text-sm">
                           {u.displayName || "—"}
                           {u.id === actor?.uid && (
                             <span className="ml-1.5 text-xs text-gray-400">(you)</span>
@@ -169,32 +197,32 @@ export function AdminUsersPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                    <td className="break-all px-2 py-3 text-xs text-gray-700 sm:px-3 sm:py-4 sm:text-sm">
                       {u.email || "—"}
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="px-2 py-3 sm:px-3 sm:py-4">
                       <Badge variant={ROLE_BADGE[u.role] ?? "neutral"}>
                         {ROLE_LABELS[u.role] ?? u.role}
                       </Badge>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                    <td className="break-words px-2 py-3 text-xs text-gray-700 sm:px-3 sm:py-4 sm:text-sm">
                       {u.campus ? (CAMPUS_LABELS[u.campus] ?? u.campus) : "—"}
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="px-2 py-3 sm:px-3 sm:py-4">
                       {u.isActive ? (
                         <Badge variant="success">Active</Badge>
                       ) : (
                         <Badge variant="danger">Inactive</Badge>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                    <td className="break-words px-1 py-3 text-right text-[11px] sm:px-2 sm:py-4 sm:text-sm">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/admin/users/${u.id}`);
                         }}
-                        className="rounded-md px-2.5 py-1 text-indigo-600 hover:bg-indigo-50"
+                        className="rounded-md px-1.5 py-1 text-indigo-600 hover:bg-indigo-50 sm:px-2.5"
                       >
                         View
                       </button>
@@ -205,7 +233,7 @@ export function AdminUsersPage() {
                             e.stopPropagation();
                             setOverrideStudent({ id: u.id, name: u.displayName || u.email || "this student" });
                           }}
-                          className="ml-1 rounded-md px-2.5 py-1 text-amber-700 hover:bg-amber-50"
+                          className="ml-1 rounded-md px-1.5 py-1 text-amber-700 hover:bg-amber-50 sm:px-2.5"
                         >
                           Override
                         </button>

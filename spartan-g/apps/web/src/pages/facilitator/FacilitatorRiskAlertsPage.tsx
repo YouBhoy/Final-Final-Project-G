@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { riskAlertService } from "@spartan-g/shared-services";
-import { getAssignedRiskAlerts } from "../../lib/facilitatorAccess";
+import { appointmentService, riskAlertService } from "@spartan-g/shared-services";
+import { getAssignedRiskAlerts, getAssignedStudentIds } from "../../lib/facilitatorAccess";
 import { resolveStudentIdentity, studentAlias } from "../../lib/studentIdentity";
-import type { RiskAlertDocument, RiskLevel } from "@spartan-g/shared-types";
+import { ALL_CAMPUSES, CAMPUS_LABELS, type RiskAlertDocument } from "@spartan-g/shared-types";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -16,6 +17,7 @@ type AlertWithId = RiskAlertDocument & { id: string };
 
 type StatusFilter = "all" | "open" | "acknowledged" | "resolved";
 type SeverityFilter = "all" | "critical" | "high" | "moderate" | "low";
+const UNASSIGNED_CAMPUS = "__unassigned__";
 
 // RiskAlertDocument uses 'medium', RiskLevel uses 'moderate' — handle both
 type AlertSeverity = "low" | "medium" | "moderate" | "high" | "critical";
@@ -59,13 +61,16 @@ export function FacilitatorRiskAlertsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const [assignedStudentCount, setAssignedStudentCount] = useState<number | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+  const [campusFilter, setCampusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [selectedAlert, setSelectedAlert] = useState<AlertWithId | null>(null);
   const [studentNames, setStudentNames] = useState<Record<string, string>>({});
+  const [studentCampuses, setStudentCampuses] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -75,9 +80,24 @@ export function FacilitatorRiskAlertsPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getAssignedRiskAlerts(user!.uid);
+        const [data, appointments, assignedStudentIds] = await Promise.all([
+          getAssignedRiskAlerts(user!.uid),
+          appointmentService.getAppointments(user!.uid, user!.role).catch(() => []),
+          getAssignedStudentIds(user!.uid),
+        ]);
         if (!cancelled) {
           setAlerts(data as AlertWithId[]);
+          setAssignedStudentCount(assignedStudentIds.length);
+          const campuses: Record<string, string> = {};
+          appointments
+            .filter(appointment =>
+              (appointment.status === "accepted" || appointment.status === "completed")
+              && typeof appointment.campus === "string"
+              && appointment.campus.length > 0,
+            )
+            .sort((a, b) => (a.scheduledAt?.toMillis?.() ?? 0) - (b.scheduledAt?.toMillis?.() ?? 0))
+            .forEach(appointment => { campuses[appointment.studentId] = appointment.campus!; });
+          setStudentCampuses(campuses);
         }
       } catch (err) {
         if (!cancelled) {
@@ -144,6 +164,12 @@ export function FacilitatorRiskAlertsPage() {
       result = result.filter((a) => a.severity === severityFilter);
     }
 
+    if (campusFilter !== "all") {
+      result = result.filter((alert) =>
+        (studentCampuses[alert.studentId] || UNASSIGNED_CAMPUS) === campusFilter,
+      );
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((a) => {
@@ -166,7 +192,15 @@ export function FacilitatorRiskAlertsPage() {
     });
 
     return result;
-  }, [alerts, statusFilter, severityFilter, searchQuery, studentNames]);
+  }, [alerts, statusFilter, severityFilter, campusFilter, searchQuery, studentNames, studentCampuses]);
+
+  const campusOptions = useMemo(() => {
+    const campuses = new Set<string>(ALL_CAMPUSES);
+    Object.values(studentCampuses).forEach(campus => campuses.add(campus));
+    return [...campuses].sort((a, b) =>
+      (CAMPUS_LABELS[a] ?? a).localeCompare(CAMPUS_LABELS[b] ?? b),
+    );
+  }, [studentCampuses]);
 
   const stats = useMemo(() => {
     const open = alerts.filter((a) => a.status === "open").length;
@@ -268,7 +302,7 @@ export function FacilitatorRiskAlertsPage() {
 
       {/* Filters */}
       <Card>
-        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-end">
           <div className="flex-1">
             <input
               type="text"
@@ -278,7 +312,12 @@ export function FacilitatorRiskAlertsPage() {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[min(100%,48rem)]">
+            <Select label="Campus" value={campusFilter} onChange={(e) => setCampusFilter(e.target.value)}>
+              <option value="all">All Campuses</option>
+              {campusOptions.map(campus => <option key={campus} value={campus}>{CAMPUS_LABELS[campus] ?? campus}</option>)}
+              <option value={UNASSIGNED_CAMPUS}>Campus not recorded</option>
+            </Select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
@@ -307,12 +346,22 @@ export function FacilitatorRiskAlertsPage() {
       {/* Alert table */}
       {filteredAlerts.length === 0 ? (
         <EmptyState
-          title="No alerts found"
+          title={alerts.length === 0 ? "No alerts yet" : "No alerts found"}
           description={
             alerts.length === 0
-              ? "No risk alerts have been created yet. Alerts will appear here when students submit assessments with elevated risk scores."
+              ? assignedStudentCount === 0
+                ? "Firestore shows no accepted student connections for this facilitator account. Accept a student's appointment to create one; alerts can appear after a connected student submits an assessment with elevated risk indicators. A role change alone does not assign students or grant access to the account's former student assessment records."
+                : `Firestore shows ${assignedStudentCount} accepted student connection${assignedStudentCount === 1 ? "" : "s"}, but no connected student's submitted assessments currently produce an alert. Refresh after new assessments are submitted.`
               : "Try adjusting your filters or search query."
           }
+          action={alerts.length === 0 ? (
+            <Link
+              to="/facilitator/appointments"
+              className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Review appointment requests
+            </Link>
+          ) : undefined}
         />
       ) : (
         <Card>
