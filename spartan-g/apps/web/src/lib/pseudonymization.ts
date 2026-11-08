@@ -22,12 +22,12 @@ const accountAliases = createPseudonymizer();
 export const adminStudentAlias = (uid: string) => accountAliases('Student', uid);
 export type AdminUserListRow = Pick<UserDocument, 'role' | 'campus' | 'isActive' | 'displayName' | 'email'> & { id: string };
 
-/** Student identities are removed before sorting, searching or storing directory rows. */
+/** Student names stay pseudonymous; login emails are available to the admin user directory. */
 export function adminUserListRows(users: (UserDocument & { id: string })[]): AdminUserListRow[] {
   return users.map(user => ({
     id: user.id, role: user.role, campus: user.campus, isActive: user.isActive,
     displayName: user.role === 'student' ? adminStudentAlias(user.id) : user.displayName,
-    email: user.role === 'student' ? 'Identity hidden' : user.email,
+    email: user.email,
   }));
 }
 

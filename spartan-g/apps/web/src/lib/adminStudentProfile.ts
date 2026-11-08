@@ -1,58 +1,43 @@
-import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   AppError,
   PERMISSIONS,
   PermissionError,
   hasPermission,
+  type Gender,
   type Role,
 } from "@spartan-g/shared-types";
-import { app } from "../firebase/firebase";
+import type { Campus } from "@spartan-g/shared-types";
+import { adminService } from "@spartan-g/shared-services";
 
 /**
  * Super-admin editing of a STUDENT's profile. Web-only on purpose: it lives in
  * apps/web (not in shared-services) so the mobile bundle never contains it.
- * The `adminUpdateStudentProfile` Cloud Function re-checks the caller is an
- * active super admin and the target is a student, and re-validates every value.
+ * Writes use the existing Firestore repositories and security rules, so this
+ * profile edit does not require a deployed Cloud Function or the Blaze plan.
  */
 
-// Mirrors the validation in firebase/functions/src/adminStudentProfile.ts.
+// Validate profile values before the Firestore-backed admin service writes them.
 const LIMITS = { bio: 1000, pronouns: 50, institution: 150 } as const;
 const PHONE_PATTERN = /^\+?[0-9][0-9\s().-]{5,19}$/;
 const GENDERS = ["male", "female", "non_binary", "other", "prefer_not_to_say"];
 
 export interface SaveStudentProfileInput {
   actorRole: Role;
+  actorUid: string;
+  actorEmail?: string | null;
   targetUid: string;
+  targetRole: Role;
   campus: string;
   bio: string;
   phone: string;
   institution: string;
   pronouns: string;
   gender: string;
+  changedFields: string[];
 }
 
 function invalid(message: string) {
   return new AppError(message, "admin/invalid-input");
-}
-
-function mapCallableError(error: unknown): Error {
-  const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code: string }).code) : "";
-  const message = typeof error === "object" && error !== null && "message" in error ? String((error as { message: string }).message) : "";
-
-  if (code === "functions/not-found") {
-    return new AppError(
-      "Unable to update the student profile: the admin backend function is not deployed yet.",
-      "admin/function-unavailable",
-      error,
-    );
-  }
-  if (code === "functions/permission-denied") {
-    return new PermissionError(message || "Only an active Super Admin can perform this action");
-  }
-  if (code === "functions/failed-precondition" || code === "functions/invalid-argument") {
-    return new AppError(message || "Unable to update the student profile", "admin/invalid-input", error);
-  }
-  return new AppError(message || "Failed to update the student profile", "admin/callable-failed", error);
 }
 
 export async function saveStudentProfile(input: SaveStudentProfileInput): Promise<{ changedFields: string[] }> {
@@ -71,22 +56,21 @@ export async function saveStudentProfile(input: SaveStudentProfileInput): Promis
   }
   if (input.gender && !GENDERS.includes(input.gender)) throw invalid("Choose a valid gender option.");
 
-  try {
-    const fn = httpsCallable<Record<string, string>, { ok: boolean; changedFields: string[] }>(
-      getFunctions(app),
-      "adminUpdateStudentProfile",
-    );
-    const result = await fn({
-      targetUid: input.targetUid,
-      campus: input.campus.trim(),
+  await adminService.saveUserProfile({
+    actorRole: input.actorRole,
+    actorUid: input.actorUid,
+    actorEmail: input.actorEmail,
+    targetUid: input.targetUid,
+    targetRole: input.targetRole,
+    campus: input.campus.trim() as Campus,
+    profileFields: {
       bio: input.bio,
       phone: input.phone,
       institution: input.institution,
       pronouns: input.pronouns,
-      gender: input.gender,
-    });
-    return { changedFields: result.data.changedFields };
-  } catch (error) {
-    throw mapCallableError(error);
-  }
+      gender: (input.gender || undefined) as Gender | undefined,
+    },
+    changedFields: input.changedFields,
+  });
+  return { changedFields: input.changedFields };
 }

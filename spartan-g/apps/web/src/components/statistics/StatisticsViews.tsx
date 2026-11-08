@@ -1,7 +1,7 @@
 import { getCampusLabel, type StatisticsReport } from '@spartan-g/shared-types';
 import { Card } from '../ui/Card';
 
-export type StatisticsView = 'referrals' | 'participation' | 'trends' | 'scores';
+export type StatisticsView = 'referrals' | 'forecast' | 'participation' | 'trends' | 'scores';
 export type TrendActivity = 'participants' | 'appointmentRequests' | 'messagingStudents' | 'submissions' | 'assessmentStudents';
 export const activityLabels: Record<TrendActivity, string> = {
   participants: 'Unique participating students', appointmentRequests: 'Appointment requests',
@@ -161,7 +161,6 @@ export function ReferralsView({ report }: { report: StatisticsReport }) {
         <p className="mt-5 text-xs leading-relaxed text-gray-500">Zero means no stored requests for that interval. It does not verify zero demand or complete logging. Rescheduling an existing request does not create a new referral count.</p>
       </Card>
     </div>
-    <ReferralForecastView forecast={referrals.forecast} />
   </div>;
 }
 
@@ -288,7 +287,7 @@ const coverageLabels: Record<string, string> = {
   missingEventDates: 'Records excluded for missing event dates', conflictingDates: 'Conflicting timestamps (canonical preferred)', unknownCampusEvents: 'Activity events with unknown campus', currentCampusFallbackEvents: 'Activity events attributed to current campus', missingRegistrationDates: 'Students with missing registration dates', excludedMessagingRecords: 'Ineligible messaging records', legacySubmissionsSeparate: 'Legacy template submissions (separate from totals)', unversionedSubmissions: 'Submissions without declared scoring version', invalidScoreSubmissions: 'Submissions without any valid supported score', submittingStudentsWithoutScores: 'Submitting students without usable scores', earlierValidFallbacks: 'Score selections using an earlier valid submission',
 };
 export function CoverageDetails({ report, view }: { report: StatisticsReport; view: StatisticsView }) {
-  if (view === 'referrals') return <details className="rounded-xl border border-gray-200 bg-white p-5">
+  if (view === 'referrals' || view === 'forecast') return <details className="rounded-xl border border-gray-200 bg-white p-5">
     <summary className="cursor-pointer text-sm font-semibold text-gray-800">Referral data coverage & limitations</summary>
     <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">{[
       ['Requests without a usable creation date (campus-scoped source, period unknown)', report.referrals.coverage.missingRequestDates],

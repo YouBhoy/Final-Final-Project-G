@@ -181,17 +181,21 @@ export function AdminUserDetailPage() {
       }
 
       if (changedFields.some((f) => f !== "displayName") && target.role === "student") {
-        // Student profiles are written by a Cloud Function that validates the
-        // caller, the target role and every value server-side.
+        // This uses the Firestore-backed admin profile service; Firestore rules
+        // enforce that the caller is an active Super Admin.
         await saveStudentProfile({
           actorRole: actor.role,
+          actorUid: actor.uid,
+          actorEmail: actor.email,
           targetUid: target.id,
+          targetRole: target.role,
           campus: profile.campus,
           bio: profile.bio,
           phone: profile.phone,
           institution: profile.institution,
           pronouns: profile.pronouns,
           gender: profile.gender,
+          changedFields: changedFields.filter((field) => field !== "displayName"),
         });
       } else if (changedFields.some((f) => f !== "displayName")) {
         await adminService.saveUserProfile({

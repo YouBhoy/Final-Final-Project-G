@@ -55,23 +55,23 @@ const pageCode = resolveBase(compile(read('../src/pages/admin/AdminUsersPage.tsx
   .replace(/from (['"])(?:@spartan-g\/shared-types|\.\.\/\.\.\/(?:hooks\/useAuth|components\/[^'"]+))\1/g, `from ${JSON.stringify(fixtureUrl)}`);
 const { AdminUsersPage } = await import(url(pageCode));
 
-test('student directory projection removes names/emails and keeps the same alias for details', () => {
+test('student directory keeps aliases while showing login emails', () => {
   const projected = policy.adminUserListRows([rawStudent, staff]);
   assert.equal(projected[0].displayName, policy.adminStudentAlias(rawStudent.id));
-  assert.equal(projected[0].email, 'Identity hidden');
+  assert.equal(projected[0].email, rawStudent.email);
   assert.equal(JSON.stringify(projected).includes('PRIVATE_NAME'), false);
-  assert.equal(JSON.stringify(projected).includes('PRIVATE_EMAIL'), false);
+  assert.equal(JSON.stringify(projected).includes('PRIVATE_EMAIL'), true);
   assert.equal(projected[1].displayName, staff.displayName);
 });
 
-test('role dropdown filters every role, preserves campus, and cannot search hidden student identity', async () => {
+test('role dropdown filters every role, preserves campus, and supports searching by student login email', async () => {
   fixture.state.users = [rawStudent, staff, admin];
   let root;
   try {
     await act(async () => { root = Renderer.create(React.createElement(MemoryRouter, {initialEntries:['/admin/users?campus=lipa'], future:{v7_startTransition:true,v7_relativeSplatPath:true}}, React.createElement(AdminUsersPage))); });
     const rendered = () => JSON.stringify(root.toJSON());
     assert.equal(rendered().includes('PRIVATE_NAME'), false);
-    assert.equal(rendered().includes('PRIVATE_EMAIL'), false);
+    assert.equal(rendered().includes(rawStudent.email), true);
     const select = () => root.root.findByType('select');
     assert.deepEqual(select().findAllByType('option').map(option => option.props.value), ['all','student','facilitator','super_admin']);
     await act(async () => select().props.onChange({target:{value:'student'}}));
@@ -79,7 +79,7 @@ test('role dropdown filters every role, preserves campus, and cannot search hidd
     assert.equal(rendered().includes('Visible admin'), false);
     assert.ok(rendered().includes(policy.adminStudentAlias(rawStudent.id)));
     await act(async () => root.root.findByType('input').props.onChange({target:{value:rawStudent.email}}));
-    assert.ok(rendered().includes('No users found'));
+    assert.ok(rendered().includes(rawStudent.email));
     await act(async () => root.root.findByType('input').props.onChange({target:{value:''}}));
     await act(async () => select().props.onChange({target:{value:'super_admin'}}));
     assert.ok(rendered().includes('Visible admin'));

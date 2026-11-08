@@ -139,8 +139,8 @@ service cloud.firestore {
           || isSuperAdmin()
         );
       // Students cannot edit their own account/profile fields (campus, displayName,
-      // photoURL, email, role, ...): profile changes go through a super admin
-      // (adminUpdateStudentProfile). The only key a student client may still touch is
+      // photoURL, email, role, ...): account changes are managed by a super admin.
+      // The only key a student client may still touch is
       // updatedAt, which the shared repository stamps on every write.
       // Facilitators keep editing their own profile, except role and isActive.
       allow update: if isSuperAdmin()
@@ -175,7 +175,7 @@ service cloud.firestore {
         || (isStudent() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'facilitator' && get(/databases/$(database)/documents/users/$(userId)).data.isActive == true);
       // Students are read-only on their own profile. They may only create the
       // initial {uid, campus} document at registration; everything after that is
-      // managed by a super admin. Facilitators keep editing their own profile.
+      // managed by a super admin through Firestore rules. Facilitators keep editing their own profile.
       allow create: if isSuperAdmin()
         || (isActiveUser() && isOwner(userId)
           && (get(/databases/$(database)/documents/users/$(userId)).data.role != 'student'

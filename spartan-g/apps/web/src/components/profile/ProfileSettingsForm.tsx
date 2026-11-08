@@ -9,10 +9,22 @@ import {
   type Gender,
 } from "@spartan-g/shared-types";
 
+export const PRONOUN_OPTIONS = [
+  "she/her",
+  "he/him",
+  "they/them",
+  "she/they",
+  "he/they",
+  "any pronouns",
+  "use my name",
+  "prefer not to say",
+  "other",
+] as const;
+
 export const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: "male", label: "He/Him" },
-  { value: "female", label: "She/Her" },
-  { value: "non_binary", label: "They/Them" },
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "non_binary", label: "Non-binary" },
   { value: "other", label: "Other" },
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
@@ -100,12 +112,25 @@ export function ProfileSettingsForm({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input
-          label="Pronouns"
-          placeholder="e.g., they/them, she/her, he/him"
-          value={value.pronouns}
-          onChange={(e) => set({ pronouns: e.target.value })}
-        />
+        <div className="space-y-1">
+          <label htmlFor="profile-pronouns" className="block text-sm font-medium text-gray-700">
+            Pronouns
+          </label>
+          <select
+            id="profile-pronouns"
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            value={value.pronouns}
+            onChange={(e) => set({ pronouns: e.target.value })}
+          >
+            <option value="">Select pronouns...</option>
+            {!PRONOUN_OPTIONS.includes(value.pronouns as (typeof PRONOUN_OPTIONS)[number]) && value.pronouns && (
+              <option value={value.pronouns}>{value.pronouns} (current)</option>
+            )}
+            {PRONOUN_OPTIONS.map((pronoun) => (
+              <option key={pronoun} value={pronoun}>{pronoun}</option>
+            ))}
+          </select>
+        </div>
         <div className="space-y-1">
           <label htmlFor="profile-gender" className="block text-sm font-medium text-gray-700">
             Gender

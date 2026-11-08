@@ -1,6 +1,6 @@
 import admin from 'firebase-admin';
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https';
-import { requireSuperAdmin, writeAuditEntry } from './adminUserFunctions.js';
+import { requireSuperAdmin } from './adminUserFunctions.js';
 
 if (!admin.apps.length) admin.initializeApp();
 
@@ -105,16 +105,26 @@ export async function handleAdminUpdateStudentProfile(request: Pick<CallableRequ
     },
     { merge: true },
   );
-  await batch.commit();
-
-  await writeAuditEntry({
+  const auditRef = db.collection('audit_logs').doc(
+    `aud_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+  );
+  batch.set(auditRef, {
     actorId: caller.uid,
-    actorEmail: caller.email,
     action: 'SUPERADMIN_UPDATED_STUDENT_PROFILE',
     resource: 'profiles',
     resourceId: targetUid,
-    metadata: { targetUserId: targetUid, targetUserRole: 'student', changedFields },
+    metadata: {
+      targetUserId: targetUid,
+      targetUserRole: 'student',
+      changedFields,
+      adminEmail: caller.email,
+      recordedAt: new Date().toISOString(),
+      source: 'cloud_function',
+    },
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+  await batch.commit();
 
   return { ok: true, changedFields: [...changedFields] };
 }

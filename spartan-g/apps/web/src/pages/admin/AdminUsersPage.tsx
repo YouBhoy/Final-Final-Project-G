@@ -117,7 +117,7 @@ export function AdminUsersPage() {
         </div>
       </div>
 
-      <p className="text-sm text-gray-600">Students use random aliases and hidden emails. Search students by their alias; identities stay hidden when opening an account until explicitly revealed for account management.</p>
+      <p className="text-sm text-gray-600">Student names remain pseudonymous; account login emails are shown for account management. Passwords are never displayed.</p>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -170,7 +170,7 @@ export function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                      {u.email}
+                      {u.email || "—"}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <Badge variant={ROLE_BADGE[u.role] ?? "neutral"}>
