@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { PublicResourcesPage } from "../pages/PublicResourcesPage";
 import { LandingPage } from "../pages/LandingPage";
+import { DownloadPage } from "../pages/DownloadPage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
@@ -73,7 +74,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { status } = useAuth();
 
-  if (pathname === "/" || pathname === "/resources" || pathname.startsWith("/resources/")) return <>{children}</>;
+  if (pathname === "/" || pathname === "/download" || pathname === "/download/" || pathname === "/resources" || pathname.startsWith("/resources/")) return <>{children}</>;
   if (status === "idle" || status === "loading") {
     return <LoadingScreen />;
   }
@@ -87,6 +88,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/download" element={<DownloadPage />} />
       <Route path="/resources" element={<PublicResourcesPage />} />
       <Route path="/resources/:resourceId" element={<PublicResourcesPage />} />
       {/* Public auth routes — redirect to dashboard if already logged in */}

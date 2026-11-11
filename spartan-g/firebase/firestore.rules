@@ -843,5 +843,12 @@ service cloud.firestore {
           && (request.resource.data.status == 'in_progress' || request.resource.data.status == 'submitted'));
       allow delete: if canReadStudent(resource.data.studentId);
     }
+    // Restore only the active student owner's existing Garden read.
+    match /student_gardens/{studentId} {
+      allow get: if isStudent() && isOwner(studentId)
+        && (resource == null || resource.data.studentId == studentId);
+      allow list, create, update, delete: if false;
+    }
+
   }
 }
