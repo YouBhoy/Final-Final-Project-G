@@ -2,8 +2,8 @@
 // Local production-connected presentation preparation. No network or signing I/O.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),cp=require('node:child_process');
 const root=path.resolve(__dirname,'../../..'),mobile=path.dirname(__dirname);
-const PROFILE='production-presentation-v31',PROJECT='spartan-g-a2d80',PACKAGE='com.spartang.mobile',VERSION=31;
-const report=path.join(root,'docs/android-presentation-preflight-20261102');
+const PROFILE='production-presentation-v34',PROJECT='spartan-g-a2d80',PACKAGE='com.spartang.mobile',VERSION=34;
+const report=path.join(root,'docs/android-v34-quality-final-preflight-20261108');
 const validation=path.join(report,'VALIDATED_SOURCE.json'),digest=path.join(report,'VALIDATED_SOURCE.sha256');
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const check=(value,code)=>{if(!value)throw Error(code);};
@@ -38,16 +38,16 @@ function environment(base=process.env){
 function assertEnvironment(env,runtime=false){
  const expected=environment();for(const [key,value]of Object.entries(expected))check(env[key]===value,'presentation_environment_mismatch');
  check(runtime||Object.keys(env).every(key=>Object.hasOwn(expected,key)||/^SPARTAN_RELEASE_(?:STORE_FILE|KEY_ALIAS|STORE_PASSWORD|KEY_PASSWORD)$/.test(key)||key==='SPARTAN_PRESENTATION_CONTRACT'),'presentation_unexpected_environment');
- check(!Object.keys(env).some(key=>/^VITE_|^SPARTAN_STAGING_|TOKEN|SERVICE_ACCOUNT|PRIVATE_KEY|NODE_OPTIONS/.test(key)),'presentation_ambient_credentials_rejected');
+ check(!Object.keys(env).some(key=>/^VITE_|^(?:EXPO_PUBLIC_)?SPARTAN_STAGING_|^EXPO_PUBLIC_SPARTAN_ANDROID_PROFILE$|TOKEN|SERVICE_ACCOUNT|PRIVATE_KEY|NODE_OPTIONS/.test(key)),'presentation_ambient_credentials_rejected');
  return true;
 }
-function expoOverrides(base,env){assertEnvironment(env,true);return{...base,name:'SPARTAN-G PRIVATE v31',android:{...base.android,package:PACKAGE,versionCode:VERSION,googleServicesFile:publicConfiguration().googleServices}};}
+function expoOverrides(base,env){assertEnvironment(env,true);return{...base,name:'SPARTAN-G',android:{...base.android,package:PACKAGE,versionCode:VERSION,googleServicesFile:publicConfiguration().googleServices}};}
 function resolution(resolved,context,platform,selected){
  if(!mode(selected))return resolved;
  check(platform==='android'&&context.dev===false,'presentation_requires_android_release');
  const files=resolved.type==='sourceFile'?[resolved.filePath]:resolved.type==='assetFiles'?resolved.filePaths:[];
  for(const file of files){const relative=path.relative(root,file).replaceAll('\\','/');check(!/^apps\/mobile\/(?:staging|presentation)\//.test(relative)&&!/(?:^|\/)\.env(?:\.|$)|google-services\.json$|\.(?:jks|keystore|p12|pfx|pem|key)$|firebase-admin|@google-cloud\//i.test(relative),'presentation_unsafe_module');
-  if (/^apps\/mobile\/(?:src|assets)\/|^packages\/[^/]+\/src\//.test(relative)) {
+  if (/^apps\/mobile\/(?:src|assets|production-notifications)\/|^packages\/[^/]+\/src\//.test(relative)) {
    if(!graphInventory){check(sha(fs.readFileSync(validation))===fs.readFileSync(digest,'utf8').trim(),'presentation_manifest_digest_mismatch');graphInventory=new Map(JSON.parse(fs.readFileSync(validation)).files.map(input=>[input.path,input.sha256]));}
    check(graphInventory.has(relative),'presentation_unreviewed_module');
    check(sha(fs.readFileSync(file))===graphInventory.get(relative),'presentation_resolved_source_changed');
@@ -57,7 +57,7 @@ function resolution(resolved,context,platform,selected){
 }
 function validatedSources(){
  check(sha(fs.readFileSync(validation))===fs.readFileSync(digest,'utf8').trim(),'presentation_manifest_digest_mismatch');
- const state=JSON.parse(fs.readFileSync(validation));check(state.passed===true&&state.profile===PROFILE&&state.apkBuilt===false&&state.files.length>300,'presentation_manifest_invalid');
+ const state=JSON.parse(fs.readFileSync(validation));check(state.passed===true&&state.profile===PROFILE&&state.apkBuilt===false&&state.files.length===405,'presentation_manifest_invalid');
  check(cp.execFileSync('git',['branch','--show-current'],{cwd:root,encoding:'utf8',windowsHide:true}).trim()==='app','android_app_branch_required');
  check(cp.execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',windowsHide:true}).trim()===state.appHead,'presentation_app_head_changed');
  for(const file of state.files){const absolute=path.resolve(root,file.path);check(absolute.startsWith(root+path.sep),'presentation_source_outside_checkout');const data=fs.readFileSync(absolute);check(sha(data)===file.sha256,'presentation_source_changed');if(/\.(?:[cm]?js|tsx?|json|gradle|kt|xml|ps1)$/.test(file.path))check(!/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"type"\s*:\s*"service_account"/.test(data.toString('utf8')),'presentation_sensitive_source');}
@@ -65,14 +65,14 @@ function validatedSources(){
 }
 function prepare(){
  check(process.version==='v22.23.3','verified_node_required');validatedSources();const config=publicConfiguration(),env=environment();assertEnvironment(env);
- const directory=fs.mkdtempSync(path.join(os.tmpdir(),'spartang-v31-presentation-'));
- const contract={profile:PROFILE,projectId:PROJECT,applicationId:PACKAGE,versionCode:VERSION,sourceRoot:root,sourceValidation:validation,sourceValidationSha256:sha(fs.readFileSync(validation)),googleServices:config.googleServices,googleServicesSha256:sha(fs.readFileSync(config.googleServices)),appBuildDirectory:path.join(mobile,'android/app',path.basename(directory)),submissionEnabled:false,presentationScreenshots:true,privateDistributionOnly:true};
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'spartang-v34-presentation-'));
+ const contract={profile:PROFILE,projectId:PROJECT,applicationId:PACKAGE,versionCode:VERSION,sourceRoot:root,sourceValidation:validation,sourceValidationSha256:sha(fs.readFileSync(validation)),googleServices:config.googleServices,googleServicesSha256:sha(fs.readFileSync(config.googleServices)),appBuildDirectory:path.join(mobile,'android/app',path.basename(directory)),submissionEnabled:false,presentationScreenshots:false,privateDistributionOnly:true};
  const planPath=path.join(directory,'contract.json');fs.writeFileSync(planPath,JSON.stringify(contract,null,2)+'\n',{flag:'wx'});fs.writeFileSync(path.join(directory,'environment.json'),JSON.stringify(env,null,2)+'\n',{flag:'wx'});return{directory,planPath};
 }
 function revalidate(file){
  validatedSources();check(path.isAbsolute(file)&&path.basename(file)==='contract.json','presentation_contract_invalid');
- const directory=path.dirname(file);check(path.dirname(directory)===os.tmpdir()&&path.basename(directory).startsWith('spartang-v31-presentation-')&&!fs.lstatSync(directory).isSymbolicLink(),'presentation_contract_path_invalid');
- const plan=JSON.parse(fs.readFileSync(file));check(plan.profile===PROFILE&&plan.projectId===PROJECT&&plan.applicationId===PACKAGE&&plan.versionCode===VERSION&&plan.submissionEnabled===false&&plan.presentationScreenshots===true&&plan.privateDistributionOnly===true,'presentation_contract_invalid');
+ const directory=path.dirname(file);check(path.dirname(directory)===os.tmpdir()&&path.basename(directory).startsWith('spartang-v34-presentation-')&&!fs.lstatSync(directory).isSymbolicLink(),'presentation_contract_path_invalid');
+ const plan=JSON.parse(fs.readFileSync(file));check(plan.profile===PROFILE&&plan.projectId===PROJECT&&plan.applicationId===PACKAGE&&plan.versionCode===VERSION&&plan.submissionEnabled===false&&plan.presentationScreenshots===false&&plan.privateDistributionOnly===true,'presentation_contract_invalid');
  check(plan.sourceRoot===root&&plan.sourceValidation===validation&&plan.sourceValidationSha256===sha(fs.readFileSync(validation)),'presentation_source_binding_invalid');
  check(plan.googleServices===publicConfiguration().googleServices&&plan.googleServicesSha256===sha(fs.readFileSync(plan.googleServices)),'presentation_native_config_changed');
  check(plan.appBuildDirectory===path.join(mobile,'android/app',path.basename(directory))&&!fs.existsSync(plan.appBuildDirectory),'presentation_output_collision');

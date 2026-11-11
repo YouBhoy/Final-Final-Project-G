@@ -1,0 +1,15 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {memoryWriter}=require('./message-outbox-fixture.cjs');
+for(const role of ['student','facilitator'])test('production native '+role+' retains legacy-compatible writes without an outbox',async()=>{
+ const f=memoryWriter('APP',{nativeProject:'spartan-g-a2d80',reject:p=>p.startsWith('notification_outbox/')}),sender=role==='student'?'student_A':'facilitator_A';
+ const id=await f.writer.sendMessage('thread',sender,' PRIVATE_SYNTHETIC ',role);
+ assert.equal(f.rows.get('messages/'+id).body,'PRIVATE_SYNTHETIC');assert.equal(f.rows.get('conversations/thread').lastMessageId,id);
+ assert.equal(f.rows.size,2);assert.ok(!f.attempted.some(p=>p.startsWith('notification_outbox/')));assert.equal(f.sideEffects.length,1);
+});
+test('staging native retains the exact atomic outbox contract',async()=>{const f=memoryWriter('APP',{nativeProject:'spartan-g-assessment-staging'}),id=await f.writer.sendMessage('thread','facilitator_A','SYNTHETIC_PRIVATE','facilitator');assert.equal(f.rows.get('notification_outbox/message_'+id).messageId,id);assert.equal(f.rows.size,3);assert.ok(!JSON.stringify(f.rows.get('notification_outbox/message_'+id)).includes('SYNTHETIC_PRIVATE'));});
+test('staging outbox rejection still rolls back the whole transaction',async()=>{const f=memoryWriter('APP',{nativeProject:'spartan-g-assessment-staging',reject:p=>p.startsWith('notification_outbox/')}),before=structuredClone([...f.rows]);await assert.rejects(()=>f.writer.sendMessage('thread','facilitator_A','rejected','facilitator'));assert.deepEqual([...f.rows],before);assert.equal(f.sideEffects.length,0);});
+test('production retries preserve one message ID and one post-commit effect',async()=>{const f=memoryWriter('APP',{nativeProject:'spartan-g-a2d80',retries:2});await f.writer.sendMessage('thread','facilitator_A','retry','facilitator');assert.equal(f.allocations(),1);assert.equal(f.callbacks(),3);assert.equal(f.rows.size,2);assert.equal(f.sideEffects.length,1);});
+test('unknown native Firebase project fails before any transaction writes',async()=>{const f=memoryWriter('APP',{nativeProject:'unknown-project'}),before=structuredClone([...f.rows]);await assert.rejects(()=>f.writer.sendMessage('thread','facilitator_A','rejected','facilitator'),/message_outbox_project_not_approved/);assert.deepEqual([...f.rows],before);assert.equal(f.callbacks(),0);});
+test('existing web/default writer still writes its atomic outbox',async()=>{const f=memoryWriter('APP'),id=await f.writer.sendMessage('thread','facilitator_A','web','facilitator');assert.ok(f.rows.has('notification_outbox/message_'+id));});
+test('production message rejection retains conversation and history',async()=>{const f=memoryWriter('APP',{nativeProject:'spartan-g-a2d80',reject:p=>p.startsWith('messages/')}),before=structuredClone([...f.rows]);await assert.rejects(()=>f.writer.sendMessage('thread','facilitator_A','rejected','facilitator'));assert.deepEqual([...f.rows],before);assert.equal(f.sideEffects.length,0);});

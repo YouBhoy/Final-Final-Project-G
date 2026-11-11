@@ -33,7 +33,7 @@ export const appLock = singleton.controller;
 singleton.stop?.();
 const stopCaptureGuard = platformSecurity.native && Platform.OS === 'android' ? installCaptureGuard(() => {
   const actor = currentLockActor(), state = appLock.getSnapshot(), auth = useAuthStore.getState();
-  return auth.session?.role === 'student' && !!actor && actor.owner === state.owner && actor.session === state.session &&
+  return ['student', 'facilitator'].includes(auth.session?.role ?? '') && !!actor && actor.owner === state.owner && actor.session === state.session &&
     state.phase === 'ready' && !state.background && !state.busy && !state.quickLoginPending && !state.signInPending;
 }) : () => {};
 const stopCaptureState = platformSecurity.native && Platform.OS === 'android'

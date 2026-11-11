@@ -109,10 +109,11 @@ class NotificationRepository extends BaseRepository<NotificationDocument> {
   subscribeByUserId(
     userId: string,
     callback: (notifications: (NotificationDocument & { id: string })[]) => void,
+    onError?: (error: Error) => void,
   ): Unsubscribe {
     return this.subscribeQuery([where('userId', '==', userId)], (docs) => {
       callback(sortNotificationsNewestFirst(docs));
-    });
+    }, onError);
   }
 }
 

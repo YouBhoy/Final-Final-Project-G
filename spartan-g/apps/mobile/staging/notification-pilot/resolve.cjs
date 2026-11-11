@@ -3,5 +3,8 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const ts=require(require.resolve('typescript',{paths:[path.resolve(__dirname,'../..')]})),m={exports:{}};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'policy.ts'),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{module:m,exports:m.exports,URL});
-function pilot(profile,plan=require('./approved.json')) { return m.exports.validatePilot(plan,profile); }
+function pilot(profile,plan) {
+ if(profile!=='staging-v25')return null;
+ return m.exports.validatePilot(plan??require('./candidate.json'),profile);
+}
 module.exports={pilot};

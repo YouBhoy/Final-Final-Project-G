@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -44,19 +44,26 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [bookingMessage, setBookingMessage] = useState('');
   const [error, setError] = useState('');
+  const bookingFlight = useRef(false), mounted = useRef(true), returnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; if (returnTimer.current) clearTimeout(returnTimer.current); }; }, []);
 
   useEffect(() => {
+    let active = true;
     if (!session) return;
+    setFacilitator(null);
     setIsLoading(false);
     userService.getUser(facilitatorId).then(u => {
-      if (u) setFacilitator({ displayName: u.displayName || 'Facilitator', email: u.email || '' });
+      if (active && mounted.current && useAuthStore.getState().session === session && u) setFacilitator({ displayName: u.displayName || 'Facilitator', email: u.email || '' });
     }).catch(() => {});
+    return () => { active = false; };
   }, [facilitatorId, session]);
 
   // Load work hours for the selected date's day of week
   useEffect(() => {
+    let active = true;
     if (!session || !facilitatorId) return;
     setError('');
+    setWorkHoursForDay(null);
     // Only the facilitator's current week of hours is bookable — dates in past
     // or future weeks are never offered even if the same weekday was set once.
     if (!isSameWeek(selectedDate, new Date())) {
@@ -65,6 +72,7 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
     }
     workHoursService.getActiveSchedule(facilitatorId, session.role)
       .then((schedules: WorkHoursScheduleDocument[]) => {
+        if (!active || !mounted.current || useAuthStore.getState().session !== session) return;
         const daySchedule = schedules.find((s) => s.dayOfWeek === selectedDate.getDay());
         if (daySchedule) {
           setWorkHoursForDay({ startTime: daySchedule.startTime, endTime: daySchedule.endTime });
@@ -73,10 +81,10 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
           setWorkHoursForDay(null);
         }
       })
-      .catch((err: any) => {
-        console.error('[BookAppointment] Failed to load work hours:', err);
-        setWorkHoursForDay(null);
+      .catch(() => {
+        if (active && mounted.current && useAuthStore.getState().session === session) setWorkHoursForDay(null);
       });
+    return () => { active = false; };
   }, [facilitatorId, selectedDate, session]);
 
   // Time options restricted to the facilitator's available hours for the day,
@@ -123,7 +131,8 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
   }, [currentYear, currentMonth]);
 
   const handleBook = useCallback(async () => {
-    if (!session || !facilitatorId || !workHoursForDay || !selectedTime) return;
+    if (!session || !facilitatorId || !workHoursForDay || !selectedTime || bookingFlight.current || useAuthStore.getState().session !== session) return;
+    bookingFlight.current = true;
     setIsBooking(true);
     setError('');
     try {
@@ -142,13 +151,14 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
       }
       await appointmentService.requestAppointment(appointmentPayload, session.role);
 
+      if (!mounted.current || useAuthStore.getState().session !== session) return;
       setBookingMessage('Appointment requested successfully! The facilitator will be notified.');
-      setTimeout(() => navigation.goBack(), 2000);
-    } catch (error: any) {
-      console.error('Failed to book appointment:', error);
-      setError(error.message || 'Failed to book appointment');
+      returnTimer.current = setTimeout(() => { if (mounted.current && useAuthStore.getState().session === session) navigation.goBack(); }, 2000);
+    } catch {
+      bookingFlight.current = false;
+      if (mounted.current && useAuthStore.getState().session === session) setError('Booking was not confirmed. Check your appointments before trying again. Your selected details remain on this screen.');
     } finally {
-      setIsBooking(false);
+      if (mounted.current && useAuthStore.getState().session === session) setIsBooking(false);
     }
   }, [session, facilitatorId, selectedDate, selectedTime, workHoursForDay, notes, navigation]);
 
@@ -296,8 +306,8 @@ export function BookAppointmentScreen({ route, navigation }: Props) {
       {/* Book button */}
       <TouchableOpacity
         onPress={handleBook}
-        disabled={!workHoursForDay || isBooking || availableTimeOptions.length === 0}
-        style={[styles.bookButton, (!workHoursForDay || isBooking || availableTimeOptions.length === 0) && styles.bookButtonDisabled]}
+        disabled={!workHoursForDay || isBooking || !!bookingMessage || availableTimeOptions.length === 0}
+        style={[styles.bookButton, (!workHoursForDay || isBooking || !!bookingMessage || availableTimeOptions.length === 0) && styles.bookButtonDisabled]}
       >
         <Text style={styles.bookButtonText}>
           {isBooking ? 'Booking...' : 'Request Appointment'}

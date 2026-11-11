@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   ScrollView,
   Image,
   Pressable,
-  Dimensions,
+  Keyboard,
+  useWindowDimensions,
   type NativeSyntheticEvent,
   type TextInputFocusEventData,
 } from 'react-native';
@@ -19,11 +20,14 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MobileAuthStackParamList } from '@spartan-g/shared-types';
 import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '@spartan-g/shared-services';
-import { lightColors, palette } from '@spartan-g/shared-ui';
+import { lightColors } from '@spartan-g/shared-ui';
+import { DEFAULT_PRIVACY_POLICY } from '../../security/policy-default';
+import { loginPrivacyHandoff } from '../../security/login-privacy';
+import { currentPolicyActor } from '../../security/portal-policy';
+import { LoginLegalDocument, type LoginLegalDocumentKind } from './LoginLegalDocument';
 
 type Props = NativeStackScreenProps<MobileAuthStackParamList, 'Login'>;
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const HERO_RATIO = 0.42; // Hero takes 42% of screen height
 
 function HeroGradientOverlay() {
@@ -74,8 +78,16 @@ export function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const agreement = useRef(false);
+  const [document, setDocument] = useState<LoginLegalDocumentKind | null>(null);
+  const documentRef = useRef<LoginLegalDocumentKind | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false), mounted = useRef(true);
+  const { height } = useWindowDimensions();
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
-  const isLoading = status === 'loading';
+  const isLoading = status === 'loading' || submitting;
 
   const validate = useCallback((): boolean => {
     const errors: Record<string, string> = {};
@@ -89,21 +101,47 @@ export function LoginScreen({ navigation }: Props) {
     if (!password) {
       errors.password = 'Password is required';
     }
+    if (!agreement.current) errors.agreement = 'Please read and agree to the Privacy Policy before signing in.';
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }, [email, password]);
 
   const handleSubmit = useCallback(async () => {
+    // Keyboard submission and stale/rapid presses must obey the same guard.
+    if (submittingRef.current || status === 'loading' || documentRef.current !== null) return;
     clearError();
     if (!validate()) return;
-
+    submittingRef.current = true; setSubmitting(true);
+    const acknowledgement = loginPrivacyHandoff.begin(DEFAULT_PRIVACY_POLICY);
     try {
       await signIn({ email: email.trim(), password });
+      // Bind only to the actual successful Firebase/app session. The post-login
+      // gate still verifies the server document and persists the existing receipt.
+      const state = useAuthStore.getState();
+      const samePasswordSession = state.status === 'authenticated' && state.sessionOrigin === 'password'
+        && state.credentialProof?.session === state.session
+        && state.session?.email?.toLowerCase() === email.trim().toLowerCase();
+      acknowledgement.complete(samePasswordSession ? currentPolicyActor() : null);
     } catch {
+      acknowledgement.cancel();
       // Error is set in the auth store
+    } finally {
+      submittingRef.current = false;
+      if (mounted.current) setSubmitting(false);
     }
-  }, [email, password, validate, signIn, clearError]);
+  }, [email, password, validate, signIn, clearError, status]);
+
+  const toggleAgreement = () => {
+    if (isLoading || submittingRef.current) return;
+    agreement.current = !agreement.current; setAgreed(agreement.current);
+    setFormErrors(previous => { const next = { ...previous }; delete next.agreement; return next; });
+  };
+  const openDocument = (kind: LoginLegalDocumentKind) => {
+    if (isLoading || submittingRef.current || documentRef.current) return;
+    Keyboard.dismiss(); documentRef.current = kind; setDocument(kind);
+  };
+  const closeDocument = () => { documentRef.current = null; setDocument(null); };
 
   const handleFieldChange = useCallback(
     (field: 'email' | 'password', value: string) => {
@@ -120,7 +158,7 @@ export function LoginScreen({ navigation }: Props) {
     [formErrors],
   );
 
-  const heroHeight = SCREEN_HEIGHT * HERO_RATIO;
+  const heroHeight = Math.max(280, Math.min(height * HERO_RATIO, 420));
 
   // Scrolls the focused field comfortably above the keyboard (~120px of
   // breathing room below it) so it never sits at the very edge. On Android we
@@ -167,6 +205,7 @@ export function LoginScreen({ navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         bounces={false}
+        importantForAccessibility={document ? 'no-hide-descendants' : 'auto'}
       >
         {/* ─── Hero Image Section (full-bleed) ──────────────── */}
         <View style={[styles.heroContainer, { height: heroHeight }]}>
@@ -199,7 +238,7 @@ export function LoginScreen({ navigation }: Props) {
         <View style={styles.formCard}>
           {/* Error banner */}
           {error && (
-            <View style={styles.errorBanner}>
+            <View style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="assertive">
               <Text style={styles.errorBannerText}>{error}</Text>
             </View>
           )}
@@ -219,6 +258,8 @@ export function LoginScreen({ navigation }: Props) {
                 autoCorrect={false}
                 keyboardType="email-address"
                 autoComplete="email"
+                testID="login-email"
+                accessibilityLabel="Email"
                 onFocus={scrollToFocusedField}
                 editable={!isLoading}
               />
@@ -243,6 +284,10 @@ export function LoginScreen({ navigation }: Props) {
                   onChangeText={(v) => handleFieldChange('password', v)}
                   secureTextEntry={!showPassword}
                   autoComplete="password"
+                  testID="login-password"
+                  accessibilityLabel="Password"
+                  returnKeyType="go"
+                  onSubmitEditing={() => void handleSubmit()}
                   numberOfLines={1}
                   onFocus={scrollToFocusedField}
                   editable={!isLoading}
@@ -252,6 +297,8 @@ export function LoginScreen({ navigation }: Props) {
                   onPress={() => setShowPassword((prev) => !prev)}
                   hitSlop={8}
                   disabled={isLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                 >
                   <Feather
                     name={showPassword ? 'eye-off' : 'eye'}
@@ -265,17 +312,47 @@ export function LoginScreen({ navigation }: Props) {
               )}
             </View>
 
-            {/* Submit button */}
+            <View style={styles.agreementSection}>
+              <View style={styles.agreementRow}>
+                <Pressable testID="login-privacy-checkbox" accessibilityRole="checkbox"
+                  accessibilityLabel="I have read and agree to the Privacy Policy."
+                  accessibilityState={{ checked: agreed, disabled: isLoading }}
+                  disabled={isLoading} onPress={toggleAgreement} style={styles.checkboxTarget}>
+                  <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
+                    {agreed && <Feather name="check" size={17} color="#FFFFFF" />}
+                  </View>
+                </Pressable>
+                <Pressable testID="login-privacy-link" accessibilityRole="link" accessibilityLabel="Read Privacy Policy"
+                  accessibilityState={{ disabled: isLoading }} disabled={isLoading}
+                  onPress={() => openDocument('privacy')} style={styles.privacyLinkTarget}>
+                  <Text style={styles.agreementText}>I have read and agree to the{' '}
+                    <Text style={styles.legalLink}>Privacy Policy</Text>.
+                  </Text>
+                </Pressable>
+              </View>
+              {!!formErrors.agreement && <Text testID="login-agreement-error" accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.fieldError}>{formErrors.agreement}</Text>}
+              <Pressable testID="login-terms-link" accessibilityRole="link" accessibilityLabel="Terms of Use, pending approval"
+                accessibilityState={{ disabled: isLoading }} disabled={isLoading} onPress={() => openDocument('terms')} style={styles.termsLinkTarget}>
+                <Text style={styles.pendingTerms}>Terms of Use · pending approval</Text>
+              </Pressable>
+            </View>
+
+            {/* Only the existing Privacy Policy is required; Terms are not approved. */}
             <TouchableOpacity
+              testID="login-submit"
               onPress={handleSubmit}
-              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-              disabled={isLoading}
+              style={[styles.submitButton, (isLoading || !agreed) && styles.submitButtonDisabled]}
+              disabled={isLoading || !agreed || document !== null}
+              accessibilityRole="button"
+              accessibilityLabel="Log In"
+              accessibilityHint={!agreed ? 'Agree to the Privacy Policy to enable login' : undefined}
+              accessibilityState={{ disabled: isLoading || !agreed || document !== null, busy: isLoading }}
               activeOpacity={0.8}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Sign in</Text>
+                <Text style={styles.submitButtonText}>Log In</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -292,6 +369,7 @@ export function LoginScreen({ navigation }: Props) {
           </View>
         </View>
       </ScrollView>
+      <LoginLegalDocument document={document} onClose={closeDocument} />
     </KeyboardAvoidingView>
   );
 }
@@ -393,6 +471,9 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 32,
     flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   errorBanner: {
     backgroundColor: lightColors.errorBackground,
@@ -456,6 +537,16 @@ const styles = StyleSheet.create({
     color: lightColors.error,
     marginTop: 4,
   },
+  agreementSection: { marginTop: 2, marginBottom: 12 },
+  agreementRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  checkboxTarget: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  checkbox: { width: 23, height: 23, borderRadius: 5, borderWidth: 1.5, borderColor: lightColors.primary, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  checkboxChecked: { backgroundColor: lightColors.primary },
+  privacyLinkTarget: { flex: 1, minHeight: 48, justifyContent: 'center', paddingVertical: 9 },
+  agreementText: { fontSize: 14, lineHeight: 23, color: lightColors.textSecondary },
+  legalLink: { color: lightColors.primary, fontWeight: '700', textDecorationLine: 'underline' },
+  termsLinkTarget: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 8 },
+  pendingTerms: { fontSize: 13, color: lightColors.textSecondary, textDecorationLine: 'underline' },
   submitButton: {
     backgroundColor: lightColors.primary,
     borderRadius: 28,
@@ -474,6 +565,7 @@ const styles = StyleSheet.create({
   },
   footerSection: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
   },

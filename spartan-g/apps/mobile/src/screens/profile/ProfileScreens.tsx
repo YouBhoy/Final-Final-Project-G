@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, AccessibilityInfo, findNodeHandle, Pressable, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAuthStore } from '@spartan-g/shared-services';
+import { useAuthStore, getFirebaseApp } from '@spartan-g/shared-services';
 import { ALL_CAMPUSES, getCampusLabel, ROLE_LABELS, type Campus } from '@spartan-g/shared-types';
 import { currentPreferenceOwner, profilePreferences, useProfilePreferences } from '../../profile/preferences';
 import { ProfileHeader, ProfileAvatar, ProfileInfo, ProfileRow, ProfileToggle, profileStyles as styles } from './ProfileDesign';
@@ -14,6 +14,7 @@ import { PrivateFcmTest } from '../../notifications/PrivateFcmTest';
 import { PhoneNotificationPermission } from '../../notifications/PhoneNotificationPermission';
 import { installedNotificationRuntime } from '../../notifications/runtime';
 import { PrivacyExtras } from './PrivacyExtras';
+import { registrationCopy } from '../../notifications/registration-copy';
 
 function useIdentity() {
   const account = useProfileAccount();
@@ -82,6 +83,7 @@ export function NotificationSettings() {
   const available = !!owner && preferences.owner === owner && preferences.status === 'ready';
   const disabled = !available || preferences.saving;
   const stagingTransport = !!installedNotificationRuntime?.();
+  const notificationCopy = registrationCopy(getFirebaseApp().options.projectId ?? '', stagingTransport);
   const change = (field: 'messageBanners' | 'appointmentBanners' | 'foregroundSound', value: boolean) => { if (owner) void profilePreferences.update(owner, field, value); };
   return <View style={styles.screen}><ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
     <ProfileHeader title="Notification Settings" subtitle="Stay updated on what matters to you." back={() => navigation.goBack()} symbol="bell" />
@@ -94,8 +96,8 @@ export function NotificationSettings() {
       </>}
       <PreferenceNotice />
       <Text accessibilityRole="header" style={styles.section}>REGISTRATION & DELIVERY</Text>
-      <Text testID="push-registration-status" style={styles.neutral}>{stagingTransport ? 'Device registration: consult the acknowledged staging binding above. Server delivery: not confirmed by Android permission or a binding alone.' : 'Device registration: unavailable for automatic delivery. The private FCM test can check native registration on this phone; its current token is not queried here.'}</Text>
-      <Text testID="server-delivery-status" style={styles.neutral}>{stagingTransport ? 'Automatic server delivery: controlled by the separately approved staging service; not verified here.' : 'Automatic server delivery: inactive. Messaging and unread counts are separate from phone notification delivery.'}</Text>
+      <Text testID="push-registration-status" style={styles.neutral}>{stagingTransport ? notificationCopy.registrationStatus : 'Device registration: unavailable for automatic delivery. The private FCM test can check native registration on this phone; its current token is not queried here.'}</Text>
+      <Text testID="server-delivery-status" style={styles.neutral}>{stagingTransport ? notificationCopy.deliveryStatus : 'Automatic server delivery: inactive. Messaging and unread counts are separate from phone notification delivery.'}</Text>
       <View style={styles.notice}><Text style={styles.noticeText}>Your local category and foreground preferences are preserved. Quiet hours, email delivery and scheduled reminders are not active. Permission or a private test token does not activate automatic delivery.</Text></View>
     </View>
   </ScrollView></View>;

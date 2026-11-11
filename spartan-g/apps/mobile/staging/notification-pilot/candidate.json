@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "project": "spartan-g-assessment-staging",
+  "package": "com.spartang.mobile.staging",
+  "origin": "https://spartang-notification-api-staging.netlify.app"
+}

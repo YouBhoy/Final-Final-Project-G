@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSensitiveCapture } from '../../security/ScreenCaptureBoundary';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StudentMobileStackParamList } from '@spartan-g/shared-types';
 import { useAuthStore, appointmentService, userService } from '@spartan-g/shared-services';
@@ -66,6 +67,10 @@ export function StudentAppointmentsScreen() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const cancelFlights = useRef(new Set<string>());
+  const loadRequest = useRef(0), loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null), mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; loadRequest.current++; if (loadTimer.current) clearTimeout(loadTimer.current); }; }, []);
+  const notesProtected = useSensitiveCapture(appointments.some(apt => !!apt.notes || !!apt.outcomeNotes));
 
   const filteredAppointments = useMemo(() => {
     const filter = STATUS_FILTERS.find(f => f.key === statusFilter);
@@ -74,10 +79,22 @@ export function StudentAppointmentsScreen() {
   }, [appointments, statusFilter]);
 
   const loadAppointments = useCallback(async () => {
-    if (!session) return;
+    const request = ++loadRequest.current;
+    if (loadTimer.current) clearTimeout(loadTimer.current);
+    setAppointments([]); setFacilitatorNames({});
+    if (!session) { setIsLoading(false); setIsRefreshing(false); return; }
+    const current = () => mounted.current && request === loadRequest.current && useAuthStore.getState().session === session;
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      if (!current()) return;
+      loadRequest.current++; setIsLoading(false); setIsRefreshing(false);
+      setLoadError('Appointments could not be confirmed in time. Check your connection and try again.');
+    }, 12_000);
+    loadTimer.current = timer;
     try {
       setLoadError(null);
       const data = await appointmentService.getStudentAppointments(session.uid, session.role);
+      if (!current()) return;
       data.sort((a, b) => {
         const aIdx = STATUS_ORDER.indexOf(a.status);
         const bIdx = STATUS_ORDER.indexOf(b.status);
@@ -93,16 +110,17 @@ export function StudentAppointmentsScreen() {
         if (!names[apt.facilitatorId]) {
           try {
             const userDoc = await userService.getUser(apt.facilitatorId);
+            if (!current()) return;
             if (userDoc) names[apt.facilitatorId] = userDoc.displayName || 'Unknown Facilitator';
           } catch { /* ignore */ }
         }
       }
-      setFacilitatorNames(names);
-    } catch (error) {
-      console.error('Failed to load appointments:', error);
-      setLoadError('Check your connection and appointment access, then try again.');
+      if (current()) setFacilitatorNames(names);
+    } catch {
+      if (current()) setLoadError('Check your connection and appointment access, then try again.');
     } finally {
-      setIsLoading(false);
+      clearTimeout(timer); if (loadTimer.current === timer) loadTimer.current = null;
+      if (current()) { setIsLoading(false); setIsRefreshing(false); }
     }
   }, [session]);
 
@@ -113,19 +131,20 @@ export function StudentAppointmentsScreen() {
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await loadAppointments();
-    setIsRefreshing(false);
   }, [loadAppointments]);
 
   const handleCancel = useCallback(async (appointmentId: string) => {
-    if (!session) return;
+    if (!session || useAuthStore.getState().session !== session || cancelFlights.current.has(appointmentId)) return;
+    cancelFlights.current.add(appointmentId);
     setActionLoading(appointmentId);
     try {
       await appointmentService.cancelAppointment(appointmentId, session.role, session.uid);
-      await loadAppointments();
-    } catch (error) {
-      console.error('Failed to cancel appointment:', error);
+      if (useAuthStore.getState().session === session) await loadAppointments();
+    } catch {
+      if (useAuthStore.getState().session === session) setLoadError('Cancellation was not confirmed. Refresh your appointments before trying again.');
     } finally {
-      setActionLoading(null);
+      cancelFlights.current.delete(appointmentId);
+      if (useAuthStore.getState().session === session) setActionLoading(null);
     }
   }, [session, loadAppointments]);
 
@@ -145,8 +164,8 @@ export function StudentAppointmentsScreen() {
               <View style={styles.appointmentInfo}>
                 <View style={styles.nameRow}><Text style={styles.facilitatorName}>{facilitatorNames[apt.facilitatorId]||'Facilitator'}</Text><View style={[styles.statusBadge,{backgroundColor:getStatusBg(apt.status)}]}><Feather name={apt.status==='requested'||apt.status==='reschedule_requested'?'clock':apt.status==='accepted'||apt.status==='completed'?'check-circle':'x-circle'} size={13} color={getStatusColor(apt.status)} /><Text style={[styles.statusText,{color:getStatusColor(apt.status)}]}>{statusText}</Text></View></View>
                 <View style={styles.detailRow}><Feather name="clock" size={16} color={colors.slate} /><Text style={styles.detailText}>{appointmentTimeLabel(apt.scheduledAt,apt.durationMinutes)}</Text></View>
-                {!!apt.notes&&<View style={styles.detailRow}><Feather name="file-text" size={16} color={colors.slate} /><Text style={[styles.detailText,{fontStyle:'italic'}]}>Note: {apt.notes}</Text></View>}
-                {!!apt.outcomeNotes&&apt.status==='completed'&&<View style={styles.detailRow}><Feather name="file-text" size={16} color={colors.slate} /><Text style={styles.detailText}>Outcome: {apt.outcomeNotes}</Text></View>}
+                {notesProtected&&!!apt.notes&&<View style={styles.detailRow}><Feather name="file-text" size={16} color={colors.slate} /><Text style={[styles.detailText,{fontStyle:'italic'}]}>Note: {apt.notes}</Text></View>}
+                {notesProtected&&!!apt.outcomeNotes&&apt.status==='completed'&&<View style={styles.detailRow}><Feather name="file-text" size={16} color={colors.slate} /><Text style={styles.detailText}>Outcome: {apt.outcomeNotes}</Text></View>}
               </View>
             </View>
             <View style={styles.actions}>

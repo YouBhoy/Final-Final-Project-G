@@ -1,4 +1,5 @@
-/** The web contract is a per-sign-in acknowledgement, not a permanent server consent record. */
+/** Active checks are session-bound; exact-policy local receipts can be restored
+ * for the same account. No server consent record or identity-sharing grant. */
 export interface PortalPolicy { title: string; body: string; version: number }
 export interface PolicyActor { owner: string; session: unknown }
 export interface PolicyReceipt extends PortalPolicy { owner: string; acceptedAt: string }
@@ -12,8 +13,27 @@ export function receiptMatches(value: unknown, owner: string, policy: PortalPoli
   const r = value as Partial<PolicyReceipt> | null;
   return !!r && r.owner === owner && r.title === policy.title && r.body === policy.body && r.version === policy.version && typeof r.acceptedAt === 'string' && Number.isFinite(Date.parse(r.acceptedAt));
 }
+/** Restore a real decision for this Firebase account and exact policy, while
+ * keeping active checks bound to the current session. No new acceptance time. */
+export function restorePolicyReceipt(value: unknown, owner: string, policy: PortalPolicy): PolicyReceipt | null {
+  if (receiptMatches(value, owner, policy)) return value;
+  const receipt = value as Partial<PolicyReceipt> | null;
+  if (!receipt || typeof receipt.owner !== 'string' || !receiptMatches(receipt, receipt.owner, policy)) return null;
+  const identity = (key: string): string[] | null => {
+    try {
+      const parts: unknown = JSON.parse(key);
+      if (!Array.isArray(parts) || parts.length !== 4 || !parts.every(part => typeof part === 'string' && part.length > 0)
+        || !['spartan-g-a2d80', 'spartan-g-assessment-staging'].includes(parts[0])
+        || !Number.isFinite(Date.parse(parts[2])) || !/^\d+:\d+$/.test(parts[3])) return null;
+      return parts;
+    } catch { return null; }
+  };
+  const previous = identity(receipt.owner), current = identity(owner);
+  if (!previous || !current || previous[0] !== current[0] || previous[1] !== current[1]) return null;
+  return { ...receipt, owner } as PolicyReceipt;
+}
 export function createPolicyConsent(ports: {
-  actor(): PolicyActor | null; load(): Promise<PortalPolicy>; read(): Promise<unknown>;
+  actor(): PolicyActor | null; load(): Promise<PortalPolicy>; read(policy: PortalPolicy): Promise<unknown>;
   save(receipt: PolicyReceipt): Promise<void>; now(): Date; timeoutMs?: number;
 }) {
   let state: PolicyState = { owner: null, phase: 'loading', policy: null, error: null }, epoch = 0, busy = false;
@@ -36,7 +56,7 @@ export function createPolicyConsent(ports: {
         const policy = await bounded(ports.load());
         // Version zero is the exact web starter policy, only returned for an absent server document.
         if (!policy || !policy.title || !policy.body || !Number.isInteger(policy.version) || policy.version < 0) throw new Error('Policy unavailable');
-        const receipt = await bounded(ports.read());
+        const receipt = await bounded(ports.read(policy));
         if (run !== epoch || !same(actor)) return;
         publish({ owner: actor.owner, policy, phase: receiptMatches(receipt, actor.owner, policy) ? 'accepted' : 'review', error: null });
       } catch {

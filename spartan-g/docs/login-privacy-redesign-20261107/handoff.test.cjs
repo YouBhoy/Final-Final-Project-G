@@ -1,0 +1,28 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {load}=require('../navigation-premium-popup/harness.cjs');
+const policy=load('apps/mobile/src/security/policy-consent.ts'),{createLoginPrivacyHandoff}=load('apps/mobile/src/security/login-privacy.ts',{'./policy-consent':policy});
+const original=load('apps/mobile/src/security/policy-default.ts').DEFAULT_PRIVACY_POLICY;
+const actor=()=>({owner:'synthetic-owner_A',session:{}});
+test('agreement does not exist before an explicit attempt and cannot cross actors',async()=>{const h=createLoginPrivacyHandoff(),a=actor();assert.equal(await h.read(a,original),null);const t=h.begin(original);t.complete(a);assert.ok(policy.receiptMatches(await h.read(a,original),a.owner,original));assert.equal(await h.read({...a,owner:'synthetic-owner_B'},original),null);});
+for(const change of [{version:1},{title:'Changed public title'},{body:'Changed public policy'}])test('a different authenticated policy requires independent review '+Object.keys(change)[0],async()=>{const h=createLoginPrivacyHandoff(),a=actor(),t=h.begin(original);t.complete(a);assert.equal(await h.read(a,{...original,...change}),null);});
+test('a policy check started before sign-in completes waits for the exact successful actor',async()=>{const h=createLoginPrivacyHandoff(),a=actor(),t=h.begin(original);const p=h.read(a,original);t.complete(a);assert.ok(await p);});
+test('failed, cancelled and superseded attempts create no valid receipt',async()=>{const h=createLoginPrivacyHandoff(),a=actor(),one=h.begin(original),pending=h.read(a,original);const two=h.begin(original);one.complete(a);assert.equal(await pending,null);two.cancel();assert.equal(await h.read(a,original),null);const three=h.begin(original);three.complete(null);assert.equal(await h.read(a,original),null);});
+function adapter(options={}){
+ const handoff=createLoginPrivacyHandoff(),rows=new Map(),calls=[];
+ let state={status:'authenticated',session:{uid:'synthetic-A',role:'student'}},serverPolicy={...original},project='spartan-g-a2d80';
+ const user={uid:'synthetic-A',isAnonymous:false,metadata:{lastSignInTime:'Sat, 07 Nov 2026 00:00:00 GMT'}};
+ const p=load('apps/mobile/src/security/portal-policy.ts',{
+  '@react-native-async-storage/async-storage':{default:{getItem:async key=>rows.get(key)??null,setItem:async(key,value)=>{if(options.storageFailure)throw Error('Synthetic local storage unavailable');calls.push(['localReceipt',key]);rows.set(key,value);}}},
+  'firebase/firestore':{doc:(_db,...segments)=>{assert.deepEqual(segments,['platform_settings','privacy_policy']);return segments;},getDocFromServer:async()=>{calls.push(['policyRead']);if(options.offline)throw Error('Synthetic offline');return{exists:()=>serverPolicy.version>0,data:()=>serverPolicy};}},
+  '@spartan-g/shared-services/src/firebase/auth':{getFirebaseAuth:()=>({currentUser:user,app:{options:{projectId:project}}})},
+  '@spartan-g/shared-services/src/firebase/firestore':{getFirestoreDb:()=>({app:{options:{projectId:project}}})},
+  '@spartan-g/shared-services':{useAuthStore:{getState:()=>state}},'./policy-default':{DEFAULT_PRIVACY_POLICY:original},'./policy-consent':policy,'./login-privacy':{loginPrivacyHandoff:handoff},
+ });
+ return{p,handoff,calls,rows,getActor:()=>p.currentPolicyActor(),newLogin(){state={...state,session:{...state.session}};},policy:v=>{serverPolicy=v;},project:v=>{project=v;},unauth(){state={status:'unauthenticated',session:null};}};
+}
+test('unchanged policy avoids duplicate prompt only after live verification and existing local receipt save',async()=>{const f=adapter(),t=f.handoff.begin(original),a=f.getActor(),c=f.p.makePortalConsent();const check=c.check();t.complete(a);await check;assert.equal(c.getSnapshot().phase,'accepted');assert.deepEqual(f.calls.map(c=>c[0]),['policyRead','localReceipt']);assert.equal(f.rows.size,1);const receipt=JSON.parse([...f.rows.values()][0]);assert.equal(receipt.owner,a.owner);assert.equal(receipt.body,original.body);assert.ok(!('terms' in receipt));});
+test('new server policy is shown and no acceptance is invented',async()=>{const f=adapter(),t=f.handoff.begin(original);t.complete(f.getActor());f.policy({title:'New authoritative public policy',body:'New public wording',version:2});const c=f.p.makePortalConsent();await c.check();assert.equal(c.getSnapshot().phase,'review');assert.equal(c.getSnapshot().policy.version,2);assert.equal(f.rows.size,0);});
+test('same-account reopening restores the saved exact-policy receipt without reusing the old login handoff',async()=>{const f=adapter(),t=f.handoff.begin(original);t.complete(f.getActor());const first=f.p.makePortalConsent();await first.check();assert.equal(first.getSnapshot().phase,'accepted');const previous=f.getActor();f.newLogin();const current=f.getActor();assert.notEqual(current.owner,previous.owner);assert.equal(await f.handoff.read(current,original),null);const next=f.p.makePortalConsent();await next.check();assert.equal(next.getSnapshot().phase,'accepted');assert.equal(f.calls.filter(c=>c[0]==='policyRead').length,2);});
+test('offline verification and failed local receipt persistence keep protected screens closed',async()=>{for(const options of [{offline:true},{storageFailure:true}]){const f=adapter(options),t=f.handoff.begin(original);t.complete(f.getActor());const c=f.p.makePortalConsent();await c.check();assert.equal(c.getSnapshot().phase,'error');assert.equal(f.rows.size,0);}});
+test('unauthenticated or mismatched Firebase identity cannot read the server policy',async()=>{const f=adapter();f.unauth();await assert.rejects(f.p.loadPortalPolicy());assert.equal(f.calls.length,0);});

@@ -13,11 +13,11 @@ if(-not $BuildApprovedOnce){$reply;exit 0}
 $prepared=$reply|ConvertFrom-Json
 $plan=Get-Content -LiteralPath $prepared.planPath -Raw|ConvertFrom-Json
 $privateRoot=[IO.Path]::GetFullPath($prepared.directory)
-if($plan.applicationId -cne 'com.spartang.mobile' -or $plan.projectId -cne 'spartan-g-a2d80' -or $plan.versionCode -ne 31 -or $plan.submissionEnabled -ne $false -or $plan.presentationScreenshots -ne $true -or $plan.privateDistributionOnly -ne $true){throw 'Invalid presentation contract.'}
+if($plan.applicationId -cne 'com.spartang.mobile' -or $plan.projectId -cne 'spartan-g-a2d80' -or $plan.versionCode -ne 34 -or $plan.submissionEnabled -ne $false -or $plan.presentationScreenshots -ne $false -or $plan.privateDistributionOnly -ne $true){throw 'Invalid presentation contract.'}
 $attempt=Join-Path $privateRoot 'BUILD_ATTEMPT.json'
 if(Test-Path -LiteralPath $attempt){throw 'This build attempt has already been consumed.'}
 # No launcher path silently enrolls in compilation; separate build approval is required.
-if((Read-Host 'Private screenshot-enabled APK: never distribute publicly. Separately approved one build? Type BUILD PRIVATE V31') -cne 'BUILD PRIVATE V31'){throw 'Build confirmation did not match.'}
+if((Read-Host 'Protected v34 APK, private installation only. Separately approved one build? Type BUILD PROTECTED V34') -cne 'BUILD PROTECTED V34'){throw 'Build confirmation did not match.'}
 $verify=& $node (Join-Path $PSScriptRoot 'profile.cjs') --revalidate-prepared-build $prepared.planPath
 if($LASTEXITCODE -ne 0){$verify;exit 1}
 $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
@@ -68,7 +68,7 @@ try{
   $archive=[IO.Compression.ZipFile]::OpenRead($apk)
   try{foreach($entry in $archive.Entries){if($entry.FullName -match '\.map$|(?:^|/)\.env(?:\.|$)|google-services\.json$|\.(?:jks|keystore|p12|pem|key)$'){throw 'Archive privacy gate rejected the generated APK.'}}}finally{$archive.Dispose()}
  }
- $result=[ordered]@{status=if($process.ExitCode -eq 0){'built-awaiting-independent-apk-audit'}else{'build-failed'};exitCode=$process.ExitCode;apk=if(Test-Path -LiteralPath $apk){$apk}else{$null};privateDistributionOnly=$true;presentationScreenshots=$true;installed=$false;releaseVerified=$false;automaticRetries=0}
+ $result=[ordered]@{status=if($process.ExitCode -eq 0){'built-awaiting-independent-apk-audit'}else{'build-failed'};exitCode=$process.ExitCode;apk=if(Test-Path -LiteralPath $apk){$apk}else{$null};privateDistributionOnly=$true;presentationScreenshots=$false;installed=$false;releaseVerified=$false;automaticRetries=0}
  [IO.File]::WriteAllText((Join-Path $privateRoot 'BUILD_RESULT.json'),($result|ConvertTo-Json))
  $result|ConvertTo-Json
  if($process.ExitCode -ne 0){exit $process.ExitCode}

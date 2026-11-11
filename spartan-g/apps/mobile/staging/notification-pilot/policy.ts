@@ -7,6 +7,6 @@ export function validatePilot(value: unknown, profile: string) {
   const u = new URL(p.origin);
   const firebase = p.origin === 'https://asia-southeast1-spartan-g-assessment-staging.cloudfunctions.net';
   if (u.origin !== p.origin || u.protocol !== 'https:' || u.port || u.username || u.password || u.pathname !== '/' || u.search || u.hash
-    || (!firebase && !/^[a-z0-9][a-z0-9-]+\.netlify\.app$/.test(u.hostname)) || u.hostname === 'spartang-assessment-staging.netlify.app') throw Error('notification_pilot_origin_rejected');
+    || (!firebase && p.origin !== 'https://spartang-notification-api-staging.netlify.app')) throw Error('notification_pilot_origin_rejected');
   return { project: 'spartan-g-assessment-staging' as const, origin: p.origin, ...(firebase ? { apiPrefix: '/notificationDeviceApi' } : {}) };
 }

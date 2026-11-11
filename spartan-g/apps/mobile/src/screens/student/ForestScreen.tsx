@@ -78,12 +78,14 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+  const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dataSession, setDataSession] = useState<typeof session>(null);
 
   // ─── Period / selection / motion ─────────────────────────────────────────
   const [mode, setMode] = useState<PeriodMode>('month');
   const [anchor, setAnchor] = useState(() => new Date());
   const [selected, setSelected] = useState<ForestCheckIn | null>(null);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(true);
 
   // ─── Milestone + grow feedback (real data only) ────────────────────────────
   // Toast + grow animation fire once per new milestone check-in (per session),
@@ -105,11 +107,20 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   const load = useCallback(
     async (options?: { silent?: boolean }) => {
       const request = ++requestId.current;
+      if (readTimer.current) clearTimeout(readTimer.current);
       if (!session || session.role !== 'student') { setCheckIns([]); setLoading(false); setRefreshing(false); return; }
       const current = () => request === requestId.current && useAuthStore.getState().session === session;
       if (!options?.silent) setLoading(true);
+      const timer = setTimeout(() => {
+        if (!current()) return;
+        requestId.current++;
+        setLoading(false); setRefreshing(false);
+        setError('Your forest could not be confirmed in time. Check your connection and try again. Saved check-ins have not been changed.');
+      }, 12_000);
+      readTimer.current = timer;
       try {
         const all = await assessmentService.getAttemptsByStudent(session.uid);
+        if (!current()) return;
 
         // Fetch each assessment definition once (cached by id) so we can read
         // the neutral question set — instrument presence + question count.
@@ -117,6 +128,7 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
         for (const attempt of all) {
           if (!defCache.has(attempt.assessmentId)) {
             const def = await assessmentService.getAssessmentDefinition(attempt.assessmentId);
+            if (!current()) return;
             if (def) defCache.set(attempt.assessmentId, def);
           }
         }
@@ -127,11 +139,14 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
         }));
 
         if (!current()) return;
+        setDataSession(session); setSelected(null);
         setCheckIns(buildForestCheckIns(entries));
         setError(null);
       } catch {
         if (current()) setError('Unable to load your forest. Please try again.');
       } finally {
+        clearTimeout(timer);
+        if (readTimer.current === timer) readTimer.current = null;
         if (current()) { setLoading(false); setRefreshing(false); }
       }
     },
@@ -142,7 +157,7 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   useFocusEffect(
     useCallback(() => {
       load();
-      return () => { requestId.current++; };
+      return () => { requestId.current++; if (readTimer.current) clearTimeout(readTimer.current); };
     }, [load]),
   );
 
@@ -153,15 +168,16 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
 
   // ─── Accessibility: honour the OS "reduce motion" setting ───────────────
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false, preferenceRevision = 0;
+    const initialRevision = preferenceRevision;
     AccessibilityInfo.isReduceMotionEnabled()
       .then((enabled) => {
-        if (!cancelled) setReducedMotion(enabled);
+        if (!cancelled && preferenceRevision === initialRevision) setReducedMotion(enabled);
       })
       .catch(() => undefined);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) =>
-      setReducedMotion(enabled),
-    );
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
+      preferenceRevision++; if (!cancelled) setReducedMotion(enabled);
+    });
     return () => {
       cancelled = true;
       sub.remove();
@@ -173,10 +189,10 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   // 'real' shows live Firestore data; the other keys build synthetic check-ins
   // through the SAME pipeline so 0 / 1 / 12 / 50+ tree states can be reviewed.
   const previewCheckIns: ForestCheckIn[] = useMemo(
-    () => (previewKey === 'real' ? checkIns : previewFor(previewKey)),
+    () => (typeof __DEV__ !== 'undefined' && __DEV__ && previewKey !== 'real' ? previewFor(previewKey) : checkIns),
     [previewKey, checkIns],
   );
-  const isPreview = previewKey !== 'real';
+  const isPreview = typeof __DEV__ !== 'undefined' && __DEV__ && previewKey !== 'real';
 
   // ─── Derived: period slice, stats, chart, placement ─────────────────────
   const periodCheckIns = useMemo(() => {
@@ -291,7 +307,7 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
 
   const goBack = useCallback(() => navigation.goBack(), [navigation]);
   /** Dev/review entry point to the synthetic 0 / 1 / 12 / 50+ datasets. */
-  const openPreviewMenu = useCallback(() => setShowPreviewMenu(true), []);
+  const openPreviewMenu = useCallback(() => { if (typeof __DEV__ !== 'undefined' && __DEV__) setShowPreviewMenu(true); }, []);
   const viewResults = useCallback(() => {
     setSelected(null);
     navigation.navigate('StudentTabs', { screen: 'StudentAssignments' });
@@ -335,7 +351,10 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
   }, [sharing, previewCheckIns.length]);
 
   // ─── Loading / error ─────────────────────────────────────────────────────
-  if (loading && !isPreview) {
+  if (!session || session.role !== 'student') {
+    return <View style={styles.screen}><View style={styles.center}><Text style={styles.errorTitle}>Sign in to view My Forest</Text><Text style={styles.errorBody}>Your saved check-ins have not been changed.</Text></View></View>;
+  }
+  if ((loading || (!error && dataSession !== session)) && !isPreview) {
     return (
       <View style={styles.screen}>
         <View style={styles.header}>
@@ -397,14 +416,14 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
           <Feather name="chevron-left" size={22} color={forestColors.text} />
         </Pressable>
         <View style={styles.headerCenter}>
-          <Pressable
+          {typeof __DEV__ !== 'undefined' && __DEV__ ? <Pressable
             onPress={openPreviewMenu}
             accessibilityRole="button"
             accessibilityLabel="My Forest — activate for preview options"
             accessibilityHint="Opens the 0, 1, 12, and 50 check-in previews"
           >
             <Text style={styles.headerTitle}>My Forest</Text>
-          </Pressable>
+          </Pressable> : <Text accessibilityRole="header" style={styles.headerTitle}>My Forest</Text>}
           <Text style={styles.headerSubtitle} numberOfLines={1}>
             {periodCheckIns.length === 0
               ? 'Every check-in grows a tree'
@@ -552,7 +571,7 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
       </ScrollView>
 
       <TreeDetailSheet
-        checkIn={selected}
+        checkIn={dataSession === session ? selected : null}
         placeName={placeName}
         studentId={session?.uid}
         onClose={closeSheet}
@@ -560,7 +579,7 @@ export function ForestScreen() {  const session = useAuthStore((s) => s.session)
       />
 
       <Modal
-        visible={showPreviewMenu}
+        visible={typeof __DEV__ !== 'undefined' && __DEV__ && showPreviewMenu}
         transparent
         animationType="fade"
         onRequestClose={() => setShowPreviewMenu(false)}

@@ -10,7 +10,7 @@ import { useExpandableNavigation } from './ExpandableNavigationContext';
 import { ACTION_HEIGHT, NAVIGATION_DESTINATIONS, NAVIGATION_ROW_HEIGHT, STUDENT_DOCK_LIFT, navigationButtonCenter, expandedNavigationLayout, navigationBarHeight, type NavigationDestination, type NavigationPortal } from './expandable-navigation';
 
 export function ExpandableTabBar({ state, descriptors, navigation, insets, portal }: BottomTabBarProps & { portal: NavigationPortal }) {
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale = 1 } = useWindowDimensions();
   const parentNavigation = useNavigation();
   const { setExpanded } = useExpandableNavigation();
   const session = useAuthStore(s => s.session);
@@ -33,7 +33,7 @@ export function ExpandableTabBar({ state, descriptors, navigation, insets, porta
   const generation = useRef(0);
   const config = NAVIGATION_DESTINATIONS[portal];
   const barHeight = navigationBarHeight(insets.bottom);
-  const layout = expandedNavigationLayout(portal, frame?.width ?? width, frame?.height ?? height, insets);
+  const layout = expandedNavigationLayout(portal, frame?.width ?? width, frame?.height ?? height, insets, fontScale);
   const compactCanvasHeight = Math.max(layout.canvasHeight, (frame?.height ?? height) - insets.top - 8 - barHeight);
   const active = state.routes[state.index]?.name;
   const selectedExtra = config.expanded.find(item => item.route === active);
@@ -99,7 +99,7 @@ export function ExpandableTabBar({ state, descriptors, navigation, insets, porta
     };
   }, [closeImmediately, setExpanded]);
 
-  useEffect(() => { closeImmediately(); }, [owner, state.key, state.index, width, height, closeImmediately]);
+  useEffect(() => { closeImmediately(); }, [owner, state.key, state.index, width, height, fontScale, closeImmediately]);
   useEffect(() => {
     const stopState = parentNavigation.addListener('state', closeImmediately);
     const stopBlur = parentNavigation.addListener('blur', closeImmediately);
@@ -167,11 +167,11 @@ export function ExpandableTabBar({ state, descriptors, navigation, insets, porta
     const originY = compact ? compactCanvasHeight + navigationButtonCenter(portal) : layout.originY;
     return config.expanded.map((item, index) => {
       const offset = layout.positions[index], selected = item.route === active;
-      return <Animated.View key={item.route} testID={`action-position-${item.route}`} pointerEvents={animating ? 'none' : 'auto'} style={[styles.actionPosition, { left: layout.originX - layout.actionWidth / 2, top: originY - ACTION_HEIGHT / 2, width: layout.actionWidth, opacity: progress, transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, offset.x] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, offset.y] }) }, { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }) }] }]}>
-        <Pressable testID={`nav-${item.route}`} accessibilityRole="button" accessibilityLabel={item.label} accessibilityState={{ selected, disabled: animating }} disabled={animating} onPress={() => select(item)} style={styles.actionTarget}>
+      return <Animated.View key={item.route} testID={`action-position-${item.route}`} pointerEvents={animating ? 'none' : 'auto'} style={[styles.actionPosition, { left: layout.originX - layout.actionWidth / 2, top: originY - layout.actionHeight / 2, width: layout.actionWidth, height: layout.actionHeight, opacity: progress, transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, offset.x] }) }, { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, offset.y] }) }, { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }) }] }]}>
+        <Pressable testID={`nav-${item.route}`} accessibilityRole="button" accessibilityLabel={item.label} accessibilityState={{ selected, disabled: animating }} disabled={animating} onPress={() => select(item)} style={[styles.actionTarget, { height: layout.actionHeight }]}>
           <View style={[styles.actionCircle, selected && styles.actionSelected]}><Feather name={item.icon} size={22} color={lightColors.primary} /></View>
           <View testID={`nav-label-pill-${item.route}`} style={styles.labelPill}>
-            <Text numberOfLines={2} maxFontSizeMultiplier={1.3} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.actionLabel, selected && styles.actionLabelSelected]}>{item.label}</Text>
+            <Text testID={`nav-label-${item.route}`} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.actionLabel, selected && styles.actionLabelSelected]}>{item.label}</Text>
           </View>
         </Pressable>
       </Animated.View>;
@@ -184,10 +184,10 @@ export function ExpandableTabBar({ state, descriptors, navigation, insets, porta
     const ys = layout.positions.map(position => position.y);
     const availableWidth = (frame?.width ?? width) - insets.left - insets.right;
     const popupWidth = Math.max(0, Math.min(availableWidth - 16, Math.max(...xs) - Math.min(...xs) + layout.actionWidth + 24));
-    const top = originY + Math.min(...ys) - ACTION_HEIGHT / 2 - 8;
+    const top = originY + Math.min(...ys) - layout.actionHeight / 2 - 8;
     // Frame only the actions; leave a gap above the permanent bar. In compact
     // windows the shape shares the actions' scroll canvas and cannot drift away.
-    const bottom = Math.min(originY + Math.max(...ys) + ACTION_HEIGHT / 2 + 8, originY - 32);
+    const bottom = Math.min(originY + Math.max(...ys) + layout.actionHeight / 2 + 8, originY - 32);
     const popupHeight = bottom - top;
     const radius = Math.min(popupWidth, popupHeight) / 2;
     const gradientId = `spartan-navigation-${portal}-red`;
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   actionTarget: { width: '100%', height: ACTION_HEIGHT, alignItems: 'center', paddingTop: 0 },
   actionCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.white, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.22)', elevation: 3, shadowColor: palette.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 5 },
   actionSelected: { borderColor: lightColors.primary },
-  labelPill: { alignSelf: 'center', maxWidth: '100%', marginTop: 3, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.95)', elevation: 2, shadowColor: palette.black, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
+  labelPill: { alignSelf: 'center', maxWidth: '100%', marginTop: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.95)', elevation: 2, shadowColor: palette.black, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
   actionLabel: { fontSize: 12, lineHeight: 14, fontWeight: '600', textAlign: 'center', color: palette.spartanRedDark },
   actionLabelSelected: { fontWeight: '700' },
 });

@@ -39,12 +39,25 @@ export function FindFacilitatorScreen() {
 
   // Mount guard: prevents setState after unmount (replaces old `cancelled` flag pattern)
   const isMounted = useRef(true);
+  const loadRequest = useRef(0);
+  const loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    return () => { isMounted.current = false; };
+    isMounted.current = true;
+    return () => { isMounted.current = false; loadRequest.current++; if (loadTimer.current) clearTimeout(loadTimer.current); };
   }, []);
 
   const loadFacilitators = useCallback(async () => {
-    if (!authSession) { setIsLoading(false); setIsRefreshing(false); return; }
+    const request = ++loadRequest.current;
+    if (loadTimer.current) clearTimeout(loadTimer.current);
+    if (!authSession) { setFacilitators([]); setProfilesMap({}); setWorkHoursMap({}); setIsLoading(false); setIsRefreshing(false); return; }
+    const current = () => isMounted.current && request === loadRequest.current && useAuthStore.getState().session === authSession;
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      if (!current()) return;
+      loadRequest.current++; setIsLoading(false); setIsRefreshing(false);
+      setError('Facilitators could not be confirmed in time. Check your connection and try again.');
+    }, 12_000);
+    loadTimer.current = timer;
 
     try {
       setError(null);
@@ -56,7 +69,7 @@ export function FindFacilitatorScreen() {
         authSession.role,
         campusFilter === 'all' ? undefined : campusFilter,
       );
-      if (!isMounted.current) return;
+      if (!current()) return;
 
       const mapped = users.map((u: any) => ({
         id: u.id,
@@ -70,12 +83,14 @@ export function FindFacilitatorScreen() {
       const pMap: Record<string, { bio?: string; campus?: string }> = {};
       await Promise.allSettled(
         mapped.map(async (fac) => {
+          if (!current()) return;
           try {
             const schedule = await workHoursService.getActiveSchedule(fac.id, authSession.role);
             whMap[fac.id] = schedule;
           } catch {
             whMap[fac.id] = [];
           }
+          if (!current()) return;
           try {
             const profile = await profileRepository.getById(fac.id);
             if (profile) pMap[fac.id] = { bio: profile.bio, campus: profile.campus };
@@ -84,14 +99,16 @@ export function FindFacilitatorScreen() {
           }
         }),
       );
-      if (!isMounted.current) return;
+      if (!current()) return;
       setWorkHoursMap(whMap);
       setProfilesMap(pMap);
     } catch (err) {
-      if (!isMounted.current) return;
-      setError(err instanceof Error ? err.message : 'Failed to load facilitators.');
+      if (!current()) return;
+      setError('Facilitators could not be loaded. Please try again.');
     } finally {
-      if (isMounted.current) { setIsLoading(false); setIsRefreshing(false); }
+      clearTimeout(timer);
+      if (loadTimer.current === timer) loadTimer.current = null;
+      if (current()) { setIsLoading(false); setIsRefreshing(false); }
     }
   }, [authSession, campusFilter]);
 
@@ -102,7 +119,6 @@ export function FindFacilitatorScreen() {
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await loadFacilitators();
-    setIsRefreshing(false);
   }, [loadFacilitators]);
 
   const visibleFacilitators=facilitators.filter(fac=>{

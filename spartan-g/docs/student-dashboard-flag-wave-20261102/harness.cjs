@@ -1,0 +1,43 @@
+'use strict';
+// Actual mobile TSX, in-memory synthetic reads, no Firebase/app initialization.
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'../..'),ts=require(path.join(root,'apps/mobile/node_modules/typescript'));
+function load(file,imports={}){const m={exports:{}};const code=ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;vm.runInNewContext('(function(require,module,exports){'+code+'\n})',{Date,console,__DEV__:false})(name=>{assert.ok(Object.hasOwn(imports,name),'Unexpected import '+name);return imports[name];},m,m.exports);return m.exports;}
+const model=load('apps/mobile/src/screens/dashboard/dashboard-model.ts');
+const timestamp=ms=>({toMillis:()=>ms,toDate:()=>new Date(ms)});
+const attempt=(id='draft-a',extra={})=>({id,studentId:'synthetic-student',assessmentId:'synthetic-definition',status:'in_progress',startedAt:timestamp(10),updatedAt:timestamp(20),...extra});
+const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{promise,resolve,reject};};
+const same=(a,b)=>a&&b&&a.length===b.length&&a.every((v,i)=>Object.is(v,b[i]));
+function fixture(options={}){
+  let auth={status:'authenticated',session:{uid:'synthetic-student',role:'student',displayName:options.displayName||'Justin Example'}},focused=true,disposed=false,cursor=0,pending=[],tree;
+  const slots=[],effects=[],reads=[],navigation=[],animations=[],loops=[],listeners=new Map(),styles=[],subscribers=[];
+  const react={useState(initial){const i=cursor++;if(!slots[i])slots[i]={value:typeof initial==='function'?initial():initial};return[slots[i].value,next=>{if(disposed)throw Error('State update after unmount');slots[i].value=typeof next==='function'?next(slots[i].value):next;}];},useRef(value){return slots[cursor++]??={current:value};},useCallback(fn,deps){const i=cursor++;if(!slots[i]||!same(slots[i].deps,deps))slots[i]={deps,value:fn};return slots[i].value;},useMemo(fn,deps){return react.useCallback(fn,deps)();},useEffect(fn,deps){const i=cursor++;if(!effects[i]||!same(effects[i].deps,deps))pending.push(()=>{effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()};});}};
+  const subscribe=(name,fn)=>{const group=listeners.get(name)||new Set();group.add(fn);listeners.set(name,group);return{remove:()=>group.delete(fn)};};
+  class Value{constructor(value){this.value=value;}setValue(value){this.value=value;}stopAnimation(){}interpolate(config){return{value:this,config};}}
+  const composite=(steps,kind)=>({steps,kind,active:false,start(){this.active=true;steps.forEach(step=>step.start());},stop(){this.active=false;steps.forEach(step=>step.stop());}});
+  const Animated={Value,View:'Animated.View',timing(value,config){const entry={value,config,active:false,start(){this.active=true;value.setValue(config.toValue);},stop(){this.active=false;}};animations.push(entry);return entry;},sequence:steps=>composite(steps,'sequence'),parallel:steps=>composite(steps,'parallel'),stagger:(delay,steps)=>composite(steps,'stagger'),loop(sequence){const entry=composite([sequence],'loop');loops.push(entry);return entry;}};
+  const native=Object.fromEntries(['View','Text','Image','Pressable','ScrollView','RefreshControl','ActivityIndicator','Modal'].map(key=>[key,key]));
+  Object.assign(native,{Animated,StyleSheet:{create:value=>(styles.push(value),value),absoluteFillObject:{position:'absolute',top:0,right:0,bottom:0,left:0}},useWindowDimensions:()=>({width:options.width||393,height:851,fontScale:options.fontScale||1}),AppState:{currentState:options.background?'background':'active',addEventListener:(name,fn)=>subscribe('app-'+name,fn)},AccessibilityInfo:{isReduceMotionEnabled:()=>options.motionRead?options.motionRead():Promise.resolve(!!options.reducedMotion),addEventListener:(name,fn)=>subscribe(name,fn)},Easing:{cubic:'cubic',sin:'sin',out:v=>v,inOut:v=>v}});
+  const jsx=(type,props)=>typeof type==='function'?type(props||{}):({type,props:props||{}});
+  const svg={__esModule:true,default:'Svg',...Object.fromEntries(['Circle','Defs','Ellipse','G','Image','LinearGradient','Path','RadialGradient','Rect','Stop','Text'].map(key=>[key,'Svg.'+key]))};
+  const imports={react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'Fragment'},'react-native':native,'react-native-svg':svg,'@expo/vector-icons':{Feather:'Feather'},'expo-status-bar':{StatusBar:'StatusBar'},'@react-navigation/native':{useNavigation:()=>({navigate:(...args)=>navigation.push(args)}),useIsFocused:()=>focused,useFocusEffect:fn=>react.useEffect(focused?fn:()=>{},[fn,focused])}};
+  const read=async(name,uid,fallback)=>{reads.push([name,uid]);if(options.errors?.includes(name))throw Error('SENSITIVE details must not reach UI');return options[name+'Read']?options[name+'Read'](uid):fallback;};
+  const services={useAuthStore:Object.assign(selector=>selector(auth),{getState:()=>auth}),assessmentService:{getAttemptsByStudent:uid=>read('completed',uid,options.completed||[]),getInProgressAttemptsByStudent:uid=>read('drafts',uid,options.drafts||[])},appointmentRepository:{getByStudent:uid=>read('appointments',uid,options.appointments||[])},messagingService:{getConversations:(uid,role)=>{assert.equal(role,'student');return read('messages',uid,options.messages||[]);}},userService:{getUser:uid=>read('user',uid,{uid,role:'student',displayName:options.profileName||auth.session?.displayName,photoURL:options.photoURL}),getProfile:uid=>read('profile',uid,{uid,avatarUrl:options.avatarUrl})},notificationRepository:{subscribeByUserId(uid,fn){reads.push(['notifications',uid]);const subscriber={uid,fn,active:true};subscribers.push(subscriber);return()=>{subscriber.active=false;};}}};
+  imports['@spartan-g/shared-services']=services;
+  const wave=load('apps/mobile/src/screens/dashboard/flag-wave.ts');
+  // Dashboard regressions render real flag TSX; its own effect lifecycle is tested separately.
+  const flag=load('apps/mobile/src/screens/dashboard/DashboardFlag.tsx',{...imports,react:{...react,useRef:value=>({current:value}),useMemo:fn=>fn(),useEffect:()=>{}},'./flag-wave':wave});
+  const art=load('apps/mobile/src/screens/dashboard/DashboardArtwork.tsx',{...imports,'./DashboardFlag':flag,'../../../assets/dashboard-journey-campus-v3.png':path.join(root,'apps/mobile/assets/dashboard-journey-campus-v3.png')});
+  const mascot=load('apps/mobile/src/screens/dashboard/DashboardMascot.tsx',{...imports,'../../../assets/chibi wave red spartan cartoon.png':path.join(root,'apps/mobile/assets/chibi wave red spartan cartoon.png')});
+  const motion=load('apps/mobile/src/screens/dashboard/dashboard-motion.ts',imports);
+  const data=load('apps/mobile/src/screens/dashboard/use-student-dashboard.ts',{...imports,'./dashboard-model':model});
+  const presentation=load('apps/mobile/src/screens/dashboard/DashboardPresentation.tsx',{...imports,'./DashboardArtwork':art});
+  const screen=load('apps/mobile/src/screens/dashboard/DashboardScreen.tsx',{...imports,'./use-student-dashboard':data,'./dashboard-motion':motion,'./DashboardArtwork':art,'./DashboardMascot':mascot,'./DashboardPresentation':presentation,'../student/resources-model':{inspiration:['Synthetic encouragement for preview.']}});
+  function render(){cursor=0;tree=screen.DashboardScreen({portalName:'Student Portal'});const jobs=pending;pending=[];jobs.forEach(fn=>fn());return tree;}
+  function entries(node=tree){if(Array.isArray(node))return node.flatMap(entries);if(!node||typeof node!=='object')return[];if(node.type==='Modal'&&!node.props.visible)return[];return[node,...entries(node.props?.children??null)];}
+  const byId=id=>entries().find(node=>node.props?.testID===id);
+  const text=()=>entries().filter(node=>node.type==='Text').flatMap(node=>[node.props.children].flat(Infinity)).filter(value=>typeof value==='string'||typeof value==='number').join(' ').replace(/\s+/g,' ');
+  async function settle(){for(let i=0;i<5;i++){for(let j=0;j<16;j++)await Promise.resolve();if(!disposed)render();}}
+  return{render,settle,entries,byId,text,reads,navigation,animations,loops,subscribers,styles,options,get tree(){return tree;},get auth(){return auth;},setAuth(next){auth=next;render();},focus(value){focused=value;render();},emit(name,value){for(const fn of listeners.get(name)||[])fn(value);render();},listenerCount:()=>[...listeners.values()].reduce((n,set)=>n+set.size,0),unmount(){effects.forEach(effect=>effect?.cleanup?.());disposed=true;}};
+}
+module.exports={root,load,model,fixture,attempt,timestamp,deferred};

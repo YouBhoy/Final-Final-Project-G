@@ -3,7 +3,7 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 if (System.getenv('SPARTAN_PRESENTATION_PROFILE') &&
-        (System.getenv('SPARTAN_PRESENTATION_PROFILE') != 'production-presentation-v31' || !System.getenv('SPARTAN_PRESENTATION_CONTRACT'))) {
+        (System.getenv('SPARTAN_PRESENTATION_PROFILE') != 'production-presentation-v34' || !System.getenv('SPARTAN_PRESENTATION_CONTRACT'))) {
     throw new GradleException('Use the protected presentation launcher and reviewed native contract.')
 }
 

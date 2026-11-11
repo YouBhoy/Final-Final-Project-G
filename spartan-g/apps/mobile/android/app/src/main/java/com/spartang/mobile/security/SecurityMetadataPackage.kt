@@ -22,10 +22,9 @@ import javax.crypto.spec.GCMParameterSpec
  */
 class SecurityMetadataModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
   override fun getName() = "SpartanSecurityMetadata"
-  // Read-only native build constant, never an intent, remote setting or preference.
+  // Sensitive-screen protection cannot be relaxed by a presentation build.
   override fun getConstants(): Map<String, Any> = mapOf(
-    "privateDocumentationBuild" to (BuildConfig.SPARTAN_PRIVATE_DOCUMENTATION &&
-      BuildConfig.APPLICATION_ID == "com.spartang.mobile" && BuildConfig.VERSION_CODE == 31 && !BuildConfig.DEBUG)
+    "privateDocumentationBuild" to false
   )
 
   private fun plainKey(key: String) = key.length <= 4096 && (key == "spartan.local-lock.installation.v1" ||

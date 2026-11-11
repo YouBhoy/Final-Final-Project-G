@@ -1,0 +1,72 @@
+{
+  "preparedAt": "2026-11-06T07:54:25.532Z",
+  "mainCommit": "3245e97926a5a38fdd2e080cb5488da3a5745f73",
+  "appCommit": "edc61be507bf9ca261c85044efd25a8b410bf8e3",
+  "mainWriterBaseSha256": "c143d55d646efe6d794963febf60af7729a7852b3b9b1a2cc087ab0d150dcb20",
+  "mainWriterCandidateSha256": "d147840562c89baad2c9299b0bb73547840e13e4c09cc183f3787bb950bfa69d",
+  "helperSha256": "dbe17b923cade1f4476138af54aac958ec4cde47af9dff61b5d791edc18800f1",
+  "consentPreservedByExactRoundTrip": true,
+  "rules": [
+    {
+      "label": "CHECKED_IN_TRANSITION",
+      "file": "CHECKED_IN_TRANSITION.rules",
+      "base": "CHECKED_IN_BASE.rules",
+      "origin": "firebase/firestore.rules",
+      "baseSha256": "96cfa24d2b7e049347e5589bf93af9c56ca315a9dea9d0a5836de5ff7f8d7ed4",
+      "sha256": "b256619b64e88342a03bf52a227161ac713c07e4bd47890abd99f05cc30cf803",
+      "strict": false,
+      "supportsIdentityConsent": false,
+      "unrelatedRulesBytePreserved": true,
+      "messageCreateHardened": true
+    },
+    {
+      "label": "MAIN_TRANSITION",
+      "file": "MAIN_TRANSITION.rules",
+      "base": "MAIN_BASE.rules",
+      "origin": "3245e97926a5a38fdd2e080cb5488da3a5745f73:spartan-g/firebase/firestore.rules",
+      "baseSha256": "1f54895c14a69395062f97cb5c9a744ef8bf80b4949423f180685dc2a21154cb",
+      "sha256": "c230900b5ee761079ec99a01da1fc62e22fbde9f484940ec9700af8dcc7f3038",
+      "strict": false,
+      "supportsIdentityConsent": true,
+      "unrelatedRulesBytePreserved": true,
+      "messageCreateHardened": false
+    },
+    {
+      "label": "MAIN_STRICT",
+      "file": "MAIN_STRICT.rules",
+      "base": "MAIN_BASE.rules",
+      "origin": "3245e97926a5a38fdd2e080cb5488da3a5745f73:spartan-g/firebase/firestore.rules",
+      "baseSha256": "1f54895c14a69395062f97cb5c9a744ef8bf80b4949423f180685dc2a21154cb",
+      "sha256": "3080f4de4a46805a5471f4ea7ab5108ae5bb098a1a010f768fb3a10c8b36ea70",
+      "strict": true,
+      "supportsIdentityConsent": true,
+      "unrelatedRulesBytePreserved": true,
+      "messageCreateHardened": false
+    },
+    {
+      "label": "SAVED_PRODUCTION_TRANSITION",
+      "file": "SAVED_PRODUCTION_TRANSITION.rules",
+      "base": "SAVED_PRODUCTION_BASE.rules",
+      "origin": "saved-production-Garden-fixed",
+      "baseSha256": "6c5cfbd6e1cb05a3f51e1d2fdc7bfe73524ac39558d6d0e90bb5fd525b9acbf1",
+      "sha256": "af6c8844c543233d766454647e33514003fc1d94ec815d749ae98b59224bc965",
+      "strict": false,
+      "supportsIdentityConsent": true,
+      "unrelatedRulesBytePreserved": true,
+      "messageCreateHardened": false
+    },
+    {
+      "label": "SAVED_STAGING_TRANSITION",
+      "file": "SAVED_STAGING_TRANSITION.rules",
+      "base": "SAVED_STAGING_BASE.rules",
+      "origin": "saved-staging",
+      "baseSha256": "4456ea34899127a66fc35f9c1cc556f6d45b8dd1af8960ec473894c7a0d32320",
+      "sha256": "f70b2855b7dd77552045873cf4259aeb51e9a9a4f1d65c1c521083005e849fc7",
+      "strict": false,
+      "supportsIdentityConsent": true,
+      "unrelatedRulesBytePreserved": true,
+      "messageCreateHardened": false
+    }
+  ],
+  "deploy": false
+}

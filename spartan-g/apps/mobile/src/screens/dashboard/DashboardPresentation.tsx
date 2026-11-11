@@ -30,9 +30,13 @@ export function Entrance({ children, progress, style }: { children: ReactNode; p
 export function AssessmentJourney({ inProgress, completed, phase, onPress, loading, motion, largeText }: {
   inProgress: number | null; completed: number | null; phase: JourneyPhase | null; onPress: () => void; loading: boolean; motion: DashboardMotion; largeText: boolean;
 }) {
-  const { width } = useWindowDimensions();
+  const { width, fontScale = 1 } = useWindowDimensions();
   const idleWidth = width < 360 ? 54 : 62;
   const activeWidth = width < 360 ? 66 : 78;
+  const roomyMiddleLabel = width < 360 || fontScale > 1.25;
+  const compactLargeLabels = width < 393 && fontScale > 1.25;
+  const labelFontSize = width < 360 && fontScale > 1.75 ? 10.5
+    : compactLargeLabels ? 12 : width < 480 && fontScale > 1.75 ? 13 : 14;
   const stateFade = useRef(new Animated.Value(1)).current;
   const previousPhase = useRef(phase);
   useEffect(() => {
@@ -46,7 +50,7 @@ export function AssessmentJourney({ inProgress, completed, phase, onPress, loadi
   }, [phase, motion.allowed, stateFade]);
   const stages = [
     { label: 'Start', active: phase === 'start', checked: phase === 'in_progress' || phase === 'complete', icon: 'circle' as const },
-    { label: 'In progress', active: phase === 'in_progress', checked: phase === 'complete', icon: 'clock' as const },
+    { label: 'In Progress', active: phase === 'in_progress', checked: phase === 'complete', icon: 'clock' as const },
     { label: 'Finish', active: phase === 'complete', checked: phase === 'complete', icon: 'lock' as const },
   ];
   const action = phase === 'in_progress' ? 'Continue assessment' : phase === 'complete' ? 'View assessments' : 'Start assessment';
@@ -58,16 +62,16 @@ export function AssessmentJourney({ inProgress, completed, phase, onPress, loadi
       <View style={[styles.stat, styles.pendingStat]}><View style={styles.progressRing} /><Text testID="dashboard-progress-count" style={styles.statText}>{inProgress === null ? '—' : inProgress} in progress</Text></View>
       <View style={[styles.stat, largeText && styles.statHighContrast]}><View style={styles.completeSeal}><Feather name="check" size={16} color="#BB4955" /></View><Text testID="dashboard-completed-count" style={styles.statText}>{completed === null ? '—' : completed} completed</Text></View>
     </View>
-    <Animated.View testID="dashboard-journey-stages" accessibilityLabel={phase === null ? 'Assessment progress has not been confirmed' : phase === 'in_progress' ? 'Started; in progress; finish not yet reached' : phase === 'complete' ? 'A submitted or graded assessment is confirmed complete' : 'Ready to start; no completed assessment confirmed'} style={[styles.scene, { opacity: stateFade }]}>
+    <Animated.View testID="dashboard-journey-stages" accessibilityLabel={phase === null ? 'Assessment progress has not been confirmed' : phase === 'in_progress' ? 'Started; in progress; finish not yet reached' : phase === 'complete' ? 'A submitted or graded assessment is confirmed complete' : 'Ready to start; no completed assessment confirmed'} style={[styles.scene, { opacity: stateFade, minHeight: 170 + Math.max(0, fontScale - 1) * 50 }]}>
       <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFillObject}><JourneyPath /></View>
       {phase === 'in_progress' && <Animated.View testID="journey-path-highlight" pointerEvents="none" style={[styles.pathLight, { opacity: motion.ambient.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.8] }), transform: [{ translateX: motion.ambient.interpolate({ inputRange: [0, 1], outputRange: [0, 57] }) }] }]} />}
-      <View style={styles.checkpoints}>{stages.map((stage, index) => <View key={stage.label} style={[styles.checkpoint, stage.active && styles.currentCheckpoint]}>
+      <View style={styles.checkpoints}>{stages.map((stage, index) => <View key={stage.label} style={[styles.checkpoint, index === 1 && roomyMiddleLabel && styles.middleCheckpoint, stage.active && styles.currentCheckpoint]}>
         <View style={[styles.platform, { width: stage.active ? activeWidth : idleWidth, height: (stage.active ? activeWidth : idleWidth) * 40 / 78 }]}>
           {stage.active && <Animated.View pointerEvents="none" style={[styles.halo, { opacity: motion.ambient.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.5] }) }]} />}
           <CheckpointPlatform active={stage.active} />
           {stage.active ? <View testID={`journey-active-${index}`} pointerEvents="none" style={[styles.flag, { left: activeWidth / 2 - 11.5 }]}><SpartanFlag waving={motion.allowed} /></View> : <View pointerEvents="none" style={styles.stageIcon}><Feather name={stage.checked ? 'check' : stage.icon} size={22} color={phase === null ? '#9B8273' : '#655950'} /></View>}
         </View>
-        <Text style={[styles.stageLabel, stage.active && styles.activeLabel]}>{stage.label}</Text>
+          <View testID={`journey-label-pill-${index}`} style={[styles.stageLabelPill, compactLargeLabels && styles.compactLargePill, stage.active && styles.activeLabelPill]}><Text testID={`journey-label-${index}`} style={[styles.stageLabel, { fontSize: labelFontSize, lineHeight: labelFontSize + 6 }, stage.active && styles.activeLabel]}>{stage.label}</Text></View>
       </View>)}</View>
     </Animated.View>
     <View style={styles.actionWrap}><DashboardButton testID="dashboard-continue-assessment" label={phase ? action : loading ? 'Loading assessment progress' : 'Open assessments'} hint={phase === 'in_progress' ? 'Resumes your most recently edited in-progress assessment. Find all assessments in the Assessments tab.' : undefined} motion={motion.allowed} disabled={loading && !phase} onPress={onPress} style={styles.action}>
@@ -88,9 +92,13 @@ const styles = StyleSheet.create({
   pendingStat: { backgroundColor: '#F42D499E', borderWidth: 1, borderColor: '#FF819099' }, statText: { color: '#FFFFFF', fontFamily: 'sans-serif', fontSize: 15, lineHeight: 21, flexShrink: 1 },
   progressRing: { width: 21, height: 21, borderRadius: 11, borderWidth: 5, borderColor: '#FF9DAB', borderTopColor: '#FFFFFF', borderRightColor: '#FFFFFF' },
   scene: { height: 170, marginTop: 0 }, checkpoints: { flexDirection: 'row', alignItems: 'flex-end', position: 'absolute', left: 10, right: 10, bottom: 10, gap: 4 }, checkpoint: { flex: 1, minWidth: 0, alignItems: 'center' }, currentCheckpoint: { transform: [{ translateY: -5 }] },
+  middleCheckpoint: { flex: 1.5 },
   platform: { width: 78, height: 40 }, stageIcon: { position: 'absolute', top: 0, left: 0, right: 0, height: 24, alignItems: 'center', justifyContent: 'center' }, flag: { position: 'absolute', bottom: 18, left: 25 },
   halo: { position: 'absolute', left: -9, top: -6, width: 96, height: 45, borderRadius: 48, borderWidth: 2, borderColor: '#FFF4A9', backgroundColor: '#FFF0A530' },
-  stageLabel: { fontFamily: 'sans-serif', fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', color: '#271515', marginTop: 3 }, activeLabel: { color: '#A50926', fontWeight: '800' },
+  stageLabelPill: { maxWidth: '100%', marginTop: 5, paddingHorizontal: 5, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: '#E7CDBB', backgroundColor: '#FFFAEF' },
+  compactLargePill: { paddingHorizontal: 2 },
+  activeLabelPill: { backgroundColor: '#FFFFFF', borderColor: '#D6A098' },
+  stageLabel: { fontFamily: 'sans-serif', fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', color: '#582735', flexShrink: 1 }, activeLabel: { color: '#8F1731', fontWeight: '800' },
   pathLight: { position: 'absolute', left: '20%', bottom: 59, width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFE2', shadowColor: '#FFF8A8', shadowOpacity: 1, shadowRadius: 7 },
   actionWrap: { paddingHorizontal: 11, paddingBottom: 12 }, action: { minHeight: 56, borderRadius: 32, overflow: 'hidden', backgroundColor: '#C8002CF5', borderWidth: 1.5, borderColor: '#FF6C7D', paddingHorizontal: 18, paddingVertical: 13, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 }, actionText: { color: '#FFFFFF', fontFamily: 'sans-serif', fontSize: 18, lineHeight: 24, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
 });

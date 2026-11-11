@@ -17,7 +17,7 @@ function requireEnv(...keys: string[]): string {
 }
 
 function getAppEnv(): AppEnvironment {
-  const env = optionalEnv('EXPO_PUBLIC_APP_ENV') ?? optionalEnv('VITE_APP_ENV') ?? 'development';
+  const env = optionalEnv('VITE_APP_ENV') ?? optionalEnv('EXPO_PUBLIC_APP_ENV') ?? 'development';
   if (env === 'development' || env === 'staging' || env === 'production') {
     return env;
   }
@@ -31,12 +31,12 @@ export const env: EnvConfig = {
   isDev: appEnv === 'development',
   isProd: appEnv === 'production',
   firebase: {
-    apiKey: requireEnv('EXPO_PUBLIC_FIREBASE_API_KEY', 'VITE_FIREBASE_API_KEY'),
-    authDomain: requireEnv('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN', 'VITE_FIREBASE_AUTH_DOMAIN'),
-    projectId: requireEnv('EXPO_PUBLIC_FIREBASE_PROJECT_ID', 'VITE_FIREBASE_PROJECT_ID'),
-    storageBucket: requireEnv('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET', 'VITE_FIREBASE_STORAGE_BUCKET'),
-    messagingSenderId: requireEnv('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', 'VITE_FIREBASE_MESSAGING_SENDER_ID'),
-    appId: requireEnv('EXPO_PUBLIC_FIREBASE_APP_ID', 'VITE_FIREBASE_APP_ID'),
+    apiKey: requireEnv('VITE_FIREBASE_API_KEY', 'EXPO_PUBLIC_FIREBASE_API_KEY'),
+    authDomain: requireEnv('VITE_FIREBASE_AUTH_DOMAIN', 'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
+    projectId: requireEnv('VITE_FIREBASE_PROJECT_ID', 'EXPO_PUBLIC_FIREBASE_PROJECT_ID'),
+    storageBucket: requireEnv('VITE_FIREBASE_STORAGE_BUCKET', 'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
+    messagingSenderId: requireEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', 'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
+    appId: requireEnv('VITE_FIREBASE_APP_ID', 'EXPO_PUBLIC_FIREBASE_APP_ID'),
     measurementId: optionalEnv('EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID') ?? optionalEnv('VITE_FIREBASE_MEASUREMENT_ID'),
   },
   eas: {

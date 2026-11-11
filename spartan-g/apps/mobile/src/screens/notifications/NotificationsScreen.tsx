@@ -8,7 +8,7 @@
  * that conversation's message notifications read (see MessagingService).
  * Unread rows are tinted with a red dot + bold title; read rows are muted.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
@@ -130,32 +130,43 @@ export function NotificationsScreen() {
 
   const [notifications, setNotifications] = useState<NotifiedDoc[]>([]);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [notificationOwner, setNotificationOwner] = useState<typeof session>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const marking = useRef(false);
+  const current = () => !!session && useAuthStore.getState().session === session;
+  const ownedNotifications = notificationOwner === session ? notifications : [];
 
   // Live listener — keeps this list and the dashboard badge in sync instantly
   useEffect(() => {
+    let active = true;
+    setNotifications([]); setNotificationOwner(session); setIsMarkingAll(false); setLoadError(null);
     if (!userId) return;
-    const unsubscribe = notificationRepository.subscribeByUserId(userId, (docs) =>
-      setNotifications(docs),
-    );
-    return unsubscribe;
-  }, [userId]);
+    const unsubscribe = notificationRepository.subscribeByUserId(userId, docs => {
+      if (active && current()) setNotifications(docs.filter(doc => doc.userId === userId));
+    }, () => { if (active && current()) { setNotifications([]); setLoadError('Notifications could not be loaded. Check your connection and account access.'); } });
+    return () => { active = false; unsubscribe(); };
+  }, [session, userId, reload]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = ownedNotifications.filter((n) => !n.isRead).length;
 
   const handleMarkAllRead = useCallback(async () => {
-    if (!userId || unreadCount === 0) return;
+    if (!current() || !userId || unreadCount === 0 || marking.current) return;
+    marking.current = true;
     setIsMarkingAll(true);
     try {
       await appointmentService.markAllNotificationsRead(userId);
-    } catch (err) {
-      console.error('[Notifications] Failed to mark all as read:', err);
+    } catch {
+      // Read status will be refreshed by the owner-scoped listener. No raw diagnostics.
     } finally {
-      setIsMarkingAll(false);
+      marking.current = false;
+      if (current()) setIsMarkingAll(false);
     }
-  }, [userId, unreadCount]);
+  }, [session, userId, unreadCount]);
 
   const handlePress = useCallback(
     async (item: NotifiedDoc) => {
+      if (!current() || item.userId !== userId || !ownedNotifications.some(row => row.id === item.id)) return;
       // Mark read first so the live listener drops it from the badge everywhere
       if (!item.isRead) {
         appointmentService.markNotificationRead(item.id).catch(() => {});
@@ -175,14 +186,14 @@ export function NotificationsScreen() {
           if (role === 'facilitator') {
             navigation.navigate('FacilitatorTabs', { screen: 'Appointments' });
           } else {
-            navigation.navigate('StudentTabs', { screen: 'StudentHome' });
+            navigation.navigate('StudentTabs', { screen: 'StudentAppointments' });
           }
         } catch {
           /* Route unavailable in this stack — stay put */
         }
       }
     },
-    [navigation, role],
+    [navigation, role, session, userId, ownedNotifications],
   );
 
   const renderItem = useCallback(
@@ -227,14 +238,15 @@ export function NotificationsScreen() {
         )}
       </View>
 
+      {!!loadError && <View style={{ padding: 16 }}><Text accessibilityLiveRegion="polite">{loadError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading notifications" onPress={() => setReload(value => value + 1)}><Text style={{ paddingVertical: 12 }}>Try again</Text></TouchableOpacity></View>}
       <FlatList
-        data={notifications}
+        data={ownedNotifications}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListEmptyComponent={<EmptyState />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={
-          notifications.length === 0 ? styles.listEmpty : styles.listContent
+          ownedNotifications.length === 0 ? styles.listEmpty : styles.listContent
         }
         initialNumToRender={12}
         maxToRenderPerBatch={12}

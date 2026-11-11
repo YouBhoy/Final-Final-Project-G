@@ -1,0 +1,125 @@
+{
+  "at": "2026-11-08T15:03:45.190Z",
+  "manifest": "docs/android-v34-quality-final-preflight-20261108/VALIDATED_SOURCE.json",
+  "manifestSha256": "a1fe49c99b09384b051cc88698bcbdf1bfa7f27f8162351fbeee1c525e86a486",
+  "count": 405,
+  "previousManifest": "docs/android-presentation-v34-preflight-20261108/VALIDATED_SOURCE.json",
+  "previousSha256": "45a4d9345876722e436a7306771de88f2493481ab7d8be76b2a62568dac27da5",
+  "unchangedHashes": 383,
+  "changed": [
+    {
+      "path": "apps/mobile/android/app/src/main/java/com/spartang/mobile/security/SecurityMetadataPackage.kt",
+      "sha256": "3190a6d6e6fc12c01f528773086d5e087a25908191b7854c75799435fbc95fd2",
+      "before": "fe656471c5140fd4476fb78d9d3a6e4ade68df84b1e2ae67d2a3bce783f99f64"
+    },
+    {
+      "path": "apps/mobile/presentation/native.gradle",
+      "sha256": "41acdaa01c978e5b6871d97fa902c246f56cf07dcac79fd99d6ae93fc9eaced0",
+      "before": "57c6c492e182cb6c77e52fcf633e6617928d21dc245b5609df0a2d8ab240a6b4"
+    },
+    {
+      "path": "apps/mobile/presentation/profile.cjs",
+      "sha256": "c79e70a0c7c765bc57c571ee1ad5c009a6642f8ac89a9aa7db1e0a7ecf978897",
+      "before": "1d48f408b4fef7b1dfb3ec6b336acb760ac177b655db67bfc142325fbb384746"
+    },
+    {
+      "path": "apps/mobile/presentation/Run-PresentationBuild.ps1",
+      "sha256": "0099007d282c34adce922e4803585026f3aadb3ddc5fb8cebe118ebe4c352f0c",
+      "before": "3d062a8f6531e69f5cd6926f99b30e24bcf67d28dbd50044ed842ccda6c0f962"
+    },
+    {
+      "path": "apps/mobile/src/app/App.tsx",
+      "sha256": "3ed9fafc06c31aab2f85c5cbec44bba6ee0241b2b9f2d0dfb7f52d60c8c89159",
+      "before": "b6d63dc137867344a304c94f82d663ef9a1a0bd56aa1a5605371a279ef8df542"
+    },
+    {
+      "path": "apps/mobile/src/assessment-finalization/WellnessAssessmentScreen.tsx",
+      "sha256": "28011f8041d7db3860e10a8a2292d9a6c253f6ae6045712959f5ab97e4e44e93",
+      "before": "f4b5da85ee00a7aadb607badc1fd4d04a85b4b5ac25616a073b1e4b109d75cb5"
+    },
+    {
+      "path": "apps/mobile/src/navigation/AuthNavigator.tsx",
+      "sha256": "3c3bcd0d517370dfecb9757b9cac81171fa3eaa05444834efa2bd687fffe7971",
+      "before": "329609c0fe4dd7355a04fb747f3267dade02c0046338adaba7aff2e51ca0fb75"
+    },
+    {
+      "path": "apps/mobile/src/navigation/FacilitatorNavigator.tsx",
+      "sha256": "ee23a3d682cec61bfb68a19d5cd6fa47cd4a6839529efa32e13fc1b18710e7de",
+      "before": "5243b309f07c7255cb43cf64b93698091b86937ccefacb4d6fb9e184acf98d1e"
+    },
+    {
+      "path": "apps/mobile/src/screens/assessment/AssessmentsListScreen.tsx",
+      "sha256": "245306f9ef8a1d8effbfd95e23e478e08032775cd6ea90a8d3b5ad8a74eeea4e",
+      "before": "f5491ded0f4c2b999d76548fc2e0dfc929c0d7612a91e64d83a139caf05e7f27"
+    },
+    {
+      "path": "apps/mobile/src/screens/messaging/ConversationDetailScreen.tsx",
+      "sha256": "fd7a395175486a5bb46489e9335764fed22a3fa74194ac0ee11436833618e414",
+      "before": "83ef5a8202aab2b6f592cb4b980545400e95efa3b13523af742f67d7006afd8f"
+    },
+    {
+      "path": "apps/mobile/src/screens/notifications/NotificationsScreen.tsx",
+      "sha256": "03c427f9e9faa0bd7c896537362005d318199a229fd260e614a4a8389e035f60",
+      "before": "1e27b19ff83e56d13e87f07cf238ba8802841d9e33c7bdeed42d094360f2e5b2"
+    },
+    {
+      "path": "apps/mobile/src/screens/profile/AppLockSettingsScreen.tsx",
+      "sha256": "a1f0547c7788ef8577bbffbbec715fa93dff45d02dca877079f839a4173a0ce4",
+      "before": "58773c97b0fbf3a654c10819f8570f1ac404af460c1e2faf144d410d9394f692"
+    },
+    {
+      "path": "apps/mobile/src/screens/student/BookAppointmentScreen.tsx",
+      "sha256": "855368839ba2d3bf2e56bc057613a254aab7fbf2052c52e690c4eb58afa12407",
+      "before": "7bfb0d67b971ab3620cec41ad802f2d8c2303d2182dd1cbbd84ce064b2281755"
+    },
+    {
+      "path": "apps/mobile/src/screens/student/FindFacilitatorScreen.tsx",
+      "sha256": "8a39e1aff886f30d79ca22591d70f8e48a2e223318c91848a1f4495fd9b4770f",
+      "before": "aef4035fb2b4b7ce2400617f2c30e849435bc1b26260e84e6d0eb9767ea87cde"
+    },
+    {
+      "path": "apps/mobile/src/screens/student/ForestScreen.tsx",
+      "sha256": "c816523781474f86c06fc4ab2d067b1dcf43f7742d066c8b056299e72ff71e7f",
+      "before": "a555a038bf18a478464a00a034df46d9d6b7f1750dc4ebe811f4e8f269693027"
+    },
+    {
+      "path": "apps/mobile/src/screens/student/StudentAppointmentsScreen.tsx",
+      "sha256": "1e2b5335aadc1ebb87035b98ef3c51db1336670c073fcae0d3e7da84935d2388",
+      "before": "4e4dc90e32ee692473980bae596ac203b08f9e536d8f98428bc53cb8e9eb69a2"
+    },
+    {
+      "path": "apps/mobile/src/security/app-lock.ts",
+      "sha256": "8487a759648ef2a525ba9573bd3669212628276a4d51e36e22b0485f16a06416",
+      "before": "618200e5398604048e4535503c54400a4477b34349e5e048ab063fc86a456184"
+    },
+    {
+      "path": "apps/mobile/src/security/screen-privacy.ts",
+      "sha256": "5c3e8061ad66c5337b5fe17ad672e42bc6635c8dd72346a6ef1eff94831761ee",
+      "before": "620df990a04311dbaf7fc6a0f1df1d83fe1b36d8c65ef7814db2d68d7ea508cc"
+    },
+    {
+      "path": "apps/mobile/src/security/ScreenCaptureBoundary.tsx",
+      "sha256": "f5df815ffced7ca2ac1488de89b02d447bfe10f50679317f3bc69891d65fc971",
+      "before": "158c498f8dc2e942ea4aecaf2d29e69015a0736a99950b4c4b2888af903df22b"
+    },
+    {
+      "path": "apps/mobile/src/security/screenshot-policy.ts",
+      "sha256": "a46762db7e4dc0c5034723ec00a1eebb471ff396c38a0c0ef88de0d4376e0ba8",
+      "before": "afdf32c7e9c332439398b04a2289d5c8dcc8398df6c9c926de0b2e4d36caf6ac"
+    },
+    {
+      "path": "packages/shared-services/src/repositories/notification.repository.ts",
+      "sha256": "85ef8dedbda3fed223c52d6532c586180325bce0a6b282cb2105cd92a2d35e4c",
+      "before": "a86e9b328bfa977752ec52a799417871f6fea21fbdee2a239493463e42bebdfa"
+    },
+    {
+      "path": "packages/shared-services/src/services/garden.service.ts",
+      "sha256": "2b38adbdbb19c759929b29c90ff8a00789cfa53f979e8a58a1d62d445e62a033",
+      "before": "fc57ba8681253a5d7a1dd04bd2cb2beaaed41fd7a9b7312182afcc2cf502464c"
+    }
+  ],
+  "added": [],
+  "removed": [],
+  "apkBuilt": false,
+  "buildApprovalRequired": true
+}

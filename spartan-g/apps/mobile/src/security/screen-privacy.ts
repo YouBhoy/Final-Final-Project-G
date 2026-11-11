@@ -1,10 +1,7 @@
-import { AppState, NativeModules, Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { createCapturePolicy } from './screenshot-policy';
 
 let readyGuard = () => false;
-export const privateDocumentationBuild = Platform.OS === 'android' && NativeModules?.SpartanSecurityMetadata?.privateDocumentationBuild === true;
-let documentationConsent = false;
-export const privateDocumentationCapture = () => privateDocumentationBuild && documentationConsent;
 const tag = 'spartan-local-app-lock-v1';
 export const screenPrivacy = createCapturePolicy(async protectedScreen => {
   if (Platform.OS !== 'android') return;
@@ -19,18 +16,7 @@ export const screenPrivacy = createCapturePolicy(async protectedScreen => {
     }
   }
   else await capture.allowScreenCaptureAsync(tag);
-}, () => readyGuard(), privateDocumentationCapture);
-
-export function consentToPrivateDocumentation() {
-  if (!privateDocumentationBuild) return false;
-  documentationConsent = true;
-  void screenPrivacy.refresh().catch(() => {});
-  return true;
-}
-export function revokePrivateDocumentation() {
-  documentationConsent = false;
-  void screenPrivacy.refresh().catch(() => {});
-}
+}, () => readyGuard());
 
 export function installCaptureGuard(guard: () => boolean) {
   readyGuard = guard;

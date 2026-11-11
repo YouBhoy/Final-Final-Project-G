@@ -9,6 +9,7 @@ export type NavigatorScreenParams<T extends Record<string, object | undefined>> 
 
 // ─── Auth (mobile) ───────────────────────────────────────────
 export type MobileAuthStackParamList = {
+  Welcome: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;

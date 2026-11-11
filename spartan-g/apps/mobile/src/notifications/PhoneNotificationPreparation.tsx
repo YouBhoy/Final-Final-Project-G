@@ -7,6 +7,8 @@ import { preparePhonePermission } from './native-preparation';
 import { notificationContext, installedNotificationRuntime } from './runtime';
 import type { PhonePreferences } from '@spartan-g/shared-services/src/notifications/push-contract';
 import type { RegistrationStatus } from './automatic-registration';
+import { getFirebaseApp } from '@spartan-g/shared-services';
+import { registrationCopy } from './registration-copy';
 
 const DISABLED_REGISTRATION: RegistrationStatus = Object.freeze({ phase: 'disabled', busy: false, attempts: 0 });
 const noRegistration = () => DISABLED_REGISTRATION, noSubscription = () => () => {};
@@ -27,6 +29,7 @@ export function PhoneNotificationPreparation() {
   useAppLock();
   const state = usePhonePreferences(), owner = currentPhoneOwner();
   const runtime = installedNotificationRuntime?.();
+  const copy = registrationCopy(getFirebaseApp().options.projectId ?? '', !!runtime);
   const registration = useSyncExternalStore(runtime?.subscribe ?? noSubscription, runtime?.getSnapshot ?? noRegistration, noRegistration);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const ready = !!owner && state.owner === owner && state.status === 'ready' && notificationContext().ready && Platform.OS === 'android';
@@ -45,22 +48,22 @@ export function PhoneNotificationPreparation() {
       await phonePreferences.update(owner, field, value);
       if (runtime) {
         if (field === 'phoneEnabled' && !value) { if (!await runtime.revoke()) setError('Remote cleanup is pending. Reconnect before switching accounts; queued generic alerts cannot be recalled.'); }
-        else if (!await runtime.synchronize()) setError('Staging registration is not confirmed. Check Android permission, connection and the approved staging test window.');
+        else if (!await runtime.synchronize()) setError(copy.error);
       }
     } catch { setError('Notification preferences could not be confirmed. No delivery is promised.');
     } finally { setBusy(false); }
   };
   return <>
-    <Text accessibilityRole="header" style={styles.section}>{runtime ? 'STAGING PHONE NOTIFICATIONS' : 'PHONE NOTIFICATIONS — PREPARATION'}</Text>
-    <View style={styles.notice}><Text style={styles.noticeText}>{runtime ? 'Synthetic staging test only. Android permission and an acknowledged device registration are both required. The server test window and each category must also allow delivery; a registration is not proof of phone receipt.' : 'Push delivery is not active. These account-specific choices are saved on this device only. They do not register a device or stop pushes already queued by an older version. Server preference enforcement and delivery need separate activation.'}</Text></View>
+    <Text accessibilityRole="header" style={styles.section}>{copy.heading}</Text>
+    <View style={styles.notice}><Text style={styles.noticeText}>{runtime ? copy.description : 'Push delivery is not active. These account-specific choices are saved on this device only. They do not register a device or stop pushes already queued by an older version. Server preference enforcement and delivery need separate activation.'}</Text></View>
     <Text testID="automatic-device-registration-status" accessibilityLiveRegion="polite" style={styles.neutral}>{registrationText[registration.phase]}</Text>
     {!!runtime && ['offline', 'cleanup-pending'].includes(registration.phase) && <Pressable testID="automatic-registration-retry" accessibilityRole="button" accessibilityLabel="Retry secure phone registration"
       accessibilityState={{ disabled: disabled || registration.busy }} disabled={disabled || registration.busy} style={styles.action} onPress={() => void runtime.retryRegistration()}><Text style={styles.actionText}>Retry secure registration</Text></Pressable>}
-    <ProfileToggle testID="phone-preparation-master" title={runtime ? 'Allow staging phone notifications' : 'Prepare phone notifications'} subtitle={runtime ? 'Check permission and request a secure staging registration.' : 'Save your choice and check Android permission. Remote delivery remains inactive.'} icon="bell" value={ready && state.values.phoneEnabled} disabled={disabled} onChange={v => void change('phoneEnabled', v)} />
+    <ProfileToggle testID="phone-preparation-master" title={runtime ? copy.title : 'Prepare phone notifications'} subtitle={runtime ? copy.subtitle : 'Save your choice and check Android permission. Remote delivery remains inactive.'} icon="bell" value={ready && state.values.phoneEnabled} disabled={disabled} onChange={v => void change('phoneEnabled', v)} />
     <ProfileToggle testID="phone-preparation-messages" title="Messages" subtitle="Use a generic new-message notification when secure delivery is activated." icon="message-square" value={ready && state.values.messages} disabled={disabled} onChange={v => void change('messages', v)} />
     <ProfileToggle testID="phone-preparation-appointments" title="Appointments" subtitle={runtime ? 'Generic updates and approved test reminders only.' : 'Generic appointment updates. Scheduled reminders are not active.'} icon="calendar" value={ready && state.values.appointments} disabled={disabled} onChange={v => void change('appointments', v)} />
     <ProfileToggle testID="phone-preparation-assessments" title="Assessment updates" subtitle={runtime ? 'Approved synthetic catalog publication updates only.' : 'Saved preference only. Publication audiences and delivery remain pending.'} icon="file-text" value={ready && state.values.assessmentUpdates} disabled={disabled} onChange={v => void change('assessmentUpdates', v)} />
-    {!!runtime && <Text accessibilityLiveRegion="polite" style={styles.neutral}>{runtime.getBinding() ? 'Staging device registration acknowledged. Delivery is still controlled by the server test window and Android.' : 'No current staging device registration confirmed.'}</Text>}
+    {!!runtime && <Text accessibilityLiveRegion="polite" style={styles.neutral}>{runtime.getBinding() ? copy.binding : copy.missing}</Text>}
     <Text accessibilityLiveRegion="polite" style={styles.neutral}>{busy || state.saving ? 'Saving local preparation...' : state.status === 'loading' ? 'Loading local phone preferences...' : 'Background sounds remain controlled by Android notification channels. Quiet hours are not activated.'}</Text>
     {!!(error || state.error) && <Text accessibilityLiveRegion="polite" style={styles.error}>{error || state.error}</Text>}
   </>;

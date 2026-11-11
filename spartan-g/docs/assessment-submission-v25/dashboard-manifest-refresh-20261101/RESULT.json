@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "decision": "GO FOR SEPARATE BUILD APPROVAL",
+  "previousFileCount": 345,
+  "fileCount": 352,
+  "updatedHashCount": 3,
+  "addedFileCount": 7,
+  "unchangedPreviousHashes": 342,
+  "manifestBeforeSha256": "ad7def2eaa181cb9523f1a577dc87f4f2a541d049d6a1da60d27dd1a99c8fed7",
+  "manifestSha256": "1ef7022fba5d508b0fa6d0074f1dda9b249c43ddfa3fb1f93c893937cc79f47f",
+  "schemaUnchanged": true,
+  "sourceGuardUnmodified": true,
+  "sourceChecks": {
+    "status": "validated-inputs-pass",
+    "count": 352,
+    "importEdges": 67,
+    "preservation": true,
+    "apkBuilt": false,
+    "signingOperations": 0,
+    "cloudRequests": 0
+  },
+  "coverage": [
+    {
+      "root": "apps/mobile/src",
+      "sourceFiles": 140,
+      "missing": []
+    },
+    {
+      "root": "apps/mobile/staging",
+      "sourceFiles": 11,
+      "missing": []
+    },
+    {
+      "root": "packages/shared-services/src",
+      "sourceFiles": 96,
+      "missing": []
+    },
+    {
+      "root": "packages/shared-types/src",
+      "sourceFiles": 22,
+      "missing": []
+    },
+    {
+      "root": "packages/shared-ui/src",
+      "sourceFiles": 7,
+      "missing": []
+    }
+  ],
+  "tests": {
+    "dashboard": {
+      "passed": 54,
+      "failed": 0
+    },
+    "staging": {
+      "passed": 124,
+      "failed": 0
+    },
+    "totalPassed": 178,
+    "totalFailed": 0
+  },
+  "mobileTypeScriptDiagnostics": 0,
+  "launcherValidationOnly": "configuration-valid",
+  "actualOfflineExpoConfiguration": "PASS",
+  "updatedReleaseJavaScriptBundleValidated": false,
+  "nativeApkBuildValidated": false,
+  "apkBuilds": 0,
+  "signingOperations": 0,
+  "installations": 0,
+  "cloudRequests": 0,
+  "signingCredentialsRead": false,
+  "applicationSourceFilesModified": 0,
+  "existingFilesModified": [
+    "docs/assessment-submission-v25/android-staging-profile-20261031/VALIDATED_SOURCE.json"
+  ],
+  "evidenceDirectory": "docs/assessment-submission-v25/dashboard-manifest-refresh-20261101",
+  "localIssuesResolved": [
+    "PowerShell JSON/log encodings handled locally before accepting evidence",
+    "New read-only tamper-test VM module resolution corrected; initial test log retained"
+  ]
+}

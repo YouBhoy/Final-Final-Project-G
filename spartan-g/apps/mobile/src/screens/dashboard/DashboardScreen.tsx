@@ -8,7 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import { inspiration } from '../student/resources-model';
 import { useStudentDashboard } from './use-student-dashboard';
 import { useDashboardMotion } from './dashboard-motion';
-import { CardFoliage, DashboardHeaderArt, StudentAvatarArt } from './DashboardArtwork';
+import { DashboardHeaderArt, StudentAvatarArt } from './DashboardArtwork';
 import { DashboardMascot } from './DashboardMascot';
 import { AssessmentJourney, DashboardButton, Entrance, dashboardColors as colors } from './DashboardPresentation';
 
@@ -55,16 +55,6 @@ export function DashboardScreen(_props: { portalName: string }) {
       </Entrance>
       {data.errors.length > 0 && <View testID="dashboard-data-notice" style={styles.notice} accessibilityLiveRegion="polite"><Text style={styles.noticeText}>{data.errors.join(' ')} Pull down to retry.</Text></View>}
       <Entrance progress={motion.journey}><AssessmentJourney inProgress={data.journey?.inProgress ?? null} completed={data.journey?.completed ?? null} phase={data.journey?.phase ?? null} loading={data.loading} motion={motion} largeText={largeText} onPress={continueAssessment} /></Entrance>
-      <Entrance progress={motion.cards} style={[styles.secondaryRow, (narrow || largeText) && styles.secondaryStack]}>
-        <View style={styles.secondaryCell}><DashboardButton testID="dashboard-appointments" label="View your appointments" motion={motion.allowed} onPress={() => go('StudentAppointments')} style={[styles.secondary, styles.appointment]}>
-          <CardFoliage /><View style={[styles.secondaryIcon, styles.calendarIcon]}><Feather name="calendar" size={27} color={colors.red} /></View>
-          <View style={styles.secondaryCopy}><Text style={styles.secondaryTitle}>Next appointment</Text><Text testID="dashboard-next-appointment" style={styles.secondaryCaption}>{data.errors.includes('Appointments are unavailable.') ? 'Unavailable' : data.appointment ?? (data.loading ? 'Loading…' : 'None scheduled')}</Text></View><Feather name="chevron-right" size={16} color="#152340" />
-        </DashboardButton></View>
-        <View style={styles.secondaryCell}><DashboardButton testID="dashboard-messages" label="Open your messages" motion={motion.allowed} onPress={() => go('StudentMessages')} style={[styles.secondary, styles.messages]}>
-          <CardFoliage cool /><View style={[styles.secondaryIcon, styles.messageIcon]}><Feather name="message-circle" size={27} color="#112944" /></View>
-          <View style={styles.secondaryCopy}><Text style={styles.secondaryTitle}>Messages</Text><Text testID="dashboard-unread-messages" style={styles.secondaryCaption}>{data.messages === null ? data.loading ? 'Loading…' : 'Unavailable' : `${data.messages} unread`}</Text></View><Feather name="chevron-right" size={16} color="#152340" />
-        </DashboardButton></View>
-      </Entrance>
       <Entrance progress={motion.info}>
         <DashboardButton testID="dashboard-screening-info" label="About your screening" motion={motion.allowed} onPress={() => { if (data.current()) setScreeningOwner(data.session); }} style={styles.info}><View style={styles.infoIcon}><Feather name="info" size={25} color="#12203C" /></View><Text style={styles.infoTitle}>About your screening</Text><Feather name="chevron-right" size={22} color="#152340" /></DashboardButton>
       </Entrance>
@@ -99,10 +89,7 @@ const styles = StyleSheet.create({
   greetingCopy: { flex: 1, minWidth: 80, paddingVertical: 8 }, greetingTitle: { color: '#1E1015', fontFamily: 'sans-serif', fontSize: 27, lineHeight: 34, fontWeight: '700', letterSpacing: -0.9 }, greetingSmall: { fontSize: 24, lineHeight: 31 },
   tagline: { fontFamily: 'sans-serif', fontSize: 17, lineHeight: 24, color: '#71635E', marginTop: 2, letterSpacing: -0.3 },
   avatar: { width: 70, height: 70, borderRadius: 36, borderWidth: 4, borderColor: '#FFFFFF', backgroundColor: '#FFC5BA', overflow: 'hidden', shadowColor: '#C86F66', shadowOpacity: 0.1, shadowRadius: 8 }, avatarSmall: { width: 58, height: 58, borderRadius: 29, borderWidth: 3 }, avatarImage: { width: '100%', height: '100%' },
-  secondaryRow: { flexDirection: 'row', alignItems: 'stretch', gap: 9 }, secondaryStack: { flexDirection: 'column' }, secondaryCell: { flex: 1, minWidth: 0 },
-  secondary: { minHeight: 98, borderRadius: 21, paddingHorizontal: 9, paddingVertical: 16, borderColor: '#FFFFFF', borderWidth: 1.5, flexDirection: 'row', gap: 7, alignItems: 'center', overflow: 'hidden' }, appointment: { backgroundColor: '#FFF0EB' }, messages: { backgroundColor: '#EAF7FA' },
-  secondaryIcon: { width: 40, height: 44, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }, calendarIcon: { backgroundColor: '#FFD8D3' }, messageIcon: { backgroundColor: '#C6E8FB' }, secondaryCopy: { flex: 1, minWidth: 0 },
-  secondaryTitle: { fontFamily: 'sans-serif', fontSize: 14, lineHeight: 18, fontWeight: '700', letterSpacing: -0.3, color: '#121D35' }, secondaryCaption: { fontFamily: 'sans-serif', fontSize: 12, lineHeight: 18, color: '#58667A', marginTop: 3 },
+  secondaryCaption: { fontFamily: 'sans-serif', fontSize: 12, lineHeight: 18, color: '#58667A', marginTop: 3 },
   info: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 13, minHeight: 62, borderRadius: 20, borderWidth: 1.5, borderColor: '#FFFFFF', backgroundColor: '#FFFFFFAA', gap: 13 }, infoIcon: { width: 37, height: 37, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0E8E1' }, infoTitle: { flex: 1, fontSize: 15, lineHeight: 22, fontWeight: '500', color: '#17213D' },
   resources: { flexDirection: 'row', gap: 8, alignItems: 'center', alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 12, minHeight: 44 }, resourcesText: { fontSize: 12, color: colors.crimson, fontWeight: '600' },
   notice: { backgroundColor: '#FFF0DD', borderWidth: 1, borderColor: '#F4D3AA', padding: 12, borderRadius: 15 }, noticeText: { fontSize: 13, lineHeight: 19, color: '#734325' }, loading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }, signedOut: { color: colors.ink, padding: 24 },

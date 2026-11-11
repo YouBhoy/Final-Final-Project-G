@@ -31,7 +31,13 @@ function useRequiredPolicy() {
 function AuthenticatedPolicy({ children }: { children: ReactNode }) {
   const gate = useRequiredPolicy(), { state } = gate;
   if (gate.ready) return <>{children}</>;
-  const busy = state.phase === 'loading' || state.phase === 'saving' || gate.exiting;
+  // Checking an existing decision is not a request to agree again. Keep access
+  // closed without flashing the full policy before verification completes.
+  if (state.phase === 'loading') return <SafeAreaView testID="privacy-verification-pending" style={[s.screen, { alignItems: 'center', justifyContent: 'center' }]}>
+    <ActivityIndicator color="#A51D36" accessibilityLabel="Verifying privacy acknowledgement" />
+    <Text accessibilityLiveRegion="polite" style={s.caption}>Verifying your privacy acknowledgement…</Text>
+  </SafeAreaView>;
+  const busy = state.phase === 'saving' || gate.exiting;
   return <SafeAreaView testID="mandatory-privacy-gate" style={s.screen}>
     <Text style={s.brand}>SPARTAN-G</Text><Text accessibilityRole="header" style={s.title}>{state.policy?.title ?? 'Privacy Policy'}</Text>
     <Text style={s.caption}>{state.policy ? state.policy.version === 0 ? 'Web starter policy · version 0' : `Policy version ${state.policy.version}` : 'Checking the current policy…'} · Effective date not provided</Text>
@@ -40,7 +46,6 @@ function AuthenticatedPolicy({ children }: { children: ReactNode }) {
       {!!state.error && <Text accessibilityLiveRegion="assertive" style={s.error}>{state.error}</Text>}
       {!!gate.exitError && <Text accessibilityLiveRegion="assertive" style={s.error}>{gate.exitError}</Text>}
     </ScrollView>
-    {state.phase === 'loading' && <ActivityIndicator color="#A51D36" accessibilityLabel="Loading privacy policy" />}
     {state.phase === 'error' && <Pressable accessibilityRole="button" style={s.secondary} onPress={() => { gate.setAgreed(false); void gate.controller.check(); }}><Text style={s.secondaryText}>Retry policy check</Text></Pressable>}
     {!!state.policy && <Pressable accessibilityRole="checkbox" accessibilityLabel="I have read and agree to the privacy policy" accessibilityState={{ checked: gate.agreed, disabled: busy }} disabled={busy} onPress={() => gate.setAgreed(!gate.agreed)} style={s.agreement}><Text style={s.secondaryText}>{gate.agreed ? '☑' : '☐'} I have read and agree to this policy.</Text></Pressable>}
     <Pressable testID="accept-privacy-policy" accessibilityRole="button" disabled={!gate.agreed || state.phase !== 'review' || busy} accessibilityState={{ disabled: !gate.agreed || state.phase !== 'review' || busy, busy }} onPress={() => void gate.controller.accept(gate.agreed)} style={[s.primary, (!gate.agreed || state.phase !== 'review' || busy) && { opacity: 0.5 }]}><Text style={s.primaryText}>{state.phase === 'saving' ? 'Saving acknowledgement…' : 'I Agree'}</Text></Pressable>

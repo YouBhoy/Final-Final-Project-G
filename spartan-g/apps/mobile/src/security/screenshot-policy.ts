@@ -1,13 +1,11 @@
 /** Screenshot permission is separate from authentication and biometric access. */
-export const presentationScreens = ['StudentHome', 'StudentGarden', 'Forest', 'StudentResources'] as const;
+export const presentationScreens = ['Welcome', 'Login', 'Register', 'WebOnlyRedirect', 'StudentHome', 'StudentGarden', 'Forest', 'StudentResources',
+  'StudentAppointments', 'StudentProfile', 'FacilitatorDashboard', 'Appointments', 'WorkHoursSchedule', 'FacilitatorProfile'] as const;
 export const isPresentationScreen = (name: string) => (presentationScreens as readonly string[]).includes(name);
-// Additional student routes only in the native private documentation build,
-// after session consent. Auth, staff and unknown routes stay protected.
-const documentationScreens = ['StudentCourses', 'StudentAssignments', 'StudentAppointments', 'StudentMessages', 'StudentProfile',
-  'Notifications', 'CourseDetail', 'AssignmentDetail', 'ConversationDetail', 'AssessmentWizard', 'BookAppointment'];
+const publicScreens = ['Welcome', 'Login', 'Register', 'WebOnlyRedirect'];
 export type CaptureState = { protected: boolean; ready: boolean; error: boolean };
 
-export function createCapturePolicy(writeProtection: (enabled: boolean) => Promise<void>, verifiedReady: () => boolean, privateDocumentation: () => boolean = () => false) {
+export function createCapturePolicy(writeProtection: (enabled: boolean) => Promise<void>, verifiedReady: () => boolean) {
   const screens = new Map<symbol, string>(), overlays = new Set<symbol>(), transitions = new Set<string>();
   const listeners = new Set<() => void>();
   let foreground = false, requested: boolean | null = null, applied: boolean | null = null, version = 0;
@@ -17,9 +15,12 @@ export function createCapturePolicy(writeProtection: (enabled: boolean) => Promi
   const mustProtect = () => {
     let ready = false;
     try { ready = verifiedReady() === true; } catch { /* Unknown identity stays private. */ }
-    const documentation = privateDocumentation() === true;
-    return !foreground || !ready || (overlays.size > 0 && !documentation) || transitions.size > 0 ||
-      screens.size === 0 || [...screens.values()].some(name => !isPresentationScreen(name) && !(documentation && documentationScreens.includes(name)));
+    const routes = [...screens.values()];
+    // Public authentication pages contain no protected student data. All other
+    // allowlisted pages still require the current verified foreground session.
+    const publicOnly = routes.length > 0 && routes.every(name => publicScreens.includes(name));
+    return !foreground || (!ready && !publicOnly) || overlays.size > 0 || transitions.size > 0 ||
+      screens.size === 0 || routes.some(name => !isPresentationScreen(name));
   };
   function refresh(): Promise<void> {
     const next = mustProtect();

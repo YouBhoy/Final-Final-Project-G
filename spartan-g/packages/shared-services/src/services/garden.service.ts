@@ -8,10 +8,17 @@ export type GardenLoadResult =
 
 class GardenService {
   /** Authoritative read only. Missing data is distinct from a failed read; no reward or initialization writes. */
-  async loadGarden(studentId: string): Promise<GardenLoadResult> {
+  async loadGarden(studentId: string, timeoutMs = 12_000): Promise<GardenLoadResult> {
     if (!studentId) return { status: 'error', code: 'unauthenticated', message: 'Sign in again to open your Garden.' };
     try {
-      const savedGarden = await gardenRepository.getGarden(studentId, true);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let savedGarden: Awaited<ReturnType<typeof gardenRepository.getGarden>>;
+      try {
+        savedGarden = await Promise.race([gardenRepository.getGarden(studentId, true), new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(Object.assign(new Error('Garden read timed out'), { code: 'deadline-exceeded' })),
+            Number.isFinite(timeoutMs) && timeoutMs > 0 ? Math.min(timeoutMs, 30_000) : 12_000);
+        })]);
+      } finally { if (timer !== undefined) clearTimeout(timer); }
       if (!savedGarden) return { status: 'empty' };
       // Older Gardens predate daily watering. Supply only its absent marker in
       // this read result; never write it back or replace a present invalid value.

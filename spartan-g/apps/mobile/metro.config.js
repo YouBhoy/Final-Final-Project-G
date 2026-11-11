@@ -7,6 +7,7 @@ const { readProfile, stagingResolution } = require('./staging/resolver.cjs');
 const androidProfile = readProfile(process.env.SPARTAN_ANDROID_PROFILE);
 const presentation = require('./presentation/profile.cjs');
 const presentationMode = presentation.mode(process.env.SPARTAN_PRESENTATION_PROFILE);
+const { productionNotificationResolution } = require('./production-notifications/resolver.cjs');
 if (presentationMode && (androidProfile !== 'production' || aiMode !== 'disabled')) throw new Error('Presentation requires the production profile with AI disabled.');
 if (androidProfile === 'staging-v25' && aiMode !== 'disabled') throw new Error('Staging AI must remain disabled.');
 const previousResolver = config.resolver.resolveRequest;
@@ -14,14 +15,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   const resolution = previousResolver
     ? previousResolver(context, moduleName, platform)
     : context.resolveRequest(context, moduleName, platform);
-  return presentation.resolution(stagingResolution(
+  return presentation.resolution(productionNotificationResolution(stagingResolution(
     aiResolution(gardenResolution(resolution, context, platform, process.env.EXPO_PUBLIC_SPARTAN_LOCAL_FIREBASE), context, platform, aiMode),
     context, platform, androidProfile,
-  ), context, platform, process.env.SPARTAN_PRESENTATION_PROFILE);
+  ), context, platform, process.env.SPARTAN_PRESENTATION_PROFILE), context, platform, process.env.SPARTAN_PRESENTATION_PROFILE);
 };
 config.cacheVersion = `spartan-garden-ai-separated-v4-${aiMode}`;
 if (androidProfile === 'staging-v25') config.cacheVersion += '-android-staging-v25';
-if (presentationMode) config.cacheVersion += '-production-presentation-v25';
+if (presentationMode) config.cacheVersion += `-${presentation.PROFILE}`;
 if (androidProfile === 'staging-v25' || presentationMode) {
   // Expo's mobile server root must still see shared packages and hoisted modules.
   const path = require('path');

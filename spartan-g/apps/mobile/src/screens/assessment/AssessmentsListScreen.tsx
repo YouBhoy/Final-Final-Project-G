@@ -19,6 +19,8 @@ export function AssessmentsListScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAssessment, setSelectedAssessment] = useState<AssessmentDefWithId | null>(null);
   const [starting, setStarting] = useState(false);
+  const startFlight = useRef(false), mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [startError, setStartError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<AssessmentListFilter>('All');
@@ -80,8 +82,9 @@ export function AssessmentsListScreen() {
   const visibleAssessments = filterAssessmentList(assessments, search, ownStatuses ? filter : 'All', ownStatuses ?? {});
   const retry = () => { setLoading(true); setRefreshKey(value => value + 1); };
   const handleStart = useCallback(async () => {
-    if (!selectedAssessment || !session) return;
+    if (!selectedAssessment || !session || startFlight.current || useAuthStore.getState().session !== session) return;
 
+    startFlight.current = true;
     setStarting(true);
     setStartError(null);
 
@@ -91,13 +94,15 @@ export function AssessmentsListScreen() {
         selectedAssessment.id,
         session.uid,
       );
+      if (!mounted.current || useAuthStore.getState().session !== session) return;
       setSelectedAssessment(null);
       // Navigate to the assessment-taking screen with the attempt ID
       navigation.navigate('AssessmentWizard', { assessmentId: attemptId });
-    } catch (err) {
-      setStartError(err instanceof Error ? err.message : 'Failed to start assessment');
+    } catch {
+      if (mounted.current && useAuthStore.getState().session === session) setStartError('Starting was not confirmed. Refresh your assessments before trying again; any saved attempt is preserved.');
     } finally {
-      setStarting(false);
+      startFlight.current = false;
+      if (mounted.current && useAuthStore.getState().session === session) setStarting(false);
     }
   }, [selectedAssessment, session, navigation]);
 
@@ -167,7 +172,7 @@ export function AssessmentsListScreen() {
         <View style={styles.modalOverlay}><View style={styles.modalContent} accessibilityViewIsModal>
           <Text style={styles.modalTitle}>Assessment History</Text>
           <ScrollView style={{maxHeight:380}}>
-            {statusError?<Text accessibilityRole="alert" style={styles.statusNotice}>History could not be loaded. Close this view and pull down to retry.</Text>:history?.owner!==session?<ActivityIndicator color={colors.crimson}/>:history.rows.length===0?<Text style={styles.templateDescription}>No submitted check-ins yet.</Text>:history.rows.map(row=><View key={row.id} style={styles.filterOption}><View style={{flex:1}}><Text style={styles.templateTitle}>{assessments.find(a=>a.id===row.assessmentId)?.title??'Wellness check-in'}</Text><Text style={styles.templateDescription}>{row.submittedAt?.toDate?.().toLocaleString()??'Date unavailable'} · Attempt {row.attemptNumber}</Text><Text style={styles.templateDescription}>{row.status==='graded'?'Reviewed':'Submitted'} · {row.answers.length} answers saved</Text></View></View>)}
+            {statusError?<Text accessibilityRole="alert" style={styles.statusNotice}>History could not be loaded. Close this view and pull down to retry.</Text>:history?.owner!==session?<ActivityIndicator color={colors.crimson}/>:history.rows.length===0?<Text style={styles.templateDescription}>No submitted check-ins yet.</Text>:history.rows.map(row=><View key={row.id} style={styles.filterOption}><View style={{flex:1}}><Text style={styles.templateTitle}>{assessments.find(a=>a.id===row.assessmentId)?.title??'Wellness check-in'}</Text><Text style={styles.templateDescription}>{row.submittedAt?.toDate?.().toLocaleString()??'Date unavailable'} · Attempt {row.attemptNumber}</Text><Text style={styles.templateDescription}>{row.status==='graded'?'Reviewed':'Submitted'} · {Array.isArray(row.answers) ? row.answers.length + ' answers saved' : 'Saved answer count unavailable'}</Text></View></View>)}
           </ScrollView>
           <TouchableOpacity accessibilityRole="button" onPress={()=>setHistoryOpen(false)} style={styles.modalCancelButton}><Text style={styles.modalCancelText}>Close</Text></TouchableOpacity>
         </View></View>

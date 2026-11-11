@@ -7,6 +7,9 @@ export function createNotificationHttpClient(ports: {
 }) {
   const origin = new URL(ports.origin);
   if (origin.protocol !== 'https:' || origin.origin !== ports.approvedOrigin || origin.origin !== ports.origin || origin.username || origin.password) throw Error('Approved notification origin required');
+  // A caller-provided allowlist must never route production identity tokens or
+  // revocation capabilities to a staging server, including after future refactors.
+  if (ports.project === 'spartan-g-a2d80' && origin.origin !== 'https://spartang-notification-api-production.netlify.app') throw Error('Production notification origin required');
   const prefix = ports.apiPrefix ?? '';
   // Firebase's function URL has a path component; never accept arbitrary paths,
   // alternate projects, redirects or a credential-bearing URL from configuration.

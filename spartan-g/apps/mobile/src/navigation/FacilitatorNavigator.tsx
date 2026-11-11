@@ -1,4 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExpandableTabBar } from './ExpandableTabBar';
@@ -23,6 +24,7 @@ import { PlaceholderScreen } from './placeholders/PlaceholderScreen';
 import { FacilitatorMessagesScreen } from '../screens/facilitator/MessagesScreen';
 import { ConversationDetailScreen } from '../screens/messaging/ConversationDetailScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
+import { CaptureScreenLayout, captureStackTransitions, clearCaptureTransitions } from '../security/ScreenCaptureBoundary';
 
 const Tab = createBottomTabNavigator<FacilitatorMobileTabParamList>();
 const Stack = createNativeStackNavigator<FacilitatorMobileStackParamList>();
@@ -31,6 +33,7 @@ function FacilitatorTabs() {
   const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
+      screenLayout={({ route, children }) => <CaptureScreenLayout name={route.name}>{children}</CaptureScreenLayout>}
       tabBar={props => <ExpandableTabBar {...props} portal="facilitator" />}
       screenOptions={{
         headerShown: false,
@@ -86,8 +89,9 @@ function FacilitatorTabs() {
 }
 
 export function FacilitatorNavigator() {
+  useEffect(() => () => clearCaptureTransitions(), []);
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenLayout={({ route, children }) => <CaptureScreenLayout name={route.name}>{children}</CaptureScreenLayout>} screenListeners={captureStackTransitions}>
       <Stack.Screen
         name="FacilitatorTabs"
         component={FacilitatorTabs}

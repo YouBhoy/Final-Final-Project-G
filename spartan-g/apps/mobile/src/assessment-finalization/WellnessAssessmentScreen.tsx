@@ -20,6 +20,7 @@ export function WellnessAssessmentScreen({route,navigation}:Props) {
   const [answers,setAnswers]=useState<Record<string,string>>({}),answersRef=useRef(answers),[step,setStep]=useState(0),[editing,setEditing]=useState(false),[expanded,setExpanded]=useState<Record<string,boolean>>({phq:true}),[saveError,setSaveError]=useState<string|null>(null);
   const [submitting,setSubmitting]=useState(false),[stage,setStage]=useState<Progress>('saving-draft'),[submissionError,setSubmissionError]=useState<string|null>(null),[submitted,setSubmitted]=useState(false),[reduced,setReduced]=useState(true);
   const scroll=useRef<ScrollView>(null),opacity=useRef(new Animated.Value(1)).current,mounted=useRef(true),busy=useRef(false),coordinator=useRef<ReturnType<typeof createNativeSubmission>|null>(null);
+  const loadRequest=useRef(0),loadTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   if(!coordinator.current)coordinator.current=createNativeSubmission(()=>focusedRef.current,stage=>{if(mounted.current)setStage(stage);});
   const controller=coordinator.current;
   usePreventRemove(submitting,()=>{setSubmissionError('Please wait for confirmation. If the connection fails, your answers remain available for retry.');});
@@ -28,10 +29,14 @@ export function WellnessAssessmentScreen({route,navigation}:Props) {
   useEffect(()=>{let alive=true;void AccessibilityInfo.isReduceMotionEnabled().then(v=>{if(alive)setReduced(v);}).catch(()=>{});const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduced);return()=>{alive=false;sub.remove();};},[]);
   useEffect(()=>{opacity.stopAnimation();opacity.setValue(reduced?1:0.45);const animation=Animated.timing(opacity,{toValue:1,duration:reduced?0:160,useNativeDriver:true});animation.start();scroll.current?.scrollTo({y:0,animated:!reduced});return()=>animation.stop();},[step,reduced,opacity]);
   const load=useCallback(async()=>{
-    if(!session)return;const actor=session;setLoading(true);setLoadError(null);
-    try{const attempt=await assessmentService.getAttempt(attemptId);if(!attempt||attempt.studentId!==actor.uid)throw Error('This assessment is not available to your account.');if(attempt.status!=='in_progress')throw Error('This assessment has already been submitted. Open Assessment History to view it.');const def=await assessmentService.getAssessmentDefinition(attempt.assessmentId);if(!def)throw Error('The assessment definition is unavailable.');if(!mounted.current||useAuthStore.getState().session!==actor)return;controller.bindDraft(attemptId,attempt.draftRevision);const restored=Object.fromEntries(attempt.answers.map(a=>[a.questionId,a.value]));setDefinition(def);setQuestions([...(def.questions??[])].sort((a,b)=>a.order-b.order));answersRef.current=restored;setAnswers(restored);}catch{if(mounted.current&&useAuthStore.getState().session===actor)setLoadError('Unable to open this assessment. Check your connection or return to Assessment History if it was submitted.');}finally{if(mounted.current&&useAuthStore.getState().session===actor)setLoading(false);}
+    const request=++loadRequest.current;if(loadTimer.current)clearTimeout(loadTimer.current);
+    if(!session){setLoading(false);setLoadError('Sign in to open your assessment.');return;}
+    const actor=session,current=()=>mounted.current&&request===loadRequest.current&&useAuthStore.getState().session===actor;
+    setLoading(true);setLoadError(null);
+    const timer=setTimeout(()=>{if(current()){loadRequest.current++;setLoading(false);setLoadError('This assessment could not be confirmed in time. Check your connection and try again. Saved answers have not been changed.');}},12_000);loadTimer.current=timer;
+    try{const attempt=await assessmentService.getAttempt(attemptId);if(!current())return;if(!attempt||attempt.studentId!==actor.uid)throw Error('Unavailable');if(attempt.status!=='in_progress')throw Error('Already submitted');const def=await assessmentService.getAssessmentDefinition(attempt.assessmentId);if(!current())return;if(!def)throw Error('Unavailable');controller.bindDraft(attemptId,attempt.draftRevision);const restored=Object.fromEntries(attempt.answers.map(a=>[a.questionId,a.value]));setDefinition(def);setQuestions([...(def.questions??[])].sort((a,b)=>a.order-b.order));answersRef.current=restored;setAnswers(restored);}catch{if(current())setLoadError('Unable to open this assessment. Check your connection or return to Assessment History if it was submitted.');}finally{clearTimeout(timer);if(loadTimer.current===timer)loadTimer.current=null;if(current())setLoading(false);}
   },[attemptId,session]);
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{void load();return()=>{loadRequest.current++;if(loadTimer.current)clearTimeout(loadTimer.current);};},[load]);
   const total=questions.length,review=step>=total,current=review?null:questions[step],complete=questions.filter(q=>answered(q,answers)).length,percent=total?Math.round(complete/total*100):0;
   const choose=(questionId:string,value:string)=>{
     if(busy.current)return;const map={...answersRef.current,[questionId]:value};answersRef.current=map;setAnswers(map);setSaveError(null);

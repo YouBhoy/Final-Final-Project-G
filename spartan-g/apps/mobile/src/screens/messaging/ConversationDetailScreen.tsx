@@ -33,13 +33,24 @@ export function ConversationDetailScreen() {
   const session = useAuthStore((s) => s.session);
   const insets = useSafeAreaInsets();
   const { conversationId } = route.params;
+  const mounted = useRef(true), currentView = useRef({ session, conversationId });
+  currentView.current = { session, conversationId };
+  const authorizedView = () => mounted.current && !!session && useAuthStore.getState().session === session
+    && currentView.current.session === session && currentView.current.conversationId === conversationId;
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const [messages, setMessages] = useState<(MessageDocument & { id: string })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [inputText, setInputText] = useState('');
   const [participantName, setParticipantName] = useState('Conversation');
+  const [readError, setReadError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const [messageOwner, setMessageOwner] = useState<{ session: typeof session; conversationId: string } | null>(null);
+  const sending = useRef(false);
   const flatListRef = useRef<FlatList>(null);
+  useEffect(() => { setInputText(''); setSendError(null); setIsSending(false); }, [session, conversationId]);
 
   // Mark conversation as read when the screen gains focus
   useFocusEffect(
@@ -52,28 +63,43 @@ export function ConversationDetailScreen() {
   );
 
   useEffect(() => {
-    if (!session) return;
+    let active = true;
+    const current = () => active && authorizedView();
+    setMessages([]); setReadError(null); setParticipantName('Conversation');
+    setMessageOwner({ session, conversationId });
+    if (!session) { setIsLoading(false); return; }
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      if (current()) { setIsLoading(false); setReadError('Messages could not be confirmed in time. Check your connection and try again.'); }
+    }, 12_000);
 
     // Subscribe to real-time messages
-    const unsubscribe = messagingService.subscribeToMessages(
+    let unsubscribe: (() => void) | undefined;
+    try { unsubscribe = messagingService.subscribeToMessages(
       conversationId,
       session.role,
       (updatedMessages) => {
+        if (!current()) return;
+        clearTimeout(timer); setReadError(null);
         setMessages(updatedMessages);
         setIsLoading(false);
       },
-    );
+      () => { if (current()) { clearTimeout(timer); setIsLoading(false); setReadError('This conversation could not be opened. Check your connection and account access, then try again.'); } },
+    ); } catch {
+      clearTimeout(timer); setIsLoading(false);
+      setReadError('This conversation could not be opened. Check your connection and account access, then try again.');
+    }
 
     // Load participant name from the conversation
     const loadParticipantName = async () => {
       try {
         const conversations = await messagingService.getConversations(session.uid, session.role);
         const conv = conversations.find(c => c.id === conversationId);
-        if (conv) {
+        if (current() && conv?.participantIds.includes(session.uid)) {
           const otherId = conv.participantIds.find(id => id !== session.uid);
           if (otherId) {
             const userDoc = await userService.getUser(otherId);
-            if (userDoc) {
+            if (current() && userDoc) {
               setParticipantName(userDoc.displayName || 'Unknown User');
               navigation.setOptions({ title: userDoc.displayName || 'Conversation' });
             }
@@ -84,9 +110,10 @@ export function ConversationDetailScreen() {
     loadParticipantName();
 
     return () => {
+      active = false; clearTimeout(timer);
       if (unsubscribe) unsubscribe();
     };
-  }, [conversationId, session]);
+  }, [conversationId, session, reload]);
 
   // Keep the latest message visible when the keyboard opens.
   // onContentSizeChange only fires when CONTENT grows (initial load, new
@@ -99,25 +126,30 @@ export function ConversationDetailScreen() {
   // On keyboard dismiss we intentionally do nothing — the container grows
   // back, the existing offset stays valid, and the bottom remains visible.
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const subscription = Keyboard.addListener(showEvent, () => {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
     });
-    return () => subscription.remove();
+    return () => { subscription.remove(); if (timer !== undefined) clearTimeout(timer); };
   }, []);
 
   const handleSend = async () => {
     const trimmed = inputText.trim();
-    if (!trimmed || !session || isSending) return;
+    if (!trimmed || !session || isSending || sending.current || readError || !authorizedView()) return;
 
+    sending.current = true;
     setIsSending(true);
-    setInputText('');
+    setSendError(null);
     try {
       await messagingService.sendMessage(conversationId, session.uid, trimmed, session.role);
-    } catch (error) {
-      console.error('Failed to send message:', error);
+      if (authorizedView()) setInputText('');
+    } catch {
+      if (authorizedView()) setSendError('Sending was not confirmed. Your draft is retained. Check this conversation before sending again.');
     } finally {
-      setIsSending(false);
+      sending.current = false;
+      if (authorizedView()) setIsSending(false);
     }
   };
 
@@ -158,16 +190,18 @@ export function ConversationDetailScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <StudentPageBackground chat />
+      {!!readError && <View style={{ padding: 16 }}><Text accessibilityLiveRegion="polite">{readError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading conversation" onPress={() => setReload(value => value + 1)}><Text style={{ paddingVertical: 12 }}>Try again</Text></TouchableOpacity></View>}
+      {!!sendError && <Text accessibilityLiveRegion="polite" style={{ padding: 16 }}>{sendError}</Text>}
       <FlatList
         ref={flatListRef}
-        data={messages}
+        data={messageOwner?.session === session && messageOwner.conversationId === conversationId ? messages : []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesList}
         renderItem={renderMessage}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-        ListEmptyComponent={
+        ListEmptyComponent={readError ? null :
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>{'\uD83D\uDCAC'}</Text>
             <Text style={styles.emptyTitle}>No messages yet</Text>
@@ -187,13 +221,13 @@ export function ConversationDetailScreen() {
           placeholderTextColor={lightColors.textMuted}
           multiline
           maxLength={4000}
-          editable={!isSending}
+          editable={!isSending && !readError}
           accessibilityLabel="Message text"
         />
         <TouchableOpacity
-          style={[styles.sendButton, (!inputText.trim() || isSending) && styles.sendButtonDisabled]}
+          style={[styles.sendButton, (!inputText.trim() || isSending || !!readError) && styles.sendButtonDisabled]}
           onPress={handleSend}
-          disabled={!inputText.trim() || isSending}
+          disabled={!inputText.trim() || isSending || !!readError}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Send message"
