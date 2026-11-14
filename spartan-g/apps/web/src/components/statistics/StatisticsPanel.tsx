@@ -95,7 +95,7 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
           </select>
         </label>
         {(view === 'trends' || view === 'referrals' || view === 'forecast') && <>
-          <label className="text-sm font-medium text-gray-700">Interval<select className={control} value={filters.interval} onChange={event => setFilters(current => ({ ...current, interval: event.target.value as StatisticsFilters['interval'] }))}><option value="weekly">Weekly (Monday to Sunday)</option><option value="monthly">Monthly</option></select></label>
+          <label className="text-sm font-medium text-gray-700">Interval<select className={control} value={filters.interval} onChange={event => setFilters(current => ({ ...current, interval: event.target.value as StatisticsFilters['interval'] }))}><option value="daily">Daily</option><option value="weekly">Weekly (Monday to Sunday)</option><option value="monthly">Monthly</option></select></label>
           {view === 'trends' && <label className="text-sm font-medium text-gray-700">Activity<select className={control} value={activity} onChange={event => setActivity(event.target.value as TrendActivity)}>{Object.entries(activityLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>}
         </>}
         {view === 'scores' && <label className="text-sm font-medium text-gray-700">Instrument<select className={control} value={instrument} onChange={event => setInstrument(event.target.value)}>{instruments.map(label => <option key={label}>{label}</option>)}</select></label>}

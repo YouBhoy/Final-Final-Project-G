@@ -8,7 +8,10 @@ const ts = day => `2026-10-${String(day).padStart(2, '0')}T12:00:00+08:00`;
 const student = (id, campus = 'lipa') => ({ id, role: 'student', campus, createdAt: '2026-01-01T00:00:00Z' });
 const definition = (id = 'standard', version = 'standard-v1') => ({ id, title: 'Student assessment', ...(version ? { analyticsScoringVersion: version } : {}), questions: [...new Set(SCALES.flatMap(scale => scale.ids))].map(id => ({ id, type: 'multiple_choice', options: ['0', '1', '2', '3'].map(id => ({ id, label: id })) })) });
 const answers = (value = '1') => [...new Set(SCALES.flatMap(scale => scale.ids))].map(questionId => ({ questionId, value }));
-const attempt = (id, studentId, day = 5, value = '1', assessmentId = 'standard') => ({ id, studentId, assessmentId, campus: 'lipa', status: 'submitted', startedAt: ts(day - 1), submittedAt: ts(day), answers: answers(value), overallRiskScore: 99999 });
+const attempt = (id, studentId, day = 5, value = '1', assessmentId = 'standard') => {
+  const attemptNumber = id.includes('bad-retake') ? 3 : id.startsWith('a') && !id.includes('retake') ? 1 : 2;
+  return { id: `${assessmentId}_${studentId}_${attemptNumber}`, studentId, assessmentId, attemptNumber, campus: 'lipa', status: 'submitted', startedAt: ts(day - 1), submittedAt: ts(day), answers: answers(value), overallRiskScore: 99999 };
+};
 const empty = () => ({ users: [], campuses: [{ id: 'lipa', key: 'lipa', label: 'Lipa' }, { id: 'alangilan', key: 'alangilan', label: 'Alangilan' }], definitions: [definition()], appointments: [], messages: [], conversations: [], links: [], attempts: [], legacyInstances: [] });
 const report = (input, changes = {}) => buildStatistics(input, { ...filters, ...changes }, now);
 function scoredInput(n = 5) { const data = empty(); for (let i = 0; i < n; i++) { data.users.push(student(`s${i}`)); data.attempts.push(attempt(`a${i}`, `s${i}`)); } return data; }
@@ -101,7 +104,7 @@ test('strict dates, leap dates, maximum window and Manila midnight', () => {
   assert.doesNotThrow(() => dateBoundary('2024-02-29'));
   assert.throws(() => validateFilters({ ...filters, endDate: '2026-09-30' }));
   assert.throws(() => validateFilters({ ...filters, endDate: '2028-01-01' }));
-  assert.throws(() => validateFilters({ ...filters, interval: 'daily' }));
+  assert.throws(() => validateFilters({ ...filters, interval: 'annual' }));
 });
 test('unique participation is a union, while requests and retakes remain events', () => {
   const data = scoredInput(1);
@@ -112,6 +115,10 @@ test('unique participation is a union, while requests and retakes remain events'
   assert.equal(result.totals.appointmentRequests, 2);
   assert.equal(result.totals.submissions, 2);
   assert.equal(result.totals.assessmentStudents, 1);
+  assert.equal(result.totals.submissionRate, 100);
+  assert.equal(result.totals.averageAttemptsPerStudent, 2);
+  assert.equal(result.totals.inProgress, 0);
+  assert.equal(result.totals.retakes, 1);
   assert.equal(result.totals.participationRate, 100);
   assert.ok(result.trends.reduce((sum, bucket) => sum + bucket.participants, 0) > result.totals.participants);
 });
@@ -188,6 +195,46 @@ test('completion follows starts in the period, not all period submissions', () =
   assert.equal(result.assessmentCohorts[0].starters, 1);
   assert.equal(result.assessmentCohorts[0].completed, 0);
   assert.equal(result.assessmentCohorts[0].rate, 0);
+});
+
+test('assessment attempts count starts without collapsing retakes or inflating completion', () => {
+  const data = empty();
+  data.users = [student('s1')];
+  data.definitions = [definition('d1')];
+  data.attempts = [
+    { id: 'd1_s1_1', studentId: 's1', assessmentId: 'd1', attemptNumber: 1, status: 'in_progress', startedAt: ts(2) },
+    { id: 'd1_s1_2', studentId: 's1', assessmentId: 'd1', attemptNumber: 2, status: 'submitted', startedAt: ts(3), submittedAt: ts(4), answers: [] },
+    { id: 'd1_s1_3', studentId: 's1', assessmentId: 'd1', attemptNumber: 3, status: 'submitted', startedAt: ts(5), submittedAt: ts(6), answers: [] },
+  ];
+  const result = report(data);
+  assert.equal(result.totals.attempts, 3);
+  assert.equal(result.totals.submissions, 2);
+  assert.equal(result.totals.assessmentStudents, 1);
+  assert.equal(result.assessmentCohorts[0].attempts, 3);
+  assert.equal(result.assessmentCohorts[0].submissions, 2);
+  assert.equal(result.trends.reduce((sum, bucket) => sum + bucket.attempts, 0), 3);
+  assert.equal(result.totals.submissionRate, 66.66666666666666);
+  assert.equal(result.totals.averageAttemptsPerStudent, 3);
+  assert.equal(result.totals.inProgress, 1);
+  assert.equal(result.totals.retakes, 2);
+});
+test('invalid and duplicate attempt records are excluded and disclosed', () => {
+  const data = empty();
+  data.users = [student('s1')];
+  data.definitions = [definition('d1')];
+  data.attempts = [
+    { id: 'd1_s1_1', studentId: 's1', assessmentId: 'd1', attemptNumber: 1, status: 'in_progress', startedAt: ts(2) },
+    { id: 'duplicate-copy', studentId: 's1', assessmentId: 'd1', attemptNumber: 1, status: 'in_progress', startedAt: ts(2) },
+    { id: 'd1_s1_2', studentId: 's1', assessmentId: 'd1', attemptNumber: 2, status: 'mystery', startedAt: ts(3) },
+    { id: 'd1_s1_3', studentId: 's1', assessmentId: 'd1', attemptNumber: 3, status: 'submitted', startedAt: 'not-a-date', submittedAt: ts(4) },
+  ];
+  const result = report(data);
+  assert.equal(result.totals.attempts, 0);
+  assert.equal(result.totals.submissions, 0);
+  assert.equal(result.attemptDataQuality.invalidRecords, 4);
+  assert.equal(result.attemptDataQuality.duplicateLogicalAttempts, 1);
+  assert.equal(result.attemptDataQuality.invalidStatuses, 1);
+  assert.equal(result.attemptDataQuality.invalidTimestamps, 1);
 });
 test('missing, duplicate, extra, blank, decimal, out-of-range and unsupported options cannot become valid scores', () => {
   const original = attempt('a', 's'); const def = definition();

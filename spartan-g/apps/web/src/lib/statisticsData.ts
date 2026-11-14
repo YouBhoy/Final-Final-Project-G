@@ -9,7 +9,7 @@ export const STATISTICS_FIELDS: Record<string, string[]> = {
   messages: ['senderId', 'conversationId', 'campus', 'createdAt', 'created_at', 'type', 'status', 'isDeleted'],
   conversations: ['participantIds'],
   facilitator_student_links: ['facilitatorId', 'studentId', 'status', 'requestedAt', 'respondedAt'],
-  assessment_attempts: ['studentId', 'assessmentId', 'campus', 'status', 'startedAt', 'started_at', 'createdAt', 'submittedAt', 'submitted_at', 'answers'],
+  assessment_attempts: ['studentId', 'assessmentId', 'attemptNumber', 'campus', 'status', 'startedAt', 'started_at', 'createdAt', 'submittedAt', 'submitted_at', 'answers'],
   assessments: ['studentId', 'templateId', 'title', 'questions', 'analyticsScoringVersion', 'status', 'campus', 'submittedAt'],
 };
 export interface StatisticsSource {
@@ -63,6 +63,9 @@ export function createStatisticsLoader(source: StatisticsSource, ttlMs = 5 * 60 
         else if (name !== 'campuses' && !(name === 'assessments' && !('studentId' in row))) row.id = `${eventPrefix}-${ranks.get(record.id)}`;
         for (const field of ['studentId', 'facilitatorId', 'senderId']) {
           if (field in row) row[field] = identity('Account', row[field]);
+        }
+        if (name === 'assessment_attempts' && typeof row.assessmentId === 'string' && typeof row.studentId === 'string' && Number.isInteger(row.attemptNumber)) {
+          row.id = `${row.assessmentId}_${row.studentId}_${row.attemptNumber}`;
         }
         if ('conversationId' in row) row.conversationId = identity('Conversation', row.conversationId);
         if (Array.isArray(row.participantIds)) row.participantIds = row.participantIds.map(value => identity('Account', value));

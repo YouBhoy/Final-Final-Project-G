@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { AuthSession, AuthStatus, LoginFormData, RegisterFormData } from "@spartan-g/shared-types";
 import { clearPrivacySession } from '../lib/privacySession';
+import { setDashboardSession } from '../lib/dashboardRuntime';
 import { clearPortalTabSession, monitorPortalIdle } from '../lib/adminTabSession';
 import {
   registerUser,
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const expirePortalSession = useCallback(() => {
+    setDashboardSession(null);
     clearPortalTabSession();
     clearPrivacySession();
     setUser(null);
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
+      setDashboardSession(authUser);
       if (authUser) {
         setUser(authUser);
         setStatus("authenticated");
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (data: RegisterFormData) => {
+    setDashboardSession(null);
     clearPrivacySession();
     setStatus("loading");
     setError(null);
@@ -78,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data.role,
         data.campus
       );
+      setDashboardSession(authUser);
       setUser(authUser);
       setStatus("authenticated");
     } catch (err) {
@@ -88,11 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (data: LoginFormData) => {
+    setDashboardSession(null);
     clearPrivacySession();
     setStatus("loading");
     setError(null);
     try {
       const authUser = await loginUser(data.email, data.password);
+      setDashboardSession(authUser);
       setUser(authUser);
       setStatus("authenticated");
     } catch (err) {
@@ -103,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    setDashboardSession(null);
     clearPrivacySession();
     setStatus("loading");
     setError(null);
@@ -112,10 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("unauthenticated");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Logout failed");
+      // Restore only the known portal scope; the next read still checks the server.
+      setDashboardSession(user);
       setStatus("authenticated");
       throw err;
     }
-  }, []);
+  }, [user]);
 
   const forgotPassword = useCallback(async (email: string) => {
     setError(null);

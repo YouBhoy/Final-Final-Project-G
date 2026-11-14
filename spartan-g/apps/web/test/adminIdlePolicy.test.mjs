@@ -119,6 +119,7 @@ const boundaryUrl = moduleUrl(`
 export function onAuthChange(listener) { globalThis.__idleAuth.listener = listener; return () => {}; }
 export async function logoutUser() { globalThis.__idleAuth.signouts++; if (globalThis.__idleAuth.failLogout) throw new Error('SDK signout failed'); }
 export function clearPrivacySession() {}
+export function setDashboardSession(user) { globalThis.__idleAuth.dashboardScope = user; }
 export async function loginUser() { throw new Error('Not used in this test'); }
 export async function registerUser() { throw new Error('Not used in this test'); }
 export async function resetPassword() {}
@@ -128,6 +129,7 @@ const providerSource = ts.transpileModule(readFileSync(new URL('../src/hooks/use
   .replace(/(['"])react\/jsx-runtime\1/g, JSON.stringify(import.meta.resolve('react/jsx-runtime')))
   .replace(/(['"])\.\.\/lib\/auth\1/g, JSON.stringify(boundaryUrl))
   .replace(/(['"])\.\.\/lib\/privacySession\1/g, JSON.stringify(boundaryUrl))
+  .replace(/(['"])\.\.\/lib\/dashboardRuntime\1/g, JSON.stringify(boundaryUrl))
   .replace(/(['"])\.\.\/lib\/adminTabSession\1/g, JSON.stringify(moduleUrl(source)));
 const { AuthProvider, useAuth } = await import(moduleUrl(providerSource));
 function mountProvider(role, failLogout = false) {
@@ -149,6 +151,7 @@ test('AuthProvider removes the admin portal session at expiry and reports why si
   assert.equal(app.session().status, 'unauthenticated');
   assert.match(app.session().error, /15 minutes of inactivity/);
   assert.equal(globalThis.__idleAuth.signouts, 1);
+  assert.equal(globalThis.__idleAuth.dashboardScope, null);
 });
 
 test('an SDK sign-out failure cannot reopen the admin session after idle expiry', async () => {
@@ -169,6 +172,7 @@ test('student and facilitator sessions expire after 15 idle minutes, even if SDK
     assert.equal(app.session().status, 'unauthenticated');
     assert.match(app.session().error, /15 minutes of inactivity/);
     assert.equal(globalThis.__idleAuth.signouts, 1);
+    assert.equal(globalThis.__idleAuth.dashboardScope, null);
     act(() => root.unmount()); root = undefined;
   }
 });

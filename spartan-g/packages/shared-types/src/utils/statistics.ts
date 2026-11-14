@@ -2,8 +2,15 @@ import { evaluateReferralForecast } from './referralForecast';
 
 /** Browser-safe reporting code. No database access and no individual records in output. */
 export type Data = Record<string, any> & { id: string };
-export interface ReportFilters { startDate: string; endDate: string; campus: string; assessmentId: string; interval: 'weekly' | 'monthly' }
+export interface ReportFilters { startDate: string; endDate: string; campus: string; assessmentId: string; interval: 'daily' | 'weekly' | 'monthly' }
 export interface ReportInput { users: Data[]; campuses: Data[]; appointments: Data[]; messages: Data[]; conversations: Data[]; links: Data[]; attempts: Data[]; definitions: Data[]; legacyInstances: Data[] }
+export interface AttemptValidation {
+  valid: boolean;
+  logicalKey: string | null;
+  issues: ('missing_required_fields' | 'invalid_status' | 'invalid_timestamp' | 'invalid_attempt_number' | 'identity_mismatch')[];
+  startedAt: number | null;
+  submittedAt: number | null;
+}
 const DAY = 86400000;
 const OFFSET = 8 * 3600000;
 const UNKNOWN = '__unknown__';
@@ -16,6 +23,25 @@ export function timestamp(value: any): number | null {
   else return null;
   return Number.isFinite(time) ? time : null;
 }
+const ATTEMPT_STATUSES = new Set(['in_progress', 'submitted', 'graded']);
+export function validateAssessmentAttempt(attempt: Data): AttemptValidation {
+  const issues: AttemptValidation['issues'] = [];
+  const assessmentId = typeof attempt.assessmentId === 'string' && attempt.assessmentId.trim() ? attempt.assessmentId : null;
+  const studentId = typeof attempt.studentId === 'string' && attempt.studentId.trim() ? attempt.studentId : null;
+  if (!assessmentId || !studentId) issues.push('missing_required_fields');
+  if (typeof attempt.status !== 'string' || !ATTEMPT_STATUSES.has(attempt.status)) issues.push('invalid_status');
+  const startedAt = timestamp(attempt.startedAt) ?? timestamp(attempt.started_at);
+  const submittedAt = timestamp(attempt.submittedAt) ?? timestamp(attempt.submitted_at);
+  if (startedAt === null || (['submitted', 'graded'].includes(attempt.status) && submittedAt === null)) issues.push('invalid_timestamp');
+  const number = attempt.attemptNumber;
+  if (!Number.isInteger(number) || number < 1) issues.push('invalid_attempt_number');
+  const logicalKey = assessmentId && studentId && Number.isInteger(number) && number >= 1
+    ? `${assessmentId}\u0000${studentId}\u0000${number}` : null;
+  if (logicalKey && attempt.id !== `${assessmentId}_${studentId}_${number}`) issues.push('identity_mismatch');
+  // Report ID mismatches without rejecting otherwise well-formed records: the
+  // browser report loader pseudonymizes document IDs while preserving fields.
+  return { valid: !issues.some(issue => issue !== 'identity_mismatch'), logicalKey, issues, startedAt, submittedAt };
+}
 export function dateBoundary(value: unknown): number {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Use dates in YYYY-MM-DD format.');
   const time = Date.parse(`${value}T00:00:00+08:00`);
@@ -25,7 +51,7 @@ export function dateBoundary(value: unknown): number {
 export function validateFilters(value: any): ReportFilters {
   const start = dateBoundary(value?.startDate), end = dateBoundary(value?.endDate) + DAY;
   if (end <= start || end - start > 366 * DAY) throw new Error('Choose an ordered date range of at most 366 days.');
-  if (!['weekly', 'monthly'].includes(value?.interval)) throw new Error('Choose weekly or monthly trends.');
+  if (!['daily', 'weekly', 'monthly'].includes(value?.interval)) throw new Error('Choose daily, weekly or monthly trends.');
   for (const key of ['campus', 'assessmentId']) if (typeof value?.[key] !== 'string' || value[key].length > 200 || value[key].includes('/')) throw new Error('Invalid report filter.');
   return { startDate: value.startDate, endDate: value.endDate, campus: value.campus, assessmentId: value.assessmentId, interval: value.interval };
 }
@@ -63,10 +89,11 @@ export function validatedScore(attempt: Data, definition: Data | undefined, scal
 const localDate = (time: number) => new Date(time + OFFSET).toISOString().slice(0, 10);
 function bucketStart(time: number, interval: string) {
   const local = new Date(time + OFFSET);
+  if (interval === 'daily') return dateBoundary(localDate(time));
   if (interval === 'monthly') return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1) - OFFSET;
   return dateBoundary(localDate(time)) - ((local.getUTCDay() + 6) % 7) * DAY;
 }
-const nextBucket = (time: number, interval: string) => interval === 'weekly' ? time + 7 * DAY : (() => {
+const nextBucket = (time: number, interval: string) => interval === 'daily' ? time + DAY : interval === 'weekly' ? time + 7 * DAY : (() => {
   const local = new Date(time + OFFSET);
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - OFFSET;
 })();
@@ -148,6 +175,7 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
   const filters = validateFilters(rawFilters), start = dateBoundary(filters.startDate), end = dateBoundary(filters.endDate) + DAY;
   const observedEnd = Math.min(end, now.getTime());
   const coverage: Record<string, number> = { missingEventDates: 0, conflictingDates: 0, unknownCampusEvents: 0, currentCampusFallbackEvents: 0, missingRegistrationDates: 0, excludedMessagingRecords: 0, legacySubmissionsSeparate: 0, unversionedSubmissions: 0, invalidScoreSubmissions: 0, submittingStudentsWithoutScores: 0, earlierValidFallbacks: 0 };
+  const attemptDataQuality = { invalidRecords: 0, duplicateLogicalAttempts: 0, missingRequiredFields: 0, invalidStatuses: 0, invalidTimestamps: 0, invalidAttemptNumbers: 0, identityMismatches: 0 };
   const users = new Map(input.users.map(u => [u.id, u]));
   const definitions = new Map(input.definitions.map(d => [d.id, d]));
   const conversations = new Map(input.conversations.map(c => [c.id, c]));
@@ -166,7 +194,7 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
     if (time === null) coverage.missingEventDates++;
     return time;
   };
-  type Event = { student: string; campus: string; kind: 'appointment' | 'message' | 'submission' | 'start'; time: number; id: string; definition: string; completed: boolean };
+  type Event = { student: string; campus: string; kind: 'appointment' | 'message' | 'submission' | 'start'; time: number; id: string; definition: string; completed: boolean; status?: string; attemptNumber?: number };
   const events: Event[] = [];
   const add = (record: Data, kind: Event['kind'], time: number | null, studentId = record.studentId) => {
     const student = users.get(studentId);
@@ -176,7 +204,7 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
     if (campus === UNKNOWN) coverage.unknownCampusEvents++;
     if (!record.campus) coverage.currentCampusFallbackEvents++;
     const submission = timestamp(record.submittedAt) ?? timestamp(record.submitted_at) ?? Infinity;
-    events.push({ student: studentId, campus, kind, time, id: record.id, definition: record.assessmentId || '', completed: ['submitted', 'graded'].includes(record.status) && submission >= time && submission < observedEnd });
+    events.push({ student: studentId, campus, kind, time, id: record.id, definition: record.assessmentId || '', completed: ['submitted', 'graded'].includes(record.status) && submission >= time && submission < observedEnd, status: record.status, attemptNumber: record.attemptNumber });
   };
   for (const appointment of input.appointments) add(appointment, 'appointment', eventDate(appointment));
   for (const message of input.messages) {
@@ -192,12 +220,28 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
     }
     add(message, 'message', sent, message.senderId);
   }
+  const validatedAttempts = input.attempts.map(attempt => ({ attempt, validation: validateAssessmentAttempt(attempt) }));
+  const logicalCounts = new Map<string, number>();
+  for (const { validation } of validatedAttempts) if (validation.logicalKey) logicalCounts.set(validation.logicalKey, (logicalCounts.get(validation.logicalKey) ?? 0) + 1);
+  const duplicateKeys = new Set([...logicalCounts].filter(([, count]) => count > 1).map(([key]) => key));
+  attemptDataQuality.duplicateLogicalAttempts = [...duplicateKeys].reduce((sum, key) => sum + (logicalCounts.get(key)! - 1), 0);
   const submitted: Data[] = [];
-  for (const attempt of input.attempts) {
+  for (const { attempt, validation } of validatedAttempts) {
+    for (const issue of validation.issues) {
+      if (issue === 'missing_required_fields') attemptDataQuality.missingRequiredFields++;
+      if (issue === 'invalid_status') attemptDataQuality.invalidStatuses++;
+      if (issue === 'invalid_timestamp') attemptDataQuality.invalidTimestamps++;
+      if (issue === 'invalid_attempt_number') attemptDataQuality.invalidAttemptNumbers++;
+      if (issue === 'identity_mismatch') attemptDataQuality.identityMismatches++;
+    }
+    if (!validation.valid || (validation.logicalKey && duplicateKeys.has(validation.logicalKey))) {
+      attemptDataQuality.invalidRecords++;
+      continue;
+    }
     if (filters.assessmentId && attempt.assessmentId !== filters.assessmentId) continue;
-    add(attempt, 'start', eventDate(attempt, 'startedAt', 'started_at', 'createdAt'));
+    add(attempt, 'start', validation.startedAt);
     if (!['submitted', 'graded'].includes(attempt.status)) continue;
-    const time = eventDate(attempt, 'submittedAt', 'submitted_at');
+    const time = validation.submittedAt;
     add(attempt, 'submission', time);
     if (time !== null && time >= start && time < observedEnd && users.get(attempt.studentId)?.role === 'student') submitted.push({ ...attempt, time });
   }
@@ -212,22 +256,30 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
   function summary(campus: string) {
     const list = scoped(campus), ids = (kind?: Event['kind']) => new Set(list.filter(e => kind ? e.kind === kind : e.kind !== 'start').map(e => e.student));
     const participants = ids(), denominator = cohort.filter(u => !campus || campusOf(u, u) === campus);
-    const starters = ids('start'), completed = new Set(list.filter(e => e.kind === 'start' && e.completed).map(e => e.student));
+    const starterPairs = new Set(list.filter(e => e.kind === 'start' && e.definition).map(e => `${e.student}\u0000${e.definition}`));
+    const completedPairs = new Set(list.filter(e => e.kind === 'start' && e.definition && e.completed).map(e => `${e.student}\u0000${e.definition}`));
     const unsupported = [...participants].some(id => !denominator.some(u => u.id === id));
     const missing = [...users.values()].some(u => u.role === 'student' && (!campus || campusOf(u, u) === campus) && timestamp(u.createdAt) === null && timestamp(u.created_at) === null);
+    const attemptEvents = list.filter(e => e.kind === 'start');
     return { participants: participants.size, appointmentStudents: ids('appointment').size, messagingStudents: ids('message').size,
       assessmentStudents: ids('submission').size, appointmentRequests: list.filter(e => e.kind === 'appointment').length,
+      attempts: list.filter(e => e.kind === 'start').length,
       submissions: list.filter(e => e.kind === 'submission').length, registered: denominator.length,
       participationRate: denominator.length && !unsupported && !missing ? participants.size / denominator.length * 100 : null,
-      starters: starters.size, completedStarters: completed.size, incompleteStarters: starters.size - completed.size,
-      completionRate: starters.size ? completed.size / starters.size * 100 : null };
+      starters: starterPairs.size, completedStarters: completedPairs.size, incompleteStarters: starterPairs.size - completedPairs.size,
+      completionRate: starterPairs.size ? completedPairs.size / starterPairs.size * 100 : null,
+      inProgress: attemptEvents.filter(e => e.status === 'in_progress').length,
+      retakes: attemptEvents.filter(e => (e.attemptNumber ?? 1) > 1).length,
+      submissionRate: attemptEvents.length ? list.filter(e => e.kind === 'submission').length / attemptEvents.length * 100 : null,
+      averageAttemptsPerStudent: starterPairs.size ? attemptEvents.length / starterPairs.size : null };
   }
   const selected = scoped(filters.campus);
   const trends = [];
   for (let bucket = bucketStart(start, filters.interval); bucket < observedEnd; bucket = nextBucket(bucket, filters.interval)) {
-    const next = nextBucket(bucket, filters.interval), list = selected.filter(e => e.time >= bucket && e.time < next && e.kind !== 'start');
+    const next = nextBucket(bucket, filters.interval), list = selected.filter(e => e.time >= bucket && e.time < next);
+    const activity = list.filter(e => e.kind !== 'start');
     const unique = (kind?: Event['kind']) => new Set(list.filter(e => !kind || e.kind === kind).map(e => e.student)).size;
-    trends.push({ label: filters.interval === 'monthly' ? localDate(bucket).slice(0, 7) : localDate(bucket), startDate: localDate(Math.max(start, bucket)), endDate: localDate(Math.min(end, next, observedEnd) - 1), partial: bucket < start || next > observedEnd, participants: unique(), appointmentRequests: list.filter(e => e.kind === 'appointment').length, messagingStudents: unique('message'), submissions: list.filter(e => e.kind === 'submission').length, assessmentStudents: unique('submission') });
+    trends.push({ label: filters.interval === 'monthly' ? localDate(bucket).slice(0, 7) : localDate(bucket), startDate: localDate(Math.max(start, bucket)), endDate: localDate(Math.min(end, next, observedEnd) - 1), partial: bucket < start || next > observedEnd, participants: new Set(activity.map(e => e.student)).size, appointmentRequests: activity.filter(e => e.kind === 'appointment').length, messagingStudents: new Set(activity.filter(e => e.kind === 'message').map(e => e.student)).size, attempts: list.filter(e => e.kind === 'start').length, submissions: activity.filter(e => e.kind === 'submission').length, assessmentStudents: new Set(activity.filter(e => e.kind === 'submission').map(e => e.student)).size, retakes: list.filter(e => e.kind === 'start' && (e.attemptNumber ?? 1) > 1).length });
   }
   // Latest valid attempt per student/instrument/version globally, before campus filtering.
   const latest = new Map<string, { student: string; score: number; campus: string; time: number; id: string; instrument: string; version: string; max: number }>();
@@ -277,12 +329,14 @@ export function buildStatistics(input: ReportInput, rawFilters: ReportFilters, n
   }).sort((a, b) => a.label.localeCompare(b.label) || a.instrument.localeCompare(b.instrument) || a.version.localeCompare(b.version));
   const assessmentCohorts = input.definitions.filter(d => !filters.assessmentId || d.id === filters.assessmentId).map(definition => {
     const starts = selected.filter(e => e.kind === 'start' && e.definition === definition.id);
+    const submissions = selected.filter(e => e.kind === 'submission' && e.definition === definition.id);
     const starters = new Set(starts.map(e => e.student)), completed = new Set(starts.filter(e => e.completed).map(e => e.student));
-    return { assessmentId: definition.id, title: typeof definition.title === 'string' ? definition.title : 'Untitled assessment', starters: starters.size, completed: completed.size, remaining: starters.size - completed.size, rate: starters.size ? completed.size / starters.size * 100 : null };
+    return { assessmentId: definition.id, title: typeof definition.title === 'string' ? definition.title : 'Untitled assessment', attempts: starts.length, submissions: submissions.length, participatingStudents: starters.size, starters: starters.size, completed: completed.size, remaining: starters.size - completed.size, rate: starters.size ? completed.size / starters.size * 100 : null, submissionRate: starts.length ? submissions.length / starts.length * 100 : null, inProgress: starts.filter(event => event.status === 'in_progress').length, retakes: starts.filter(event => (event.attemptNumber ?? 1) > 1).length };
   }).filter(row => row.starters > 0).sort((a, b) => a.title.localeCompare(b.title));
   return { generatedAt: now.toISOString(), filters, referrals: referralStatistics(input, filters, now), campuses: [...campusLabels].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label)),
     assessments: input.definitions.map(d => ({ id: d.id, title: typeof d.title === 'string' ? d.title : 'Untitled assessment' })).sort((a, b) => a.title.localeCompare(b.title)),
     totals: summary(filters.campus), participation: [...campusLabels].filter(([key]) => !filters.campus || key === filters.campus).map(([campus, label]) => ({ campus, label, ...summary(campus) })), assessmentCohorts, trends, scores, coverage,
+    attemptDataQuality,
     notes: ['Participation uses registered portal students, including currently inactive accounts, not college enrollment. Rates use current campus attribution; historical membership is unavailable.',
       'Assessment filters affect only assessment activity. Start-cohort completion counts distinct students who started and completed at least one matching attempt by period end.',
       'Messaging counts student-sent messages in currently accepted two-person facilitator relationships with a link date before the message. Revoked relationships are excluded; historical authorization is incomplete.',

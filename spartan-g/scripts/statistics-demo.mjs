@@ -34,7 +34,7 @@ for (const [order, campus] of campuses.entries()) {
     batch.set(db.doc(`conversations/${conversationId}`), { participantIds: [uid, fac], lastMessageAt: date(6), lastMessagePreview: 'Synthetic demo' });
     if (i % 2 === 0) batch.set(db.doc(`appointments/demo-${uid}`), { studentId: uid, facilitatorId: fac, campus: campus.key, createdAt: date(2 + i), scheduledAt: date(2 + i), status: 'requested' });
     if (i % 3 === 0) batch.set(db.doc(`messages/demo-${uid}`), { conversationId, senderId: uid, createdAt: date(3 + i), body: 'Synthetic demo message', type: 'text' });
-    batch.set(db.doc(`assessment_attempts/${definitionId}_${uid}_1`), { studentId: uid, assessmentId: definitionId, campus: campus.key, status: 'submitted', startedAt: date(2), submittedAt: date(4 + i), answers: questionIds.map(questionId => ({ questionId, value: i < 5 ? '0' : '1' })) });
+    batch.set(db.doc(`assessment_attempts/${definitionId}_${uid}_1`), { studentId: uid, assessmentId: definitionId, attemptNumber: 1, campus: campus.key, status: 'submitted', startedAt: date(2), submittedAt: date(4 + i), answers: questionIds.map(questionId => ({ questionId, value: i < 5 ? '0' : '1' })) });
   }
 }
 await batch.commit();
@@ -42,7 +42,8 @@ await batch.commit();
 // Override environment in this process only; do not change the user's .env files.
 Object.assign(process.env, { VITE_FIREBASE_API_KEY: 'demo-statistics-local', VITE_FIREBASE_PROJECT_ID: projectId,
   VITE_FIREBASE_AUTH_DOMAIN: `${projectId}.firebaseapp.com`, VITE_FIREBASE_STORAGE_BUCKET: `${projectId}.appspot.com`,
-  VITE_FIREBASE_APP_ID: '1:123456:web:statistics-demo', VITE_APP_ENV: 'development', VITE_FIREBASE_USE_EMULATORS: 'true' });
+  VITE_FIREBASE_MESSAGING_SENDER_ID: '123456', VITE_FIREBASE_APP_ID: '1:123456:web:statistics-demo',
+  VITE_APP_ENV: 'development', VITE_FIREBASE_USE_EMULATORS: 'true' });
 const server = await createServer({ root: 'apps/web', server: { host: '127.0.0.1', port: 5180, strictPort: true } });
 await server.listen();
 console.log('Statistics demo: http://127.0.0.1:5180/admin/statistics');

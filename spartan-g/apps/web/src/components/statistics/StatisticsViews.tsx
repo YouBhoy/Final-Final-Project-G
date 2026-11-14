@@ -2,10 +2,10 @@ import { getCampusLabel, type StatisticsReport } from '@spartan-g/shared-types';
 import { Card } from '../ui/Card';
 
 export type StatisticsView = 'referrals' | 'forecast' | 'participation' | 'trends' | 'scores';
-export type TrendActivity = 'participants' | 'appointmentRequests' | 'messagingStudents' | 'submissions' | 'assessmentStudents';
+export type TrendActivity = 'participants' | 'appointmentRequests' | 'messagingStudents' | 'attempts' | 'submissions' | 'assessmentStudents';
 export const activityLabels: Record<TrendActivity, string> = {
   participants: 'Unique participating students', appointmentRequests: 'Appointment requests',
-  messagingStudents: 'Unique students sending messages', submissions: 'Assessment submissions',
+  messagingStudents: 'Unique students sending messages', attempts: 'Assessment attempts', submissions: 'Assessment submissions',
   assessmentStudents: 'Unique students submitting assessments',
 };
 export const control = 'mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-100';
@@ -51,7 +51,7 @@ function Bars({ rows, color = 'bg-red-600', unit }: { rows: { label: string; val
         <span className="text-gray-700">{row.label}{row.note && <span className="ml-2 text-xs text-gray-500">{row.note}</span>}</span>
         <span className="font-semibold tabular-nums text-gray-900">{row.value.toLocaleString()}</span>
       </div>
-      <div className="h-3 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+      <div className="h-3 overflow-hidden rounded-full bg-gray-100" title={`${row.label}: ${row.value.toLocaleString()}`} role="img" aria-label={`${row.label}: ${row.value.toLocaleString()}`}>
         <div className={`h-full rounded-full ${color}`} style={{ width: `${row.value / max * 100}%` }} />
       </div>
     </div>)}
@@ -166,12 +166,30 @@ export function ReferralsView({ report }: { report: StatisticsReport }) {
 
 export function ParticipationView({ report }: { report: StatisticsReport }) {
   const totals = report.totals;
+  const topParticipation = [...report.assessmentCohorts].sort((a, b) => b.participatingStudents - a.participatingStudents)[0];
+  const qualityIssues = report.attemptDataQuality.invalidRecords + report.attemptDataQuality.duplicateLogicalAttempts;
   return <div className="space-y-5">
+    <Card className="border-red-100 bg-red-50/60 p-5 sm:p-6">
+      <h3 className="text-lg font-semibold text-gray-900">Assessment analytics summary</h3>
+      <p className="mt-2 text-sm leading-relaxed text-gray-700">
+        In the selected period, <strong>{format(totals.assessmentStudents)}</strong> students submitted assessments across <strong>{format(totals.attempts)}</strong> valid attempts, including <strong>{format(totals.retakes)}</strong> retakes. <strong>{format(totals.submissions)}</strong> attempts were submitted, for a <strong>{format(totals.completionRate, '%')}</strong> student-assessment completion rate.
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-gray-600">
+        {topParticipation ? `${topParticipation.title} has the highest participation with ${topParticipation.participatingStudents.toLocaleString()} students.` : 'There is insufficient assessment activity to identify a leading assessment.'}
+        {' '}{totals.inProgress ? `${totals.inProgress.toLocaleString()} valid attempts remain in progress.` : 'No valid attempts are currently in progress.'}
+        {' '}{qualityIssues ? `${qualityIssues.toLocaleString()} invalid or duplicate records are excluded from headline metrics.` : 'No invalid or duplicate attempt records were detected.'}
+      </p>
+    </Card>
     <section aria-label="Participation overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Participating students" value={format(totals.participants)} detail="Distinct students across requests, messages and assessment submissions." />
       <Metric label="Requesting appointments" value={format(totals.appointmentStudents)} detail={`${totals.appointmentRequests} requests created in this period.`} />
       <Metric label="Engaging in messaging" value={format(totals.messagingStudents)} detail="Students who sent eligible messages." />
-      <Metric label="Submitting assessments" value={format(totals.assessmentStudents)} detail={`${totals.submissions} submissions, including retakes.`} />
+      <Metric label="Assessment attempts" value={format(totals.attempts)} detail={`${totals.submissions} submitted, including retakes, from ${totals.assessmentStudents} students.`} />
+      <Metric label="In progress" value={format(totals.inProgress)} detail="Valid started attempts without a submitted or graded status." />
+      <Metric label="Retakes" value={format(totals.retakes)} detail="Valid attempts after each student's first attempt for an assessment." />
+      <Metric label="Submission rate" value={format(totals.submissionRate, '%')} detail={`${totals.submissions} submitted attempts of ${totals.attempts} valid starts.`} />
+      <Metric label="Average attempts / student" value={format(totals.averageAttemptsPerStudent)} detail="Valid starts divided by distinct assessment starters." />
+      <Metric label="Completion rate" value={format(totals.completionRate, '%')} detail={`${totals.completedStarters} of ${totals.starters} assessment starters completed at least one attempt.`} />
     </section>
     <Card className="p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -212,10 +230,15 @@ export function ParticipationView({ report }: { report: StatisticsReport }) {
             { label: 'Not yet submitted', value: totals.incompleteStarters },
           ]} />
         </div>
-        {report.assessmentCohorts.map(row => <div key={row.assessmentId} className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-3 text-sm">
+        <h4 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Assessment comparison</h4>
+        <Bars color="bg-red-600" unit="Assessment attempts and submissions" rows={report.assessmentCohorts.flatMap(row => [
+          { label: `${row.title} · attempts`, value: row.attempts },
+          { label: `${row.title} · submissions`, value: row.submissions },
+        ])} />
+        <div className="mt-5 space-y-3">{report.assessmentCohorts.map(row => <div key={row.assessmentId} className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-3 text-sm">
           <span className="font-medium text-gray-700">{row.title}</span>
-          <span className="text-gray-500">{row.completed} / {row.starters} completed · {format(row.rate, '%')} · {row.remaining} not yet submitted</span>
-        </div>)}
+          <span className="text-gray-500">{row.participatingStudents} students · {row.attempts} attempts · {row.submissions} submitted · {format(row.submissionRate, '%')} submission rate · {row.inProgress} in progress · {row.retakes} retakes · {row.completed} / {row.starters} completed · {format(row.rate, '%')}</span>
+        </div>)}</div>
       </div>}
     </details>
   </div>;
@@ -230,8 +253,9 @@ export function TrendsView({ report, activity }: { report: StatisticsReport; act
     </section>
     <Card className="p-5 sm:p-6">
       <h3 className="text-lg font-semibold text-gray-900">{activityLabels[activity]}</h3>
-      <p className="mt-1 text-sm text-gray-500">{report.filters.interval === 'weekly' ? 'Weekly' : 'Monthly'} activity in this tab's reporting period.</p>
+      <p className="mt-1 text-sm text-gray-500">{report.filters.interval === 'daily' ? 'Daily' : report.filters.interval === 'weekly' ? 'Weekly' : 'Monthly'} activity in this tab's reporting period.</p>
       <div className="mt-6"><Bars color="bg-slate-700" unit={activityLabels[activity]} rows={report.trends.map(bucket => ({ label: bucket.label, value: bucket[activity], note: bucket.partial ? `Partial: ${bucket.startDate} to ${bucket.endDate}` : undefined }))} /></div>
+      {activity === 'attempts' && <p className="mt-4 text-xs text-gray-500">Retake activity in this period: {report.trends.reduce((sum, bucket) => sum + bucket.retakes, 0).toLocaleString()} of {report.totals.attempts.toLocaleString()} attempts.</p>}
       <p className="mt-5 text-xs leading-relaxed text-gray-500">A student can appear in multiple buckets; bucket counts do not add up to a unique period total. Current periods stop at report generation time.</p>
     </Card>
   </div>;
@@ -302,8 +326,10 @@ export function CoverageDetails({ report, view }: { report: StatisticsReport; vi
   </details>;
   const scoreKeys = new Set(['unversionedSubmissions', 'invalidScoreSubmissions', 'submittingStudentsWithoutScores', 'earlierValidFallbacks']);
   const coverage = Object.entries(report.coverage).filter(([key]) => view === 'scores' ? scoreKeys.has(key) || key === 'unknownCampusEvents' : !scoreKeys.has(key));
+  const attemptQuality = Object.entries(report.attemptDataQuality);
   return <details className="rounded-xl border border-gray-200 bg-white p-5">
     <summary className="cursor-pointer text-sm font-semibold text-gray-800">Data coverage & limitations</summary>
+    {(view === 'participation' || view === 'trends') && <><h3 className="mt-4 text-sm font-semibold text-gray-800">Assessment record quality</h3><dl className="mt-3 grid gap-x-8 gap-y-3 sm:grid-cols-2">{attemptQuality.map(([key, value]) => <div key={key} className="flex justify-between gap-3 border-b border-gray-100 pb-2 text-xs"><dt className="text-gray-500">{key.replace(/[A-Z]/g, letter => ` ${letter.toLowerCase()}`)}</dt><dd className="font-semibold tabular-nums text-gray-700">{value}</dd></div>)}</dl><p className="mt-3 text-xs leading-relaxed text-gray-500">Invalid and duplicate logical attempts are excluded from headline metrics. Valid retakes remain separate attempts.</p></>}
     <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">{coverage.map(([key, value]) => <div key={key} className="flex justify-between gap-3 border-b border-gray-100 pb-2 text-xs"><dt className="text-gray-500">{coverageLabels[key] ?? key}</dt><dd className="font-semibold tabular-nums text-gray-700">{value}</dd></div>)}</dl>
     <ul className="mt-5 list-disc space-y-2 pl-5 text-xs leading-relaxed text-gray-500">{report.notes.map(note => <li key={note}>{note}</li>)}</ul>
   </details>;

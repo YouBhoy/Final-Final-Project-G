@@ -5,7 +5,7 @@ export interface StatisticsFilters {
   endDate: string;
   campus: string;
   assessmentId: string;
-  interval: 'weekly' | 'monthly';
+  interval: 'daily' | 'weekly' | 'monthly';
 }
 export interface ParticipationSummary {
   participants: number;
@@ -13,6 +13,7 @@ export interface ParticipationSummary {
   messagingStudents: number;
   assessmentStudents: number;
   appointmentRequests: number;
+  attempts: number;
   submissions: number;
   registered: number;
   participationRate: number | null;
@@ -20,6 +21,10 @@ export interface ParticipationSummary {
   completedStarters: number;
   incompleteStarters: number;
   completionRate: number | null;
+  inProgress: number;
+  retakes: number;
+  submissionRate: number | null;
+  averageAttemptsPerStudent: number | null;
 }
 export interface StatisticsReport {
   generatedAt: string;
@@ -47,8 +52,8 @@ export interface StatisticsReport {
   assessments: { id: string; title: string }[];
   totals: ParticipationSummary;
   participation: (ParticipationSummary & { campus: string; label: string })[];
-  assessmentCohorts: { assessmentId: string; title: string; starters: number; completed: number; remaining: number; rate: number | null }[];
-  trends: { label: string; startDate: string; endDate: string; partial: boolean; participants: number; appointmentRequests: number; messagingStudents: number; submissions: number; assessmentStudents: number }[];
+  assessmentCohorts: { assessmentId: string; title: string; attempts: number; submissions: number; participatingStudents: number; starters: number; completed: number; remaining: number; rate: number | null; submissionRate: number | null; inProgress: number; retakes: number }[];
+  trends: { label: string; startDate: string; endDate: string; partial: boolean; participants: number; appointmentRequests: number; messagingStudents: number; attempts: number; submissions: number; assessmentStudents: number; retakes: number }[];
   scores: {
     campus: string; label: string; instrument: string; version: string; max: number;
     suppressed: boolean; sample: number | null; median: number | null;
@@ -56,5 +61,14 @@ export interface StatisticsReport {
     bins: { label: string; count: number | null }[];
   }[];
   coverage: Record<string, number>;
+  attemptDataQuality: {
+    invalidRecords: number;
+    duplicateLogicalAttempts: number;
+    missingRequiredFields: number;
+    invalidStatuses: number;
+    invalidTimestamps: number;
+    invalidAttemptNumbers: number;
+    identityMismatches: number;
+  };
   notes: string[];
 }

@@ -1,3 +1,4 @@
+import { DashboardReadState } from "../../components/DashboardReadState";
 import { StudentProfileBanner } from "../../components/StudentProfileBanner";
 import "../../styles/student-warm.css";
 import { useEffect, type ReactNode } from "react";
@@ -270,11 +271,11 @@ export function StudentDashboardPage() {
   useEffect(()=>{document.title="Student Dashboard | SPARTAN-G";},[]);
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data, loading, error, reload } = useStudentDashboard();
+  const { data, sections, loading, error, reload } = useStudentDashboard();
 
 
-  const total = data?.assessments.total ?? 0;
-  const completed = data?.assessments.completed ?? 0;
+  const total = data?.assessments?.total ?? 0;
+  const completed = data?.assessments?.completed ?? 0;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   if (loading && !data) {
@@ -285,12 +286,15 @@ export function StudentDashboardPage() {
     );
   }
 
-  const next = data?.appointments.next ?? null;
-  const upcoming = data?.appointments.upcoming ?? [];
-  const unreadMessages = data?.messages.unreadTotal ?? 0;
-  const unreadNotifications = data?.notifications.unreadCount ?? 0;
-  const resumeId = data?.assessments.resumeAssessmentId ?? null;
+  const next = data?.appointments?.next ?? null;
+  const upcoming = data?.appointments?.upcoming ?? [];
+  const unreadMessages = data?.messages?.unreadTotal ?? 0;
+  const unreadNotifications = data?.notifications?.unreadCount ?? 0;
+  const resumeId = data?.assessments?.resumeAssessmentId ?? null;
   const remaining = Math.max(0, total - completed);
+  const nextAction = resumeId
+    ? { eyebrow: "Your next step", title: "Continue your assessment", detail: "Pick up where you left off when you have a quiet moment.", label: "Continue assessment", to: `/student/assessment/${resumeId}` }
+    : { eyebrow: "Your next step", title: "Explore your support options", detail: "Connect with a facilitator or browse resources at your own pace.", label: "Find a facilitator", to: "/student/facilitators" };
 
   /** Click a notification -> mark read -> redirect to the relevant page. */
   const handleOpenNotification = (notification: UiNotification) => {
@@ -303,7 +307,7 @@ export function StudentDashboardPage() {
 
   /** Recent activity = notifications + conversations, newest first. */
   const activity: ActivityItem[] = [
-    ...(data?.notifications.recent ?? []).slice(0, 5).map((n): ActivityItem => {
+    ...(data?.notifications?.recent ?? []).slice(0, 5).map((n): ActivityItem => {
       const ui = n as UiNotification;
       return {
         key: `n-${ui.id}`,
@@ -316,7 +320,7 @@ export function StudentDashboardPage() {
         onOpen: () => handleOpenNotification(ui),
       };
     }),
-    ...(data?.messages.recent ?? []).slice(0, 5).map(
+    ...(data?.messages?.recent ?? []).slice(0, 5).map(
       (c): ActivityItem => ({
         key: `m-${c.id}`,
         kind: "message",
@@ -342,7 +346,7 @@ export function StudentDashboardPage() {
   return (
     <div className="student-dashboard space-y-8">
       <StudentProfileBanner />
-      <section className="student-support-callout"><div><p className="student-eyebrow">You don’t have to navigate it alone</p><h2>Support, your way.</h2><p>Talk to a facilitator about what’s on your mind, including guidance on referrals.</p></div><div className="student-support-actions"><button onClick={()=>navigate('/student/facilitators')} className="student-main-button">Find a facilitator ↗</button><button onClick={()=>navigate('/student/appointments')} className="student-soft-button">Request an appointment ↗</button></div></section>
+      <section className="student-support-callout"><div><p className="student-eyebrow">{nextAction.eyebrow}</p><h2>{nextAction.title}</h2><p>{nextAction.detail}</p></div><div className="student-support-actions"><button onClick={()=>navigate(nextAction.to)} className="student-main-button">{nextAction.label} ↗</button><button onClick={()=>navigate('/student/appointments')} className="student-soft-button">Request an appointment ↗</button></div></section>
       {error && (
         <div
           role="alert"
@@ -360,7 +364,7 @@ export function StudentDashboardPage() {
 
       {/* ─── Stat cards ─────────────────────────────────────────────────── */}
       <section aria-label="Summary" className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
+        <DashboardReadState section={sections.appointments} label="appointments" retry={reload}><StatCard
           label="Next appointment"
           icon={ICON.calendar}
           value={next ? formatShortDate(next.scheduledAt) : "None"}
@@ -369,30 +373,31 @@ export function StudentDashboardPage() {
               ? `${formatTime(next.scheduledAt)} with ${next.facilitatorName}`
               : "No upcoming appointment"
           }
-        />
-        <StatCard
+        /></DashboardReadState>
+        <DashboardReadState section={sections.messages} label="messages" retry={reload}><StatCard
           label="Unread messages"
           icon={ICON.message}
           value={unreadMessages}
           caption="From your facilitators"
-        />
-        <StatCard
+        /></DashboardReadState>
+        <DashboardReadState section={sections.assessments} label="assessments" retry={reload}><StatCard
           label="Assessments"
           icon={ICON.clipboard}
           value={`${completed}/${total}`}
           caption={total > 0 && remaining === 0 ? "All completed" : `${remaining} remaining`}
-        />
-        <StatCard
+        /></DashboardReadState>
+        <DashboardReadState section={sections.notifications} label="notifications" retry={reload}><StatCard
           label="Notifications"
           icon={ICON.bell}
           value={unreadNotifications}
           caption="unread alerts"
-        />
+        /></DashboardReadState>
       </section>
 
       {/* ─── Assessment progress + Quick actions ────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section aria-labelledby="sd-assess-heading" className={`${CARD} student-progress-card lg:col-span-2`}>
+          <DashboardReadState section={sections.assessments} label="assessments" retry={reload}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id="sd-assess-heading" className={T_CARD_TITLE}>
@@ -425,8 +430,8 @@ export function StudentDashboardPage() {
 
           <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className={T_SMALL}>
-              {completed} completed &middot; {data?.assessments.inProgress ?? 0} in progress
-              &middot; {data?.assessments.notStarted ?? 0} not started
+              {completed} completed &middot; {data?.assessments?.inProgress ?? 0} in progress
+              &middot; {data?.assessments?.notStarted ?? 0} not started
             </p>
             <button
               onClick={() =>
@@ -437,6 +442,7 @@ export function StudentDashboardPage() {
               {resumeId ? "Continue Assessment" : "View Assessments"}
             </button>
           </div>
+                  </DashboardReadState>
         </section>
 
         <aside aria-labelledby="sd-actions-heading" className={CARD}>
@@ -469,6 +475,7 @@ export function StudentDashboardPage() {
       {/* ─── Upcoming appointments + Recent activity ────────────────────── */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section aria-labelledby="sd-upcoming-heading" className={CARD}>
+          <DashboardReadState section={sections.appointments} label="appointments" retry={reload}>
           <div className="flex items-center justify-between gap-3">
             <h2 id="sd-upcoming-heading" className={T_CARD_TITLE}>
               Upcoming appointments
@@ -509,6 +516,7 @@ export function StudentDashboardPage() {
               ))}
             </ul>
           )}
+                  </DashboardReadState>
         </section>
 
         <section aria-labelledby="sd-activity-heading" className={CARD}>
@@ -523,7 +531,9 @@ export function StudentDashboardPage() {
             )}
           </div>
 
-          {activity.length === 0 ? (
+          <DashboardReadState section={sections.messages} label="messages" retry={reload}>{null}</DashboardReadState>
+          <DashboardReadState section={sections.notifications} label="notifications" retry={reload}>{null}</DashboardReadState>
+          {activity.length === 0 && sections.messages.data && sections.notifications.data ? (
             <EmptyState
               icon={ICON.bell}
               title="No recent activity"

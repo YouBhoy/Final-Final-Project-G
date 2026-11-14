@@ -81,7 +81,7 @@ test('report input replaces identities consistently, preserves aggregate results
     conversations: [{ id: 'PRIVATE_CONVERSATION', participantIds: [ids[0], facilitator] }],
     messages: [{ id: 'PRIVATE_MESSAGE', senderId: ids[0], conversationId: 'PRIVATE_CONVERSATION', type: 'text', status: 'sent', createdAt: '2026-10-05' }],
     facilitator_student_links: [{ id: `${facilitator}_${ids[0]}`, facilitatorId: facilitator, studentId: ids[0], status: 'accepted', requestedAt: '2026-10-01', respondedAt: '2026-10-02' }],
-    assessment_attempts: ids.flatMap(studentId => ['z', 'a'].map((id, index) => ({ id: `PRIVATE_${studentId}_${id}`, studentId, assessmentId: definition.id, status: 'submitted', campus: 'lipa', startedAt: '2026-10-03', submittedAt: '2026-10-05', answers: questionIds.map(questionId => ({ questionId, value: String(index + 1) })) }))),
+    assessment_attempts: ids.flatMap(studentId => ['z', 'a'].map((id, index) => ({ id: `${definition.id}_${studentId}_${index + 1}`, studentId, assessmentId: definition.id, attemptNumber: index + 1, status: 'submitted', campus: 'lipa', startedAt: '2026-10-03', submittedAt: '2026-10-05', answers: questionIds.map(questionId => ({ questionId, value: String(index + 1) })) }))),
     assessments: [definition],
   };
   f.source.records = async name => structuredClone(data[name] ?? []);

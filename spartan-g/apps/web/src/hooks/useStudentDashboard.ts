@@ -1,258 +1,66 @@
-import { getPublishedAssessmentDefinitions } from '../lib/assessmentDefinitions';
-import { useEffect, useState, useCallback } from "react";
-import {
-  appointmentService,
-  messagingService,
-  userService,
-  assessmentService,
-} from "@spartan-g/shared-services";
-import type {
-  AppointmentDocument,
-  NotificationDocument,
-  Role,
-} from "@spartan-g/shared-types";
-import { useAuth } from "./useAuth";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { messagingService } from '@spartan-g/shared-services';
+import { useAuth } from './useAuth';
+import { useDashboardSections, type DashboardSection } from './useDashboardSections';
+import { dashboardError, scopeKey } from '../lib/dashboardData';
+import { dashboardCache, dashboardScope, watchDashboard } from '../lib/dashboardRuntime';
+import { dashboardDate, loadAssessmentProgress, loadDashboardNotifications, loadStudentAppointments } from '../lib/dashboardQueries';
 
-/** A single upcoming appointment with the facilitator's display name resolved. */
-export interface UpcomingAppointment {
-  id: string;
-  status: AppointmentDocument["status"];
-  scheduledAt: Date;
-  facilitatorId: string;
-  facilitatorName: string;
-  durationMinutes: number;
+export type { AssessmentProgress, StudentUpcomingAppointment as UpcomingAppointment } from '../lib/dashboardQueries';
+export interface RecentConversation { id: string; preview: string; lastMessageAt: Date | null; unread: number }
+interface Sources {
+  appointments: Awaited<ReturnType<typeof loadStudentAppointments>>;
+  assessments: Awaited<ReturnType<typeof loadAssessmentProgress>>;
+  notifications: Awaited<ReturnType<typeof loadDashboardNotifications>>;
 }
-
-/** A recent conversation shown on the dashboard. */
-export interface RecentConversation {
-  id: string;
-  preview: string;
-  lastMessageAt: Date | null;
-  unread: number;
-}
-
-/** Aggregated assessment progress for the current student. */
-export interface AssessmentProgress {
-  /** Number of published assessments currently available. */
-  total: number;
-  /** Distinct published assessments that have at least one submitted/graded attempt. */
-  completed: number;
-  /** Distinct published assessments with an in-progress attempt. */
-  inProgress: number;
-  /** total - completed - inProgress. */
-  notStarted: number;
-  /** ID of the first published assessment with an in-progress attempt (for resume). */
-  resumeAssessmentId: string | null;
-}
-
+type Messages = { unreadTotal: number; recent: RecentConversation[] };
 export interface StudentDashboardData {
-  appointments: {
-    upcoming: UpcomingAppointment[];
-    next: UpcomingAppointment | null;
-  };
-  assessments: AssessmentProgress;
-  messages: {
-    unreadTotal: number;
-    recent: RecentConversation[];
-  };
-  notifications: {
-    unreadCount: number;
-    recent: (NotificationDocument & { id: string })[];
-  };
+  appointments: Sources['appointments'] | null;
+  assessments: Sources['assessments'] | null;
+  notifications: Sources['notifications'] | null;
+  messages: Messages | null;
 }
-
-const EMPTY_DATA: StudentDashboardData = {
-  appointments: { upcoming: [], next: null },
-  assessments: { total: 0, completed: 0, inProgress: 0, notStarted: 0, resumeAssessmentId: null },
-  messages: { unreadTotal: 0, recent: [] },
-  notifications: { unreadCount: 0, recent: [] },
-};
-
-function toDate(value: unknown): Date | null {
-  if (!value) return null;
-  if (typeof (value as any).toDate === "function") return (value as any).toDate() as Date;
-  return new Date(value as any);
-}
-
-/**
- * Aggregates live data for the student dashboard from the existing shared services.
- * Only reads from collections already used by the feature pages:
- *  - appointments (appointmentService)
- *  - assessments + assessment_attempts (assessmentService)
- *  - conversations (messagingService — real-time subscription)
- *  - notifications (appointmentService)
- */
 export function useStudentDashboard() {
   const { user } = useAuth();
-  const [data, setData] = useState<StudentDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const reload = useCallback(async () => {
-    if (!user) {
-      setData(null);
-      setLoading(false);
-      return;
-    }
-
-    const role = user.role as Role;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [appointmentsResult, assessmentsResult, notificationsResult] = await Promise.allSettled([
-        loadAppointments(user.uid, role),
-        loadAssessments(user.uid, role),
-        loadNotifications(user.uid),
-      ]);
-
-      const appointments =
-        appointmentsResult.status === "fulfilled"
-          ? appointmentsResult.value
-          : { upcoming: [], next: null };
-      const assessments =
-        assessmentsResult.status === "fulfilled"
-          ? assessmentsResult.value
-          : EMPTY_DATA.assessments;
-      const notifications =
-        notificationsResult.status === "fulfilled"
-          ? notificationsResult.value
-          : EMPTY_DATA.notifications;
-
-      // Preserve messages set by the live subscription (do not clobber with empty).
-      setData((prev) => ({
-        appointments,
-        assessments,
-        messages: prev?.messages ?? EMPTY_DATA.messages,
-        notifications,
-      }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load dashboard");
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  // Live message subscription (mirrors StudentMessagesPage / useConversationList).
+  const scope = useMemo(() => user?.role === 'student' ? dashboardScope(user.uid, user.role) : null, [user?.uid, user?.role]);
+  const key = scope ? scopeKey(scope) : null;
+  const current = useRef(key); current.current = key;
+  const loaders = useMemo(() => ({
+    appointments: () => loadStudentAppointments(scope!),
+    assessments: () => loadAssessmentProgress(scope!),
+    notifications: () => loadDashboardNotifications(scope!),
+  }), [key]);
+  const reads = useDashboardSections<Sources>(key, loaders);
+  const [messages, setMessages] = useState<{ key: string | null; section: DashboardSection<Messages> } | null>(null);
+  const [listenerRevision, setListenerRevision] = useState(0);
+  const reload = useCallback(() => {
+    if (scope) dashboardCache.invalidate(scope);
+    reads.reload(); setListenerRevision(value => value + 1);
+  }, [key, reads.reload]);
   useEffect(() => {
-    if (!user) return;
-    const role = user.role as Role;
-
-    const unsubscribe = messagingService.subscribeToConversations(
-      user.uid,
-      role,
-      (conversations) => {
-        setData((prev) => {
-          const base = prev ?? EMPTY_DATA;
-          const recent = conversations.slice(0, 5).map((c) => ({
-            id: c.id,
-            preview: c.lastMessagePreview || "",
-            lastMessageAt: toDate(c.lastMessageAt),
-            unread: c.unreadCount?.[user.uid] || 0,
-          }));
-          const unreadTotal = conversations.reduce(
-            (sum, c) => sum + (c.unreadCount?.[user.uid] || 0),
-            0,
-          );
-          return { ...base, messages: { unreadTotal, recent } };
-        });
-      },
-      (listenerError) => {
-        console.error("[useStudentDashboard] conversation listener error:", listenerError);
-      },
-    );
-
-    return unsubscribe;
-  }, [user]);
-
+    if (!scope) return;
+    try { return watchDashboard(scope, reads.reload, (section, cause) => reads.fail(section as keyof Sources, cause)); }
+    catch (cause) { for (const section of Object.keys(loaders) as (keyof Sources)[]) reads.fail(section, cause); }
+  }, [key, listenerRevision, reads.reload, reads.fail]);
   useEffect(() => {
-    reload();
-  }, [reload]);
-
-  return { data, loading, error, reload };
-}
-
-async function loadAppointments(
-  userId: string,
-  role: Role,
-): Promise<{ upcoming: UpcomingAppointment[]; next: UpcomingAppointment | null }> {
-  const appointments = await appointmentService.getStudentAppointments(userId, role);
-
-  const active = appointments
-    .filter((a) => a.status === "requested" || a.status === "accepted" || a.status === "reschedule_requested")
-    .map((a) => ({
-      id: a.id,
-      status: a.status,
-      scheduledAt: toDate(a.scheduledAt) ?? new Date(),
-      facilitatorId: a.facilitatorId,
-      facilitatorName: "Facilitator",
-      durationMinutes: a.durationMinutes,
-    }))
-    .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
-
-  const upcoming = active.slice(0, 5);
-
-  // Resolve facilitator display names (best-effort).
-  const names = new Map<string, string>();
-  for (const apt of upcoming) {
-    if (names.has(apt.facilitatorId)) continue;
+    let active = true;
+    setMessages({ key, section: { data: null, loading: !!scope, error: null } });
+    if (!scope) return;
+    const fail = (cause: unknown) => { if (active && current.current === key) setMessages({ key, section: { data: null, loading: false, error: dashboardError(cause) } }); };
+    let stop: (() => void) | undefined;
     try {
-      const u = await userService.getUser(apt.facilitatorId);
-      names.set(apt.facilitatorId, u?.displayName || "Facilitator");
-    } catch {
-      names.set(apt.facilitatorId, "Facilitator");
-    }
-  }
-  const resolved = upcoming.map((apt) => ({
-    ...apt,
-    facilitatorName: names.get(apt.facilitatorId) ?? "Facilitator",
-  }));
-
-  return { upcoming: resolved, next: resolved[0] ?? null };
+      stop = messagingService.subscribeToConversations(scope.uid, scope.role, conversations => {
+        if (!active || current.current !== key) return;
+        setMessages({ key, section: { loading: false, error: null, data: {
+          unreadTotal: conversations.reduce((sum, row) => sum + (row.unreadCount?.[scope.uid] || 0), 0),
+          recent: conversations.slice(0, 5).map(row => ({ id: row.id, preview: row.lastMessagePreview || '', lastMessageAt: dashboardDate(row.lastMessageAt), unread: row.unreadCount?.[scope.uid] || 0 })),
+        } } });
+      }, fail);
+    } catch (cause) { fail(cause); }
+    return () => { active = false; stop?.(); };
+  }, [key, listenerRevision]);
+  const messageSection = messages?.key === key ? messages.section : { data: null, loading: !!scope, error: null };
+  const sections = { ...reads.sections, messages: messageSection };
+  const data: StudentDashboardData = { appointments: sections.appointments.data, assessments: sections.assessments.data, notifications: sections.notifications.data, messages: sections.messages.data };
+  return { data: scope ? data : null, sections, loading: reads.loading || messageSection.loading, error: reads.error ?? messageSection.error, reload };
 }
-
-async function loadAssessments(userId: string, role: Role): Promise<AssessmentProgress> {
-  const published = await getPublishedAssessmentDefinitions();
-
-  const publishedIds = new Set(published.map((p) => p.id));
-
-  // Distinct published assessments with a submitted/graded attempt.
-  const submitted = await assessmentService.getAttemptsByStudent(userId);
-  const submittedIds = new Set(submitted.map((a) => a.assessmentId));
-
-  // Distinct published assessments with an in-progress attempt; capture first for resume.
-  const inProgressIds = new Set<string>();
-  let resumeAssessmentId: string | null = null;
-  for (const p of published) {
-    const attemptId = await assessmentService.getInProgressAttempt(p.id, userId);
-    if (attemptId) {
-      inProgressIds.add(p.id);
-      if (!resumeAssessmentId) resumeAssessmentId = p.id;
-    }
-  }
-
-  let completed = 0;
-  for (const id of publishedIds) if (submittedIds.has(id)) completed++;
-  let inProgress = 0;
-  for (const id of publishedIds) if (inProgressIds.has(id)) inProgress++;
-
-  const total = publishedIds.size;
-  return {
-    total,
-    completed,
-    inProgress,
-    notStarted: Math.max(0, total - completed - inProgress),
-    resumeAssessmentId,
-  };
-}
-
-async function loadNotifications(
-  userId: string,
-): Promise<{ unreadCount: number; recent: (NotificationDocument & { id: string })[] }> {
-  const notifications = await appointmentService.getAllNotifications(userId);
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-  return { unreadCount, recent: notifications.slice(0, 5) };
-}
-
-
