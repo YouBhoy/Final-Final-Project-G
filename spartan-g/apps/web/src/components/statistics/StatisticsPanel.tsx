@@ -4,7 +4,7 @@ import { loadStatistics, statisticsError } from '../../lib/statistics';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Spinner } from '../ui/Spinner';
-import { activityLabels, campusLabel, control, CoverageDetails, ReferralForecastView, ReferralsView, ParticipationView, ScoresView, TrendsView, type StatisticsView, type TrendActivity } from './StatisticsViews';
+import { activityLabels, campusLabel, control, CoverageDetails, GradedAssessmentScoresView, ReferralForecastView, ReferralsView, ParticipationView, ScoresView, TrendsView, type StatisticsView, type TrendActivity } from './StatisticsViews';
 
 type Period = 'month' | 'week' | 'previous' | 'quarter' | 'year' | 'custom';
 const instruments = ['PHQ-9', 'GAD-7', 'DASS-21 depression', 'DASS-21 anxiety', 'DASS-21 stress'];
@@ -127,7 +127,7 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
       {view === 'forecast' && <ReferralForecastView forecast={report.referrals.forecast} />}
       {view === 'participation' && <ParticipationView report={report} />}
       {view === 'trends' && <TrendsView report={report} activity={activity} />}
-      {view === 'scores' && <ScoresView report={report} instrument={instrument} version={version} focusedCampus={focusedCampus} onVersionChange={setVersion} onCampusChange={setFocusedCampus} />}
+      {view === 'scores' && <div className="space-y-5"><GradedAssessmentScoresView report={report} /><ScoresView report={report} instrument={instrument} version={version} focusedCampus={focusedCampus} onVersionChange={setVersion} onCampusChange={setFocusedCampus} /></div>}
       <CoverageDetails report={report} view={view} />
     </>}
   </div>;

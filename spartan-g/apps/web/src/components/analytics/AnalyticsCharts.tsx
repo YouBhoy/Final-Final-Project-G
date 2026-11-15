@@ -39,14 +39,18 @@ export function AnalyticsLineChart({ title, rows }: { title: string; rows: { lab
     const y = bottom - row.value / max * (bottom - top);
     return { ...row, x, y };
   });
+  const labelStride = Math.max(1, Math.ceil(points.length / 10));
+  const annotateValues = points.length <= 12;
   return <figure aria-label={title}>
     <svg className="h-44 w-full overflow-visible" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}: ${safeRows.map(row => `${row.label}, ${row.value}`).join('; ')}`}>
       <line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#cbd5e1" strokeWidth="1" />
       <line x1={left} y1={top} x2={left} y2={bottom} stroke="#cbd5e1" strokeWidth="1" />
       <polyline points={points.map(point => `${point.x},${point.y}`).join(' ')} fill="none" stroke="#b91c1c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       {points.map(point => <circle key={point.label} cx={point.x} cy={point.y} r="4" fill="#b91c1c" />)}
-      {points.map(point => <text key={`${point.label}-value`} x={point.x} y={Math.max(top + 12, point.y - 9)} textAnchor="middle" fontSize="12" fill="#334155">{point.value}</text>)}
-      {points.map(point => <text key={`${point.label}-label`} x={point.x} y={bottom + 23} textAnchor="middle" fontSize="11" fill="#64748b">{point.label}</text>)}
+      {points.map((point, index) => annotateValues || index % labelStride === 0 || index === points.length - 1
+        ? <text key={point.label + '-value'} x={point.x} y={Math.max(top + 12, point.y - 9)} textAnchor="middle" fontSize="12" fill="#334155">{point.value}</text> : null)}
+      {points.map((point, index) => index % labelStride === 0 || index === points.length - 1
+        ? <text key={point.label + '-label'} x={point.x} y={bottom + 23} textAnchor="middle" fontSize="11" fill="#64748b">{point.label}</text> : null)}
     </svg>
     <figcaption className="sr-only">{safeRows.map(row => `${row.label}: ${row.value}`).join(', ')}</figcaption>
   </figure>;

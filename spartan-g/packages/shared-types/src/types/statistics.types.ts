@@ -51,6 +51,22 @@ export interface StatisticsReport {
   campuses: { key: string; label: string }[];
   assessments: { id: string; title: string }[];
   totals: ParticipationSummary;
+  accountActivity: {
+    studentAccounts: number;
+    activeStudentAccounts: number | null;
+    studentsWithUnknownActiveStatus: number;
+    facilitatorAccounts: number;
+    activeFacilitatorAccounts: number | null;
+    facilitatorsWithUnknownActiveStatus: number;
+    acceptedStudentLinks: number;
+    facilitatorsWithAcceptedStudents: number;
+    facilitatorsWithRequests: number;
+  };
+  gradedScores: {
+    assessmentId: string; title: string; suppressed: boolean;
+    sample: number | null; mean: number | null; median: number | null;
+    bins: { label: string; count: number | null }[];
+  }[];
   participation: (ParticipationSummary & { campus: string; label: string })[];
   assessmentCohorts: { assessmentId: string; title: string; attempts: number; submissions: number; participatingStudents: number; starters: number; completed: number; remaining: number; rate: number | null; submissionRate: number | null; inProgress: number; retakes: number }[];
   trends: { label: string; startDate: string; endDate: string; partial: boolean; participants: number; appointmentRequests: number; messagingStudents: number; attempts: number; submissions: number; assessmentStudents: number; retakes: number }[];

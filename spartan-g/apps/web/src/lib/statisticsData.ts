@@ -3,13 +3,13 @@ import { createPseudonymizer } from './pseudonymization';
 
 export const MAX_STATISTICS_RECORDS = 1000;
 export const STATISTICS_FIELDS: Record<string, string[]> = {
-  users: ['role', 'campus', 'createdAt', 'created_at'],
+  users: ['role', 'campus', 'isActive', 'createdAt', 'created_at'],
   campuses: ['key', 'label'],
-  appointments: ['studentId', 'campus', 'status', 'createdAt', 'created_at'],
+  appointments: ['studentId', 'facilitatorId', 'campus', 'status', 'createdAt', 'created_at'],
   messages: ['senderId', 'conversationId', 'campus', 'createdAt', 'created_at', 'type', 'status', 'isDeleted'],
   conversations: ['participantIds'],
   facilitator_student_links: ['facilitatorId', 'studentId', 'status', 'requestedAt', 'respondedAt'],
-  assessment_attempts: ['studentId', 'assessmentId', 'attemptNumber', 'campus', 'status', 'startedAt', 'started_at', 'createdAt', 'submittedAt', 'submitted_at', 'answers'],
+  assessment_attempts: ['studentId', 'assessmentId', 'attemptNumber', 'campus', 'status', 'startedAt', 'started_at', 'createdAt', 'submittedAt', 'submitted_at', 'answers', 'score'],
   assessments: ['studentId', 'templateId', 'title', 'questions', 'analyticsScoringVersion', 'status', 'campus', 'submittedAt'],
 };
 export interface StatisticsSource {

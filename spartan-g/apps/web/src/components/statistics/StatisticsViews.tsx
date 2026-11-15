@@ -1,5 +1,6 @@
 import { getCampusLabel, type StatisticsReport } from '@spartan-g/shared-types';
 import { Card } from '../ui/Card';
+import { AnalyticsBars, AnalyticsDonut, AnalyticsLineChart } from '../analytics/AnalyticsCharts';
 
 export type StatisticsView = 'referrals' | 'forecast' | 'participation' | 'trends' | 'scores';
 export type TrendActivity = 'participants' | 'appointmentRequests' | 'messagingStudents' | 'attempts' | 'submissions' | 'assessmentStudents';
@@ -168,6 +169,7 @@ export function ParticipationView({ report }: { report: StatisticsReport }) {
   const totals = report.totals;
   const topParticipation = [...report.assessmentCohorts].sort((a, b) => b.participatingStudents - a.participatingStudents)[0];
   const qualityIssues = report.attemptDataQuality.invalidRecords + report.attemptDataQuality.duplicateLogicalAttempts;
+  const accountActivity = report.accountActivity;
   return <div className="space-y-5">
     <Card className="border-red-100 bg-red-50/60 p-5 sm:p-6">
       <h3 className="text-lg font-semibold text-gray-900">Assessment analytics summary</h3>
@@ -190,6 +192,29 @@ export function ParticipationView({ report }: { report: StatisticsReport }) {
       <Metric label="Submission rate" value={format(totals.submissionRate, '%')} detail={`${totals.submissions} submitted attempts of ${totals.attempts} valid starts.`} />
       <Metric label="Average attempts / student" value={format(totals.averageAttemptsPerStudent)} detail="Valid starts divided by distinct assessment starters." />
       <Metric label="Completion rate" value={format(totals.completionRate, '%')} detail={`${totals.completedStarters} of ${totals.starters} assessment starters completed at least one attempt.`} />
+    </section>
+    <section aria-label="User and facilitator activity" className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">User and facilitator activity</h3>
+        <p className="mt-1 text-sm text-gray-500">Account and accepted-link metrics are current snapshots. Request-recipient activity follows this tab's selected period.</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Student accounts" value={format(accountActivity.studentAccounts)} detail="Current student accounts at the selected campus." />
+        <Metric label="Active student accounts" value={format(accountActivity.activeStudentAccounts)} detail={accountActivity.studentsWithUnknownActiveStatus ? accountActivity.studentsWithUnknownActiveStatus + ' student accounts have no readable active status.' : 'Current isActive status across student accounts.'} />
+        <Metric label="Facilitator accounts" value={format(accountActivity.facilitatorAccounts)} detail="Current facilitator accounts at the selected campus." />
+        <Metric label="Active facilitator accounts" value={format(accountActivity.activeFacilitatorAccounts)} detail={accountActivity.facilitatorsWithUnknownActiveStatus ? accountActivity.facilitatorsWithUnknownActiveStatus + ' facilitator accounts have no readable active status.' : 'Current isActive status across facilitator accounts.'} />
+        <Metric label="Currently accepted student links" value={format(accountActivity.acceptedStudentLinks)} detail="Unique accepted facilitator-student relationships in the current link records." />
+        <Metric label="Facilitators with accepted student links" value={format(accountActivity.facilitatorsWithAcceptedStudents)} detail="Distinct facilitators connected to at least one currently accepted student link." />
+        <Metric label="Facilitators receiving appointment requests" value={format(accountActivity.facilitatorsWithRequests)} detail="Distinct facilitator accounts with a student request in the selected period." />
+      </div>
+      <div className="max-w-2xl">
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Current account mix</h4>
+        <AnalyticsDonut title="Current student and facilitator accounts by role" rows={[
+          { label: 'Student accounts', value: accountActivity.studentAccounts },
+          { label: 'Facilitator accounts', value: accountActivity.facilitatorAccounts },
+        ]} />
+      </div>
+      <p className="text-xs leading-relaxed text-gray-500">Campus selection uses each account's current campus; accepted links are current status records and are grouped by the linked student's current campus. Request recipients use appointment request dates and saved campus, with current student campus as the existing fallback. Active counts are unavailable when an account lacks a boolean isActive field.</p>
     </section>
     <Card className="p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -254,11 +279,35 @@ export function TrendsView({ report, activity }: { report: StatisticsReport; act
     <Card className="p-5 sm:p-6">
       <h3 className="text-lg font-semibold text-gray-900">{activityLabels[activity]}</h3>
       <p className="mt-1 text-sm text-gray-500">{report.filters.interval === 'daily' ? 'Daily' : report.filters.interval === 'weekly' ? 'Weekly' : 'Monthly'} activity in this tab's reporting period.</p>
-      <div className="mt-6"><Bars color="bg-slate-700" unit={activityLabels[activity]} rows={report.trends.map(bucket => ({ label: bucket.label, value: bucket[activity], note: bucket.partial ? `Partial: ${bucket.startDate} to ${bucket.endDate}` : undefined }))} /></div>
+      {report.filters.interval === "daily" ? <div className="mt-6"><Bars color="bg-slate-700" unit={activityLabels[activity]} rows={report.trends.map(bucket => ({ label: bucket.label, value: bucket[activity], note: bucket.partial ? "Partial interval" : undefined }))} /></div> : <div className="mt-6"><AnalyticsLineChart title={activityLabels[activity]} rows={report.trends.map(bucket => ({ label: bucket.label, value: bucket[activity] }))} />{report.trends.some(bucket => bucket.partial) && <p className="mt-2 text-xs text-gray-500">Partial intervals: {report.trends.filter(bucket => bucket.partial).map(bucket => bucket.label).join(", ")}.</p>}</div>}
       {activity === 'attempts' && <p className="mt-4 text-xs text-gray-500">Retake activity in this period: {report.trends.reduce((sum, bucket) => sum + bucket.retakes, 0).toLocaleString()} of {report.totals.attempts.toLocaleString()} attempts.</p>}
       <p className="mt-5 text-xs leading-relaxed text-gray-500">A student can appear in multiple buckets; bucket counts do not add up to a unique period total. Current periods stop at report generation time.</p>
     </Card>
   </div>;
+}
+
+export function GradedAssessmentScoresView({ report }: { report: StatisticsReport }) {
+  return <Card className="p-5 sm:p-6">
+    <h3 className="text-lg font-semibold text-gray-900">Graded assessment score distributions</h3>
+    <p className="mt-1 text-sm text-gray-500">Stored percentage grades, using the latest valid graded attempt per student and assessment in the selected period.</p>
+    {report.gradedScores.length === 0 ? <p className="mt-5 rounded-lg bg-gray-50 p-4 text-sm text-gray-500">No valid graded percentage scores match these filters.</p> : <div className="mt-5 space-y-6">
+      {report.gradedScores.map(score => <section key={score.assessmentId} aria-label={score.title + ' graded scores'} className="border-t border-gray-100 pt-5 first:border-0 first:pt-0">
+        <h4 className="font-semibold text-gray-800">{score.title}</h4>
+        {score.suppressed ? <p className="mt-3 rounded-lg bg-gray-50 p-4 text-sm text-gray-500">Fewer than five students have a valid graded score for this assessment; exact summaries and distribution are withheld.</p> : <>
+          <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {[["Students", format(score.sample)], ["Mean", format(score.mean, '%')], ["Median", format(score.median, '%')]].map(([label, value]) => <div key={label}><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 text-xl font-semibold text-gray-900">{value}</dd></div>)}
+          </dl>
+          {score.bins.some(bin => bin.count === null) ? <p className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">The score-band distribution is withheld because a nonzero band has fewer than five students.</p> : <div className="mt-5 grid gap-6 lg:grid-cols-2">
+            <div><h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Score bands</h5><AnalyticsDonut title={score.title + ' graded score bands'} rows={score.bins.map(bin => ({ label: bin.label + '%', value: bin.count ?? 0 }))} /></div>
+            <div><h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Students by score band</h5><AnalyticsBars title={score.title + ' students by graded score band'} rows={score.bins.map(bin => ({ label: bin.label + '%', value: bin.count ?? 0 }))} /></div>
+          </div>}
+        </>}
+      </section>)}
+    </div>}
+    {report.coverage.invalidGradedScoreRecords > 0 && <p className="mt-4 text-xs text-amber-800">Excluded {report.coverage.invalidGradedScoreRecords.toLocaleString()} graded records with an invalid percentage or missing assessment definition.</p>}
+    {report.coverage.earlierValidGradedScoreFallbacks > 0 && <p className="mt-2 text-xs text-gray-500">For {report.coverage.earlierValidGradedScoreFallbacks.toLocaleString()} students, the latest graded record had an invalid percentage, so the most recent earlier valid grade is shown.</p>}
+    <p className="mt-5 text-xs leading-relaxed text-gray-500">Only status=graded records with numeric percentages from 0 to 100 are included. Scores are grouped per assessment; no cross-assessment pass mark or combined average is assumed. Groups and score bands follow the existing five-student disclosure threshold.</p>
+  </Card>;
 }
 
 export function ScoresView({ report, instrument, version, focusedCampus, onVersionChange, onCampusChange }: {
@@ -308,7 +357,7 @@ export function ScoresView({ report, instrument, version, focusedCampus, onVersi
 }
 
 const coverageLabels: Record<string, string> = {
-  missingEventDates: 'Records excluded for missing event dates', conflictingDates: 'Conflicting timestamps (canonical preferred)', unknownCampusEvents: 'Activity events with unknown campus', currentCampusFallbackEvents: 'Activity events attributed to current campus', missingRegistrationDates: 'Students with missing registration dates', excludedMessagingRecords: 'Ineligible messaging records', legacySubmissionsSeparate: 'Legacy template submissions (separate from totals)', unversionedSubmissions: 'Submissions without declared scoring version', invalidScoreSubmissions: 'Submissions without any valid supported score', submittingStudentsWithoutScores: 'Submitting students without usable scores', earlierValidFallbacks: 'Score selections using an earlier valid submission',
+  missingEventDates: 'Records excluded for missing event dates', conflictingDates: 'Conflicting timestamps (canonical preferred)', unknownCampusEvents: 'Activity events with unknown campus', currentCampusFallbackEvents: 'Activity events attributed to current campus', missingRegistrationDates: 'Students with missing registration dates', excludedMessagingRecords: 'Ineligible messaging records', legacySubmissionsSeparate: 'Legacy template submissions (separate from totals)', unversionedSubmissions: 'Submissions without declared scoring version', invalidScoreSubmissions: 'Submissions without any valid supported score', submittingStudentsWithoutScores: 'Submitting students without usable scores', earlierValidFallbacks: 'Score selections using an earlier valid submission', invalidGradedScoreRecords: 'Graded records excluded for invalid percentages or missing definitions', earlierValidGradedScoreFallbacks: 'Students using an earlier valid graded score',
 };
 export function CoverageDetails({ report, view }: { report: StatisticsReport; view: StatisticsView }) {
   if (view === 'referrals' || view === 'forecast') return <details className="rounded-xl border border-gray-200 bg-white p-5">
@@ -324,7 +373,7 @@ export function CoverageDetails({ report, view }: { report: StatisticsReport; vi
     ].map(([label, value]) => <div key={label} className="flex justify-between gap-3 border-b border-gray-100 pb-2 text-xs"><dt className="text-gray-500">{label}</dt><dd className="font-semibold tabular-nums text-gray-700">{value}</dd></div>)}</dl>
     <p className="mt-5 text-xs leading-relaxed text-gray-500">Campus filtering uses the campus saved with each request. Missing request-time campuses stay Unknown / Unassigned; a student's current campus is not substituted. Requests remain counted if their student account is unavailable. Unique student counts use recorded IDs and omit requests with no usable student ID. Assessment filters do not affect this report.</p>
   </details>;
-  const scoreKeys = new Set(['unversionedSubmissions', 'invalidScoreSubmissions', 'submittingStudentsWithoutScores', 'earlierValidFallbacks']);
+  const scoreKeys = new Set(['unversionedSubmissions', 'invalidScoreSubmissions', 'submittingStudentsWithoutScores', 'earlierValidFallbacks', 'invalidGradedScoreRecords', 'earlierValidGradedScoreFallbacks']);
   const coverage = Object.entries(report.coverage).filter(([key]) => view === 'scores' ? scoreKeys.has(key) || key === 'unknownCampusEvents' : !scoreKeys.has(key));
   const attemptQuality = Object.entries(report.attemptDataQuality);
   return <details className="rounded-xl border border-gray-200 bg-white p-5">

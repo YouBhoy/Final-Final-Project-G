@@ -12,9 +12,11 @@ const compile = source => ts.transpileModule(source, { compilerOptions: {
   .replaceAll("'react'", JSON.stringify(import.meta.resolve('react')));
 const card = url(compile(await readFile(new URL('../src/components/ui/Card.tsx', import.meta.url), 'utf8')));
 const campuses = url(compile(await readFile(new URL('../../../packages/shared-types/src/constants/campuses.ts', import.meta.url), 'utf8')));
+const charts = url(compile(await readFile(new URL('../src/components/analytics/AnalyticsCharts.tsx', import.meta.url), 'utf8')));
 const views = url(compile(await readFile(new URL('../src/components/statistics/StatisticsViews.tsx', import.meta.url), 'utf8'))
   .replaceAll("'@spartan-g/shared-types'", JSON.stringify(campuses))
-  .replaceAll("'../ui/Card'", JSON.stringify(card)));
+  .replaceAll("'../ui/Card'", JSON.stringify(card))
+  .replaceAll("'../analytics/AnalyticsCharts'", JSON.stringify(charts)));
 const { ReferralsView, CoverageDetails, ReferralForecastView } = await import(views);
 const { evaluateReferralForecast } = await import('../../../firebase/functions/test/helpers/statisticsModules.mjs');
 
