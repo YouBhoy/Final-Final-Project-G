@@ -31,6 +31,56 @@ test('assessment participation requires explicit permitted student scope for fac
   assert.deepEqual(metrics.assessmentParticipation(facilitator, rows, ['student']), { students: 1, submitted: 1, inProgress: 0, assessments: 1 });
   assert.equal(metrics.assessmentParticipation(student, rows).students, 1);
 });
+test('facilitator assessment comparisons deduplicate published definitions and exclude unlinked students', () => {
+  const result = metrics.facilitatorAssessmentParticipation(['s1', 's2', 's3'], ['phq', 'gad'], [
+    { studentId: 's1', assessmentId: 'phq', status: 'submitted' },
+    { studentId: 's1', assessmentId: 'phq', status: 'graded' },
+    { studentId: 's1', assessmentId: 'retired', status: 'submitted' },
+    { studentId: 's1', assessmentId: 'gad', status: 'in_progress' },
+    { studentId: 's2', assessmentId: 'phq', status: 'graded' },
+    { studentId: 'unlinked', assessmentId: 'gad', status: 'submitted' },
+  ]);
+  assert.deepEqual(result, {
+    submittedAttempts: 4,
+    studentsWithSubmissions: 2,
+    students: [
+      { studentId: 's1', completedAssessments: 1, submittedAttempts: 3 },
+      { studentId: 's2', completedAssessments: 1, submittedAttempts: 1 },
+      { studentId: 's3', completedAssessments: 0, submittedAttempts: 0 },
+    ],
+  });
+});
+test('student assessment progress uses exclusive published-catalog states and six Manila-month submission buckets', () => {
+  const result = metrics.studentAssessmentProgress(
+    [{ id: 'phq', title: 'PHQ-9' }, { id: 'gad', title: 'GAD-7' }, { id: 'dass', title: 'DASS-21' }, { id: 'empty', title: 'No attempts' }],
+    [
+      { assessmentId: 'phq', status: 'submitted', submittedAt: new Date('2026-10-05T04:00:00Z'), score: 70 },
+      { assessmentId: 'phq', status: 'graded', submittedAt: new Date('2026-11-04T04:00:00Z'), score: 80 },
+      { assessmentId: 'removed-from-catalog', status: 'submitted', submittedAt: new Date('2026-11-05T04:00:00Z') },
+    ],
+    ['phq', 'dass'],
+    new Date('2026-11-15T04:00:00Z'),
+  );
+  assert.equal(result.total, 4);
+  assert.equal(result.completed, 1);
+  assert.equal(result.inProgress, 2);
+  assert.equal(result.notStarted, 2);
+  assert.deepEqual(result.progressDistribution, { completed: 0, inProgress: 1, activeRetakes: 1, notStarted: 2 });
+  assert.equal(result.submittedAttempts, 3);
+  assert.deepEqual(result.progressTrend.map(row => row.period), ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11']);
+  assert.deepEqual(result.progressTrend.map(row => row.count), [0, 0, 0, 0, 1, 2]);
+  assert.deepEqual(result.scores, [{ assessmentId: 'phq', title: 'PHQ-9', latest: 80, average: 80, submissions: 1 }]);
+});
+test('student assessment analytics handles an empty published catalog and rejects invalid scores', () => {
+  const result = metrics.studentAssessmentProgress([], [
+    { assessmentId: 'unknown', status: 'submitted', score: 110 },
+  ], [], new Date('2026-11-15T04:00:00Z'));
+  assert.equal(result.total, 0);
+  assert.equal(result.completed, 0);
+  assert.equal(result.inProgress, 0);
+  assert.equal(result.notStarted, 0);
+  assert.deepEqual(result.scores, []);
+});
 test('severity summaries count existing authorized indicators and preserve unknowns', () => {
   const rows = [{ facilitatorId: 'facilitator', severity: 'critical' }, { facilitatorId: 'other', severity: 'high' }, { facilitatorId: 'facilitator', severity: 'not-classified' }];
   assert.equal(metrics.screeningSeverityCounts(student, rows), null);

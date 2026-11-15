@@ -30,8 +30,11 @@ test('referral presentation labels test data, separates statuses, and never inve
   } };
   const html = renderToStaticMarkup(React.createElement(ReferralsView, { report }));
   for (const text of ['Development / test-data notice', 'Currently accepted', 'Awaiting reschedule', 'Unrecognized status',
-    'Partial: 2026-10-05 to 2026-10-07', 'Prototype evaluation on test data', '0 eligible complete weeks']) assert.ok(html.includes(text), text);
+    'Partial: 2026-10-05 to 2026-10-07']) assert.ok(html.includes(text), text);
   assert.ok(!/\d+(\.\d+)?%/.test(html.replace(/<[^>]*>/g, '')), 'no invented forecast confidence or accuracy');
+  const forecast = renderToStaticMarkup(React.createElement(ReferralForecastView, { forecast: report.referrals.forecast }));
+  assert.ok(forecast.includes('Prototype evaluation on test data'));
+  assert.ok(forecast.includes('0 eligible complete weeks'));
   const coverage = renderToStaticMarkup(React.createElement(CoverageDetails, { report, view: 'referrals' }));
   assert.ok(coverage.includes('request-time campus'));
   assert.ok(!coverage.includes('Assessment completion'));

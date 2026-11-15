@@ -45,7 +45,7 @@ test('retry clears failed section and recovers without remounting the portal', a
 });
 test('assessment catalogue and submitted attempts start together, progress reads run four at a time in catalogue order', async () => {
   const f = dashboardFixture(), submitted = deferred();
-  f.state.published = ['a', 'b', 'c', 'd', 'e'].map(id => ({ id }));
+  f.state.published = ['a', 'b', 'c', 'd', 'e'].map(id => ({ id, title: id }));
   f.state.submittedRead = () => submitted.promise;
   const queries = f.modules.load('lib/dashboardQueries.ts');
   // Catalogue is available while submitted is pending: no sequential waterfall.
@@ -54,11 +54,18 @@ test('assessment catalogue and submitted attempts start together, progress reads
   f.state.progressRead = async id => { active++; peak = Math.max(peak, active); const result = await gates[id].promise; active--; return result; };
   const pending = queries.loadAssessmentProgress(f.scope());
   await settle(); assert.equal(f.state.reads.catalog, 1); assert.equal(f.state.reads.submitted, 1);
-  submitted.resolve([{ assessmentId: 'a' }]); await settle();
+  submitted.resolve([{ assessmentId: 'a', status: 'submitted' }]); await settle();
   assert.deepEqual(f.state.reads.progress, [['a', 'student-one'], ['b', 'student-one'], ['c', 'student-one'], ['d', 'student-one']]);
   gates.d.resolve('d-attempt'); await settle(); gates.e.resolve(null); gates.c.resolve(null); gates.b.resolve('b-attempt'); gates.a.resolve('a-retake');
   const result = await pending;
-  assert.deepEqual(result, { total: 5, completed: 1, inProgress: 3, notStarted: 2, resumeAssessmentId: 'a' });
+  const { progressTrend, ...summary } = result;
+  assert.deepEqual(summary, {
+    total: 5, completed: 1, inProgress: 3, notStarted: 2,
+    progressDistribution: { completed: 0, inProgress: 2, activeRetakes: 1, notStarted: 2 },
+    submittedAttempts: 1, scores: [], resumeAssessmentId: 'a',
+  });
+  assert.equal(progressTrend.length, 6);
+  assert.deepEqual(progressTrend.map(row => row.count), [0, 0, 0, 0, 0, 0]);
   assert.equal(peak, 4);
   f.state.progressRead = async () => null;
   await queries.loadAssessmentProgress(f.scope());

@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { assessmentService } from "@spartan-g/shared-services";
 import { getAssignedStudents } from "../../lib/facilitatorAccess";
+import { getPublishedAssessmentDefinitions } from "../../lib/assessmentDefinitions";
+import { mapDashboardReads } from "../../lib/dashboardData";
+import { facilitatorAssessmentParticipation } from "../../lib/dashboardMetrics";
+import { AnalyticsBars, AnalyticsDonut } from "../../components/analytics/AnalyticsCharts";
 import {
   calculatePHQ9Score,
   calculateGAD7Score,
@@ -32,6 +36,22 @@ interface StudentWithRisk extends StudentUser {
 }
 
 type ViewMode = "list" | "scores";
+
+interface StudentAssessmentComparison {
+  id: string;
+  label: string;
+  completedAssessments: number;
+  submittedAttempts: number;
+}
+
+interface AssessmentActivity {
+  loading: boolean;
+  assessmentCount: number | null;
+  submittedAttempts: number | null;
+  studentsWithSubmissions: number | null;
+  comparisons: StudentAssessmentComparison[];
+  error: string | null;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -223,6 +243,10 @@ export function FacilitatorStudentsPage() {
   // Pseudonymization: risk status per student (id -> isCritical)
   const [riskMap, setRiskMap] = useState<Record<string, boolean>>({});
   const [riskLoading, setRiskLoading] = useState(true);
+  const [refreshRevision, setRefreshRevision] = useState(0);
+  const [assessmentActivity, setAssessmentActivity] = useState<AssessmentActivity>({
+    loading: true, assessmentCount: null, submittedAttempts: null, studentsWithSubmissions: null, comparisons: [], error: null,
+  });
 
   // Score view state
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -231,9 +255,9 @@ export function FacilitatorStudentsPage() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsError, setAttemptsError] = useState<string | null>(null);
 
-  // Load students on mount
+  // Load accepted/assigned students; analytics use this same authorized list.
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.role !== "facilitator") return;
 
     let cancelled = false;
 
@@ -241,6 +265,9 @@ export function FacilitatorStudentsPage() {
       try {
         setLoading(true);
         setError(null);
+        setStudents([]);
+        setRiskMap({});
+        setAssessmentActivity({ loading: true, assessmentCount: null, submittedAttempts: null, studentsWithSubmissions: null, comparisons: [], error: null });
 
         const result = await getAssignedStudents(user!.uid);
 
@@ -269,12 +296,13 @@ export function FacilitatorStudentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, refreshRevision]);
 
   // Evaluate risk status for all students
   useEffect(() => {
     if (students.length === 0) {
       setRiskLoading(false);
+      setAssessmentActivity({ loading: false, assessmentCount: 0, submittedAttempts: 0, studentsWithSubmissions: 0, comparisons: [], error: null });
       return;
     }
 
@@ -283,31 +311,53 @@ export function FacilitatorStudentsPage() {
     async function evaluateRisk() {
       setRiskLoading(true);
       const map: Record<string, boolean> = {};
-
-      await Promise.all(
-        students.map(async (student) => {
-          try {
-            const studentAttempts = await assessmentService.getAttemptsByStudent(student.id);
-            if (!cancelled) {
-              if (studentAttempts.length > 0) {
-                // Use latest attempt to determine criticality
-                map[student.id] = isStudentCritical(studentAttempts[0]);
-              } else {
-                map[student.id] = false; // no attempts = not critical
-              }
-            }
-          } catch {
-            if (!cancelled) {
-              map[student.id] = false;
-            }
-          }
+      setAssessmentActivity({ loading: true, assessmentCount: null, submittedAttempts: null, studentsWithSubmissions: null, comparisons: [], error: null });
+      const [catalogueResult, attemptResults] = await Promise.all([
+        getPublishedAssessmentDefinitions().then(value => ({ value, error: null as string | null }), () => ({ value: null, error: "Published assessment data is unavailable." })),
+        mapDashboardReads(students, async student => {
+          try { return { student, attempts: await assessmentService.getAttemptsByStudent(student.id), error: false }; }
+          catch { return { student, attempts: [], error: true }; }
         }),
-      );
+      ]);
 
-      if (!cancelled) {
-        setRiskMap(map);
-        setRiskLoading(false);
+      if (cancelled) return;
+      const failedReads = attemptResults.filter(result => result.error).length;
+      for (const result of attemptResults) {
+        if (result.error) { map[result.student.id] = false; continue; }
+        map[result.student.id] = result.attempts.length > 0 ? isStudentCritical(result.attempts[0]) : false;
       }
+      setRiskMap(map);
+      setRiskLoading(false);
+
+      if (catalogueResult.error || failedReads > 0 || !catalogueResult.value) {
+        const message = catalogueResult.error ?? `Assessment records are unavailable for ${failedReads} linked ${failedReads === 1 ? "student" : "students"}; no partial comparison is shown.`;
+        setAssessmentActivity({ loading: false, assessmentCount: null, submittedAttempts: null, studentsWithSubmissions: null, comparisons: [], error: message });
+        return;
+      }
+
+      const publishedIds = new Set(catalogueResult.value.map(definition => definition.id));
+      const participation = facilitatorAssessmentParticipation(
+        students.map(student => student.id),
+        [...publishedIds],
+        attemptResults.flatMap(({ student, attempts }) => attempts.map(attempt => ({
+          studentId: student.id, assessmentId: attempt.assessmentId, status: attempt.status,
+        }))),
+      );
+      const metricsByStudent = new Map(participation.students.map(row => [row.studentId, row]));
+      const comparisons = students.map(student => ({
+        id: student.id,
+        label: student.displayName || "Student",
+        completedAssessments: metricsByStudent.get(student.id)?.completedAssessments ?? 0,
+        submittedAttempts: metricsByStudent.get(student.id)?.submittedAttempts ?? 0,
+      }));
+      setAssessmentActivity({
+        loading: false,
+        assessmentCount: catalogueResult.value.length,
+        submittedAttempts: participation.submittedAttempts,
+        studentsWithSubmissions: participation.studentsWithSubmissions,
+        comparisons,
+        error: null,
+      });
     }
 
     evaluateRisk();
@@ -324,6 +374,12 @@ export function FacilitatorStudentsPage() {
       attemptsLoading: riskLoading,
     }));
   }, [students, riskMap, riskLoading]);
+
+  const catalogOpportunities = students.length * (assessmentActivity.assessmentCount ?? 0);
+  const completedCatalogOpportunities = assessmentActivity.comparisons.reduce((sum, row) => sum + row.completedAssessments, 0);
+  const catalogCompletionRate = catalogOpportunities > 0
+    ? Math.round(completedCatalogOpportunities / catalogOpportunities * 100)
+    : null;
 
   // Determine if selected student is critical for scores view
   const selectedStudentIsCritical = useMemo((): boolean => {
@@ -444,6 +500,47 @@ export function FacilitatorStudentsPage() {
           List of students under your care with assessment scores.
         </p>
       </div>
+
+      <section aria-labelledby="fac-student-analytics" className="space-y-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="fac-student-analytics" className="text-lg font-semibold text-gray-900">Assessment participation</h2>
+            <p className="mt-1 text-sm text-gray-500">Compares accepted/assigned students against the currently published student assessment catalog.</p>
+          </div>
+          <Button variant="outline" size="sm" disabled={loading || assessmentActivity.loading} onClick={() => {
+            setAssessmentActivity(current => ({ ...current, loading: true, error: null }));
+            setRefreshRevision(value => value + 1);
+          }}>Refresh analytics</Button>
+        </div>
+        {assessmentActivity.loading ? <Spinner label="Loading assessment analytics…" /> : assessmentActivity.error ? <p role="alert" className="text-sm text-red-700">{assessmentActivity.error}</p> : <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              ["Linked students", students.length.toLocaleString()],
+              ["Published assessments", (assessmentActivity.assessmentCount ?? 0).toLocaleString()],
+              ["Submitted attempts", (assessmentActivity.submittedAttempts ?? 0).toLocaleString()],
+              ["Students with submissions", `${assessmentActivity.studentsWithSubmissions ?? 0} / ${students.length}`],
+              ["Published catalog completion", catalogCompletionRate === null ? "Unavailable" : `${catalogCompletionRate}%`],
+            ].map(([label, value]) => <div key={label} className="rounded-lg border border-gray-100 p-3">
+              <p className="text-xs text-gray-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{value}</p>
+            </div>)}
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-gray-800">Published catalog submissions</h3>
+              <AnalyticsDonut title="Linked students by published assessment participation" rows={[
+                { label: "At least one completed catalog assessment", value: assessmentActivity.studentsWithSubmissions ?? 0 },
+                { label: "No completed catalog assessment found", value: Math.max(0, students.length - (assessmentActivity.studentsWithSubmissions ?? 0)) },
+              ]} />
+            </div>
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-gray-800">Completed published assessments per student</h3>
+              <AnalyticsBars title="Completed published catalog assessments by linked student" rows={assessmentActivity.comparisons
+                .map(row => ({ label: row.label, value: row.completedAssessments, detail: `/ ${assessmentActivity.assessmentCount ?? 0}` }))} />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">Completion rate divides distinct published assessment definitions with a submitted or graded attempt by the published-catalog opportunities across linked students. The app does not assign due dates or required assessments to facilitator caseloads, so these figures do not label unsubmitted assessments as pending.</p>
+        </>}
+      </section>
 
       {students.length === 0 ? (
         <EmptyState

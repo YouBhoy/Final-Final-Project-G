@@ -3,6 +3,7 @@ import type { AppointmentDocument } from '@spartan-g/shared-types';
 import { getPublishedAssessmentDefinitions } from './assessmentDefinitions';
 import { mapDashboardReads, SUMMARY_FRESHNESS_MS, type DashboardScope } from './dashboardData';
 import { dashboardCache, readDashboardAppointments } from './dashboardRuntime';
+import { studentAssessmentProgress } from './dashboardMetrics';
 
 export function dashboardDate(value: unknown): Date | null {
   if (!value) return null;
@@ -12,7 +13,11 @@ export function dashboardDate(value: unknown): Date | null {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 export interface AssessmentProgress {
-  total: number; completed: number; inProgress: number; notStarted: number; resumeAssessmentId: string | null;
+  total: number; completed: number; inProgress: number; notStarted: number; submittedAttempts: number;
+  progressDistribution: { completed: number; inProgress: number; activeRetakes: number; notStarted: number };
+  progressTrend: { period: string; count: number }[];
+  scores: { assessmentId: string; title: string; latest: number; average: number; submissions: number }[];
+  resumeAssessmentId: string | null;
 }
 export async function loadAssessmentProgress(scope: DashboardScope): Promise<AssessmentProgress> {
   return dashboardCache.read(scope, 'assessments', async () => {
@@ -23,12 +28,9 @@ export async function loadAssessmentProgress(scope: DashboardScope): Promise<Ass
     const unique = [...new Map(published.map(item => [item.id, item])).values()];
     // Preserve catalogue order and the exact existing per-assessment/owner/limit(1) query.
     const attempts = await mapDashboardReads(unique, item => assessmentService.getInProgressAttempt(item.id, scope.uid));
-    const submittedIds = new Set(submitted.map(attempt => attempt.assessmentId));
     const active = unique.filter((_, index) => !!attempts[index]);
-    const completed = unique.filter(item => submittedIds.has(item.id)).length;
-    // A retake can be active AND previously completed; notStarted counts the union.
-    const notStarted = unique.filter((item, index) => !submittedIds.has(item.id) && !attempts[index]).length;
-    return { total: unique.length, completed, inProgress: active.length, notStarted, resumeAssessmentId: active[0]?.id ?? null };
+    const progress = studentAssessmentProgress(unique, submitted, active.map(item => item.id));
+    return { ...progress, resumeAssessmentId: active[0]?.id ?? null };
   });
 }
 export interface StudentUpcomingAppointment {

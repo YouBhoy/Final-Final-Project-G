@@ -7,6 +7,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { appointmentService } from "@spartan-g/shared-services";
 import { useStudentDashboard } from "../../hooks/useStudentDashboard";
 import { Spinner } from "../../components/ui/Spinner";
+import { AnalyticsBars, AnalyticsDonut, AnalyticsLineChart } from "../../components/analytics/AnalyticsCharts";
 import { notificationRoute, UiNotification } from "../../lib/notificationRouting";
 import type { AppointmentDocument } from "@spartan-g/shared-types";
 
@@ -473,6 +474,38 @@ export function StudentDashboardPage() {
       </div>
 
       {/* ─── Upcoming appointments + Recent activity ────────────────────── */}
+      <section aria-labelledby="sd-analytics-heading" className={CARD}>
+        <DashboardReadState section={sections.assessments} label="assessment analytics" retry={reload}>
+          <div>
+            <h2 id="sd-analytics-heading" className={T_CARD_TITLE}>Assessment analytics</h2>
+            <p className={`${T_SMALL} mt-1`}>Based on your published assessments and submitted attempts.</p>
+          </div>
+          <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Published assessment progress</h3>
+              <AnalyticsDonut title="Published assessment progress" rows={[
+                { label: "Completed", value: data?.assessments?.progressDistribution.completed ?? 0 },
+                { label: "In progress", value: data?.assessments?.progressDistribution.inProgress ?? 0 },
+                { label: "Completed with an active retake", value: data?.assessments?.progressDistribution.activeRetakes ?? 0 },
+                { label: "Not started", value: data?.assessments?.progressDistribution.notStarted ?? 0 },
+              ]} />
+            </div>
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Submissions by month</h3>
+              <AnalyticsLineChart title="Submitted assessment attempts in the last six months" rows={(data?.assessments?.progressTrend ?? []).map(row => ({ label: row.period, value: row.count }))} />
+            </div>
+          </div>
+          <div className="mt-6 border-t border-[var(--color-border)] pt-5">
+            <h3 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Recorded scores by assessment</h3>
+            <AnalyticsBars title="Average recorded assessment scores, percent" rows={(data?.assessments?.scores ?? []).map(row => ({
+              label: row.title,
+              value: Math.round(row.average * 10) / 10,
+              detail: `% average · latest ${row.latest}% · ${row.submissions} scored ${row.submissions === 1 ? "attempt" : "attempts"}`,
+            }))} />
+          </div>
+        </DashboardReadState>
+      </section>
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section aria-labelledby="sd-upcoming-heading" className={CARD}>
           <DashboardReadState section={sections.appointments} label="appointments" retry={reload}>

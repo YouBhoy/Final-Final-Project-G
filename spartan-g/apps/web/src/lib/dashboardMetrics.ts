@@ -69,6 +69,97 @@ export function assessmentParticipation(scope: DashboardScope, rows: readonly At
     inProgress: selected.filter(row => row.status === 'in_progress').length,
     assessments: new Set(selected.map(row => row.assessmentId)).size };
 }
+
+export interface AssessmentMetricDefinition { id: string; title: string }
+export interface AssessmentMetricAttempt { assessmentId: string; status: string; submittedAt?: unknown; score?: unknown }
+
+/** Aggregates only submitted records for the caller-supplied authorized student set. */
+export function facilitatorAssessmentParticipation(
+  studentIds: readonly string[],
+  publishedAssessmentIds: readonly string[],
+  rows: readonly (AssessmentMetricAttempt & { studentId: string })[],
+) {
+  const permitted = [...new Set(studentIds)];
+  const allowed = new Set(permitted);
+  const published = new Set(publishedAssessmentIds);
+  const completed = new Map(permitted.map(id => [id, new Set<string>()]));
+  const attempts = new Map(permitted.map(id => [id, 0]));
+  for (const row of rows) {
+    if (!allowed.has(row.studentId) || !['submitted', 'graded'].includes(row.status)) continue;
+    attempts.set(row.studentId, (attempts.get(row.studentId) ?? 0) + 1);
+    if (published.has(row.assessmentId)) completed.get(row.studentId)!.add(row.assessmentId);
+  }
+  const students = permitted.map(studentId => ({
+    studentId,
+    completedAssessments: completed.get(studentId)!.size,
+    submittedAttempts: attempts.get(studentId) ?? 0,
+  }));
+  return {
+    submittedAttempts: students.reduce((sum, row) => sum + row.submittedAttempts, 0),
+    studentsWithSubmissions: students.filter(row => row.completedAssessments > 0).length,
+    students,
+  };
+}
+
+/** Summarizes one student's own published assessment catalog and submitted attempts. */
+export function studentAssessmentProgress(
+  definitions: readonly AssessmentMetricDefinition[],
+  attempts: readonly AssessmentMetricAttempt[],
+  inProgressAssessmentIds: readonly string[],
+  now = new Date(),
+) {
+  const catalogue = [...new Map(definitions.map(row => [row.id, row])).values()];
+  const definitionIds = new Set(catalogue.map(row => row.id));
+  const submitted = attempts.filter(row => ['submitted', 'graded'].includes(row.status));
+  const completedIds = new Set(submitted.filter(row => definitionIds.has(row.assessmentId)).map(row => row.assessmentId));
+  const activeIds = new Set(inProgressAssessmentIds.filter(id => definitionIds.has(id)));
+  const completed = catalogue.filter(row => completedIds.has(row.id)).length;
+  const inProgress = catalogue.filter(row => activeIds.has(row.id)).length;
+  const activeRetakes = catalogue.filter(row => completedIds.has(row.id) && activeIds.has(row.id)).length;
+  const notStarted = catalogue.filter(row => !completedIds.has(row.id) && !activeIds.has(row.id)).length;
+  const progressDistribution = {
+    completed: completed - activeRetakes,
+    inProgress: inProgress - activeRetakes,
+    activeRetakes,
+    notStarted,
+  };
+
+  const currentMonth = manilaDay(now).slice(0, 7);
+  const [year, month] = currentMonth.split('-').map(Number);
+  const periods = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(Date.UTC(year, month - 6 + index, 1));
+    return date.toISOString().slice(0, 7);
+  });
+  const trendCounts = new Map(periods.map(period => [period, 0]));
+  for (const row of submitted) {
+    const date = dateOf(row.submittedAt);
+    if (!date) continue;
+    const period = manilaDay(date).slice(0, 7);
+    if (trendCounts.has(period)) trendCounts.set(period, trendCounts.get(period)! + 1);
+  }
+
+  const scoreRows = new Map<string, { score: number; date: number }[]>();
+  for (const row of submitted.filter(attempt => attempt.status === 'graded')) {
+    if (!definitionIds.has(row.assessmentId) || typeof row.score !== 'number' || !Number.isFinite(row.score) || row.score < 0 || row.score > 100) continue;
+    const values = scoreRows.get(row.assessmentId) ?? [];
+    values.push({ score: row.score, date: dateOf(row.submittedAt)?.getTime() ?? 0 });
+    scoreRows.set(row.assessmentId, values);
+  }
+  const scores = catalogue.flatMap(definition => {
+    const values = scoreRows.get(definition.id);
+    if (!values?.length) return [];
+    values.sort((a, b) => a.date - b.date);
+    return [{ assessmentId: definition.id, title: definition.title, latest: values[values.length - 1].score,
+      average: values.reduce((sum, value) => sum + value.score, 0) / values.length, submissions: values.length }];
+  });
+
+  return {
+    total: catalogue.length, completed, inProgress, notStarted, progressDistribution,
+    submittedAttempts: submitted.length,
+    progressTrend: periods.map(period => ({ period, count: trendCounts.get(period) ?? 0 })),
+    scores,
+  };
+}
 /** Counts existing authorized alerts only; never rescales answers or makes diagnoses. */
 export function screeningSeverityCounts(scope: DashboardScope, rows: readonly (Owned & { severity: string })[]) {
   if (scope.role === 'student') return null;
