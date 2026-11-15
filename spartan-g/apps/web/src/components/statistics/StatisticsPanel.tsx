@@ -4,7 +4,7 @@ import { loadStatistics, statisticsError } from '../../lib/statistics';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Spinner } from '../ui/Spinner';
-import { activityLabels, campusLabel, control, CoverageDetails, GradedAssessmentScoresView, ReferralForecastView, ReferralsView, ParticipationView, ScoresView, TrendsView, type StatisticsView, type TrendActivity } from './StatisticsViews';
+import { activityLabels, campusLabel, control, CoverageDetails, GradedAssessmentScoresView, ReferralForecastView, ReferralsView, ParticipationView, ScoresView, StatisticsOverviewView, TrendsView, type StatisticsView, type TrendActivity } from './StatisticsViews';
 
 type Period = 'month' | 'week' | 'previous' | 'quarter' | 'year' | 'custom';
 const instruments = ['PHQ-9', 'GAD-7', 'DASS-21 depression', 'DASS-21 anxiety', 'DASS-21 stress'];
@@ -21,6 +21,7 @@ function presetDates(period: Exclude<Period, 'custom'>) {
   return { startDate: isoDate(new Date(Date.UTC(year, month, 1))), endDate: isoDate(new Date(Date.UTC(year, month + 1, 0))) };
 }
 const descriptions: Record<StatisticsView, string> = {
+  overview: 'A current snapshot of accounts, participation, assessment completion and performance.',
   referrals: 'How many students request a facilitator, and what are the current statuses of those requests?',
   forecast: 'Explore experimental forecasts of weekly facilitator request volume and compare model errors.',
   participation: 'Who is using the portal and which connection features are they using?',
@@ -30,8 +31,8 @@ const descriptions: Record<StatisticsView, string> = {
 
 /** Each mounted panel owns its filters, selections and report independently. */
 export function StatisticsPanel({ view }: { view: StatisticsView }) {
-  const [period, setPeriod] = useState<Period>(view === 'referrals' || view === 'forecast' ? 'year' : view === 'trends' ? 'quarter' : 'month');
-  const [filters, setFilters] = useState<StatisticsFilters>(() => ({ ...presetDates(view === 'referrals' || view === 'forecast' ? 'year' : view === 'trends' ? 'quarter' : 'month'), campus: '', assessmentId: '', interval: view === 'trends' ? 'monthly' : 'weekly' }));
+  const [period, setPeriod] = useState<Period>(view === 'referrals' || view === 'forecast' || view === 'overview' ? 'year' : view === 'trends' ? 'quarter' : 'month');
+  const [filters, setFilters] = useState<StatisticsFilters>(() => ({ ...presetDates(view === 'referrals' || view === 'forecast' || view === 'overview' ? 'year' : view === 'trends' ? 'quarter' : 'month'), campus: '', assessmentId: '', interval: view === 'trends' || view === 'overview' ? 'monthly' : 'weekly' }));
   const [customDates, setCustomDates] = useState(() => ({ startDate: filters.startDate, endDate: filters.endDate }));
   const [report, setReport] = useState<StatisticsReport | null>(null);
   const [catalogue, setCatalogue] = useState<Pick<StatisticsReport, 'campuses' | 'assessments'>>({ campuses: [], assessments: [] });
@@ -79,7 +80,7 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
   return <div className="space-y-5">
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h2 className="text-lg font-semibold text-gray-900">{view === 'referrals' ? 'Referral Analytics' : view === 'forecast' ? 'Referral demand forecast' : view === 'participation' ? 'Participation & engagement' : view === 'trends' ? 'Engagement trends' : 'Assessment scores'}</h2><p className="mt-1 text-sm text-gray-500">{descriptions[view]}</p></div>
+        <div><h2 className="text-lg font-semibold text-gray-900">{view === 'overview' ? 'Statistics Overview' : view === 'referrals' ? 'Referral Analytics' : view === 'forecast' ? 'Referral demand forecast' : view === 'participation' ? 'Participation & engagement' : view === 'trends' ? 'Engagement trends' : 'Assessment scores'}</h2><p className="mt-1 text-sm text-gray-500">{descriptions[view]}</p></div>
         <Button variant="outline" size="sm" disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh this tab</Button>
       </div>
       <div className={`mt-5 grid gap-4 sm:grid-cols-2 ${view === 'trends' ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
@@ -89,14 +90,14 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
           </select>
           {(view === 'referrals' || view === 'forecast') && <span className="mt-1 block text-xs font-normal text-gray-500">Uses request-time campus. Missing campuses remain Unknown / Unassigned.</span>}
         </label>
-        <label className="text-sm font-medium text-gray-700">{view === 'referrals' || view === 'forecast' ? 'Request creation period' : view === 'scores' ? 'Submission period' : view === 'trends' ? 'Trend window' : 'Activity period'}
+        <label className="text-sm font-medium text-gray-700">{view === 'referrals' || view === 'forecast' ? 'Request creation period' : view === 'scores' ? 'Submission period' : view === 'trends' ? 'Trend window' : view === 'overview' ? 'Reporting period' : 'Activity period'}
           <select className={control} value={period} onChange={event => selectPeriod(event.target.value as Period)}>
             <option value="month">This month</option><option value="week">This week</option><option value="previous">Previous month</option><option value="quarter">Last 3 calendar months (to date)</option><option value="year">Last 12 calendar months (to date)</option><option value="custom">Custom dates</option>
           </select>
         </label>
-        {(view === 'trends' || view === 'referrals' || view === 'forecast') && <>
+        {(view === 'overview' || view === 'trends' || view === 'referrals' || view === 'forecast') && <>
           <label className="text-sm font-medium text-gray-700">Interval<select className={control} value={filters.interval} onChange={event => setFilters(current => ({ ...current, interval: event.target.value as StatisticsFilters['interval'] }))}><option value="daily">Daily</option><option value="weekly">Weekly (Monday to Sunday)</option><option value="monthly">Monthly</option></select></label>
-          {view === 'trends' && <label className="text-sm font-medium text-gray-700">Activity<select className={control} value={activity} onChange={event => setActivity(event.target.value as TrendActivity)}>{Object.entries(activityLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>}
+          {(view === 'trends' || view === 'overview') && <label className="text-sm font-medium text-gray-700">Activity<select className={control} value={activity} onChange={event => setActivity(event.target.value as TrendActivity)}>{Object.entries(activityLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>}
         </>}
         {view === 'scores' && <label className="text-sm font-medium text-gray-700">Instrument<select className={control} value={instrument} onChange={event => setInstrument(event.target.value)}>{instruments.map(label => <option key={label}>{label}</option>)}</select></label>}
         {view === 'participation' && <label className="text-sm font-medium text-gray-700">Assessment<select className={control} value={filters.assessmentId} onChange={event => setFilters(current => ({ ...current, assessmentId: event.target.value }))}><option value="">All assessments</option>{catalogue.assessments.map(assessment => <option value={assessment.id} key={assessment.id}>{assessment.title}</option>)}</select><span className="mt-1 block text-xs font-normal text-gray-500">Changes assessment metrics only.</span></label>}
@@ -122,7 +123,8 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
         <span>Data fetched {new Date(report.sourceLoadedAt ?? report.generatedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</span>
       </div>
       {view === 'referrals' && report.referrals.requests === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No referral requests recorded for this campus and period. Requests without a request-time campus are available under All campuses or Unknown / Unassigned.</p>}
-      {view !== 'scores' && view !== 'referrals' && view !== 'forecast' && report.totals.participants === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No activity recorded for this campus and period.</p>}
+      {(view === 'participation' || view === 'trends') && report.totals.participants === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No activity recorded for this campus and period.</p>}
+      {view === 'overview' && <StatisticsOverviewView report={report} activity={activity} />}
       {view === 'referrals' && <ReferralsView report={report} />}
       {view === 'forecast' && <ReferralForecastView forecast={report.referrals.forecast} />}
       {view === 'participation' && <ParticipationView report={report} />}

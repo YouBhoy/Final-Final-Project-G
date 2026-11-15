@@ -53,7 +53,7 @@ test('trained prototype displays measured errors, baseline outcome and chronolog
   assert.ok(!html.includes('100%'));
 });
 
-test('statistics opens on Referral Analytics and keeps the supporting tabs', async () => {
+test('statistics opens on Overview and keeps the existing analytics tabs', async () => {
   const fixture = url(`import React from ${JSON.stringify(import.meta.resolve('react'))};
     export const useAuth = () => ({ user: { uid: 'admin', role: 'super_admin' } });
     export const StatisticsPanel = ({view}) => React.createElement('div', { 'data-view': view });`);
@@ -62,9 +62,9 @@ test('statistics opens on Referral Analytics and keeps the supporting tabs', asy
     .replaceAll("'../../components/statistics/StatisticsPanel'", JSON.stringify(fixture)));
   const { AdminStatisticsPage } = await import(page);
   const html = renderToStaticMarkup(React.createElement(AdminStatisticsPage));
-  assert.ok(html.includes('data-view="referrals"'));
-  assert.ok(html.includes('aria-selected="true" aria-controls="statistics-panel-referrals"'));
-  for (const label of ['Participation', 'Trends', 'Assessment Scores']) assert.ok(html.includes(label));
+  assert.ok(html.includes('data-view="overview"'));
+  assert.ok(html.includes('aria-selected="true" aria-controls="statistics-panel-overview"'));
+  for (const label of ['Referral Analytics', 'Referral Forecast', 'Participation', 'Trends', 'Assessment Scores']) assert.ok(html.includes(label));
 });
 
 test('extended comparison shows candidate selection, sparse validation warning and retrospective limitations', () => {

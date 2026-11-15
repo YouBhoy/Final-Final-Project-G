@@ -34,7 +34,7 @@ for (let i = 0; i < 5; i++) {
   write.set(adminDb.doc(`conversations/${conversationId}`), { participantIds: [uid, fac], lastMessagePreview: 'PRIVATE MESSAGE' });
   write.set(adminDb.doc(`facilitator_student_links/${conversationId}`), { studentId: uid, facilitatorId: fac, status: 'accepted', respondedAt: new Date('2024-12-01') });
   write.set(adminDb.doc(`messages/${conversationId}`), { senderId: uid, conversationId, body: 'PRIVATE MESSAGE', createdAt: new Date('2025-01-06') });
-  write.set(adminDb.doc(`assessment_attempts/${conversationId}`), { assessmentId: prefix, studentId: uid, campus: 'lipa', status: 'submitted', startedAt: new Date('2025-01-03'), submittedAt: new Date('2025-01-05'), answers: ids.map(questionId => ({ questionId, value: '1' })) });
+  write.set(adminDb.doc(`assessment_attempts/${prefix}_${uid}_1`), { assessmentId: prefix, studentId: uid, attemptNumber: 1, campus: 'lipa', status: 'submitted', startedAt: new Date('2025-01-03'), submittedAt: new Date('2025-01-05'), answers: ids.map(questionId => ({ questionId, value: '1' })) });
 }
 await write.commit();
 

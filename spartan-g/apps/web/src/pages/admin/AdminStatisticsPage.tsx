@@ -4,6 +4,7 @@ import { StatisticsPanel } from '../../components/statistics/StatisticsPanel';
 import type { StatisticsView } from '../../components/statistics/StatisticsViews';
 
 const tabs: { key: StatisticsView; label: string; description: string }[] = [
+  { key: 'overview', label: 'Overview', description: 'Key accounts & activity' },
   { key: 'referrals', label: 'Referral Analytics', description: 'Student requests to facilitators' },
   { key: 'forecast', label: 'Referral Forecast', description: 'Experimental weekly demand estimates' },
   { key: 'participation', label: 'Participation', description: 'Students & campus engagement' },
@@ -13,8 +14,8 @@ const tabs: { key: StatisticsView; label: string; description: string }[] = [
 
 /** Cache each visited panel in memory; changing accounts discards every panel. */
 function StatisticsWorkspace() {
-  const [active, setActive] = useState<StatisticsView>('referrals');
-  const [visited, setVisited] = useState<StatisticsView[]>(['referrals']);
+  const [active, setActive] = useState<StatisticsView>('overview');
+  const [visited, setVisited] = useState<StatisticsView[]>(['overview']);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   function selectTab(view: StatisticsView) {
     setActive(view);
@@ -35,9 +36,9 @@ function StatisticsWorkspace() {
     <div>
       <p className="text-xs font-semibold uppercase tracking-widest text-red-700">Campus insights</p>
       <h1 className="mt-1 text-3xl font-bold tracking-tight text-gray-900">Statistics</h1>
-      <p className="mt-2 text-sm text-gray-500">Explore student-to-facilitator referral requests, with participation and assessment analytics as supporting views. Each tab remembers its own filters.</p>
+      <p className="mt-2 text-sm text-gray-500">Review account, participation, assessment and referral activity. Each tab remembers its own filters.</p>
     </div>
-    <div role="tablist" aria-label="Statistics views" className="grid grid-cols-2 gap-1 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm lg:grid-cols-5">
+    <div role="tablist" aria-label="Statistics views" className="grid grid-cols-2 gap-1 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm md:grid-cols-3 xl:grid-cols-6">
       {tabs.map((tab, index) => <button
         type="button" role="tab" key={tab.key} id={`statistics-tab-${tab.key}`}
         aria-selected={active === tab.key} aria-controls={`statistics-panel-${tab.key}`}
