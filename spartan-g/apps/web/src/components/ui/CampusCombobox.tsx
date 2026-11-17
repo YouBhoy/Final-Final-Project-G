@@ -103,7 +103,7 @@ export function CampusCombobox({ label, options, value, onChange, placeholder = 
 
   return (
     <div ref={rootRef} className="relative mb-6">
-      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-[var(--color-text-secondary)]">
+      <label htmlFor={id} className="portal-background-copy mb-1.5 block text-sm font-medium text-[var(--color-text-secondary)]">
         {label}
       </label>
       <input
@@ -125,7 +125,7 @@ export function CampusCombobox({ label, options, value, onChange, placeholder = 
           setOpen(true);
         }}
         onKeyDown={onKeyDown}
-        className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-2.5 pl-3 pr-10 text-sm text-[var(--color-text)] outline-none transition-shadow placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          className="glass-input w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-2.5 pl-3 pr-10 text-sm text-[var(--color-text)] outline-none transition-shadow placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
       />
       <span className="pointer-events-none absolute right-3 top-[2.35rem] text-[var(--color-text-muted)]" aria-hidden="true">
         <svg className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
@@ -138,7 +138,7 @@ export function CampusCombobox({ label, options, value, onChange, placeholder = 
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-lg"
+          className="glass-overlay absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-lg"
         >
           {matches.length === 0 ? (
             <li className="px-3 py-3 text-sm text-[var(--color-text-muted)]">No campus matches "{trimmed}".</li>
@@ -149,6 +149,7 @@ export function CampusCombobox({ label, options, value, onChange, placeholder = 
                 id={`${id}-opt-${index}`}
                 role="option"
                 aria-selected={option.key === value}
+                data-active={index === active ? 'true' : undefined}
                 onMouseEnter={() => setActive(index)}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(option)}

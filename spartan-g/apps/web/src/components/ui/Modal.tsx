@@ -50,7 +50,7 @@ export function Modal({ open, onClose, title, description, children, size = "lg"
 
       {/* Card */}
       <div
-        className={`relative w-full ${sizeMap[size]} rounded-xl bg-white shadow-xl`}
+        className={`glass-overlay relative w-full ${sizeMap[size]} rounded-xl bg-white shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-4">

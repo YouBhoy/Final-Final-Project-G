@@ -7,6 +7,7 @@ import "../styles/landing-carousel.css";
 import { usePublicResources } from '../hooks/usePublicResources';
 import { ResourceCards, resourceArt } from '../components/resources/PublicResourceCards';
 import '../styles/public-resources.css';
+import '../styles/portal-glass.css';
 import { AndroidDownloadSection } from '../components/download/AndroidDownloadSection';
 
 export function LandingPage() {

@@ -7,6 +7,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { appointmentService } from "@spartan-g/shared-services";
 import { useStudentDashboard } from "../../hooks/useStudentDashboard";
 import { Spinner } from "../../components/ui/Spinner";
+import { StatCard } from "../../components/ui/StatCard";
 import { AnalyticsBars, AnalyticsDonut, AnalyticsLineChart } from "../../components/analytics/AnalyticsCharts";
 import { notificationRoute, UiNotification } from "../../lib/notificationRouting";
 import type { AppointmentDocument } from "@spartan-g/shared-types";
@@ -61,7 +62,7 @@ const FOCUS_INSET =
 
 /** White card: 12px radius, 24px padding, thin border so it reads on the grey page. */
 const CARD =
-  "rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-card";
+  "student-glass rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-card";
 
 /** Typography levels. */
 const T_CARD_TITLE =
@@ -181,18 +182,6 @@ function HeroPattern() {
   );
 }
 
-function CountBadge({ count, label }: { count: number; label: string }) {
-  if (count <= 0) return null;
-  return (
-    <span
-      aria-label={`${count} ${label}`}
-      className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-primary)] px-1.5 text-[11px] font-bold text-white"
-    >
-      {count > 99 ? "99+" : count}
-    </span>
-  );
-}
-
 function StatusBadge({ status }: { status: AppointmentStatus }) {
   return (
     <span
@@ -200,34 +189,6 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
     >
       {APPOINTMENT_LABELS[status]}
     </span>
-  );
-}
-
-/** Summary card: label + small icon on top, the number is the loudest thing. */
-function StatCard({
-  label,
-  icon,
-  value,
-  caption,
-}: {
-  label: string;
-  icon: string;
-  value: string | number;
-  caption: string;
-}) {
-  return (
-    <div className={`${CARD} p-5`}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-[var(--color-text-secondary)]">{label}</p>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-primary-pastel)] text-[var(--color-primary)]">
-          <Icon path={icon} className="h-5 w-5" />
-        </span>
-      </div>
-      <p className="mt-3 truncate font-[family-name:var(--font-heading)] text-3xl font-bold leading-tight text-[var(--color-text)]">
-        {value}
-      </p>
-      <p className={`${T_SMALL} mt-1 truncate`}>{caption}</p>
-    </div>
   );
 }
 
@@ -262,7 +223,6 @@ interface ActivityItem {
   detail: string;
   when: Date | null;
   unread: boolean;
-  unreadCount: number;
   onOpen: () => void;
 }
 
@@ -292,11 +252,6 @@ export function StudentDashboardPage() {
   const unreadMessages = data?.messages?.unreadTotal ?? 0;
   const unreadNotifications = data?.notifications?.unreadCount ?? 0;
   const resumeId = data?.assessments?.resumeAssessmentId ?? null;
-  const remaining = Math.max(0, total - completed);
-  const nextAction = resumeId
-    ? { eyebrow: "Your next step", title: "Continue your assessment", detail: "Pick up where you left off when you have a quiet moment.", label: "Continue assessment", to: `/student/assessment/${resumeId}` }
-    : { eyebrow: "Your next step", title: "Explore your support options", detail: "Connect with a facilitator or browse resources at your own pace.", label: "Find a facilitator", to: "/student/facilitators" };
-
   /** Click a notification -> mark read -> redirect to the relevant page. */
   const handleOpenNotification = (notification: UiNotification) => {
     if (!notification.isRead) {
@@ -317,7 +272,6 @@ export function StudentDashboardPage() {
         detail: ui.body,
         when: toDate(ui.created_at),
         unread: !ui.isRead,
-        unreadCount: 0,
         onOpen: () => handleOpenNotification(ui),
       };
     }),
@@ -329,7 +283,6 @@ export function StudentDashboardPage() {
         detail: "",
         when: c.lastMessageAt,
         unread: c.unread > 0,
-        unreadCount: c.unread,
         onOpen: () => navigate(`/student/messages?conversation=${encodeURIComponent(c.id)}`),
       }),
     ),
@@ -345,9 +298,9 @@ export function StudentDashboardPage() {
   ];
 
   return (
-    <div className="student-dashboard space-y-8">
+      <div className="student-dashboard space-y-8">
       <StudentProfileBanner />
-      <section className="student-support-callout"><div><p className="student-eyebrow">{nextAction.eyebrow}</p><h2>{nextAction.title}</h2><p>{nextAction.detail}</p></div><div className="student-support-actions"><button onClick={()=>navigate(nextAction.to)} className="student-main-button">{nextAction.label} ↗</button><button onClick={()=>navigate('/student/appointments')} className="student-soft-button">Request an appointment ↗</button></div></section>
+      <section className="student-support-callout"><div><p className="student-eyebrow">Your next step</p><h2>Explore your support options</h2><p>Connect with a facilitator or browse resources at your own pace.</p></div><div className="student-support-actions"><button onClick={()=>navigate('/student/facilitators')} className="student-main-button"><Icon path={ICON.search} />Find a facilitator</button><button onClick={()=>navigate('/student/appointments')} className="student-soft-button">Request an appointment</button></div></section>
       {error && (
         <div
           role="alert"
@@ -364,34 +317,28 @@ export function StudentDashboardPage() {
       )}
 
       {/* ─── Stat cards ─────────────────────────────────────────────────── */}
-      <section aria-label="Summary" className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <DashboardReadState section={sections.appointments} label="appointments" retry={reload}><StatCard
+      <section aria-label="Summary" className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <DashboardReadState section={sections.appointments} label="appointments" retry={reload}><StatCard className="student-glass-stat" 
           label="Next appointment"
-          icon={ICON.calendar}
+          icon={<span className="portal-stat-card__icon"><Icon path={ICON.calendar} className="h-5 w-5" /></span>}
           value={next ? formatShortDate(next.scheduledAt) : "None"}
           caption={
             next
               ? `${formatTime(next.scheduledAt)} with ${next.facilitatorName}`
-              : "No upcoming appointment"
+              : "Book your first session"
           }
         /></DashboardReadState>
-        <DashboardReadState section={sections.messages} label="messages" retry={reload}><StatCard
+        <DashboardReadState section={sections.messages} label="messages" retry={reload}><StatCard className="student-glass-stat"
           label="Unread messages"
-          icon={ICON.message}
+          icon={<span className="portal-stat-card__icon"><Icon path={ICON.message} className="h-5 w-5" /></span>}
           value={unreadMessages}
-          caption="From your facilitators"
+          caption={unreadMessages ? "From your facilitators" : "No new messages"}
         /></DashboardReadState>
-        <DashboardReadState section={sections.assessments} label="assessments" retry={reload}><StatCard
-          label="Assessments"
-          icon={ICON.clipboard}
-          value={`${completed}/${total}`}
-          caption={total > 0 && remaining === 0 ? "All completed" : `${remaining} remaining`}
-        /></DashboardReadState>
-        <DashboardReadState section={sections.notifications} label="notifications" retry={reload}><StatCard
+        <DashboardReadState section={sections.notifications} label="notifications" retry={reload}><StatCard className="student-glass-stat"
           label="Notifications"
-          icon={ICON.bell}
+          icon={<span className="portal-stat-card__icon"><Icon path={ICON.bell} className="h-5 w-5" /></span>}
           value={unreadNotifications}
-          caption="unread alerts"
+          caption={unreadNotifications ? "Unread alerts" : "You're all caught up"}
         /></DashboardReadState>
       </section>
 
@@ -399,49 +346,46 @@ export function StudentDashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section aria-labelledby="sd-assess-heading" className={`${CARD} student-progress-card lg:col-span-2`}>
           <DashboardReadState section={sections.assessments} label="assessments" retry={reload}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
+          <div className="sd-assessment-header">
+            <div className="sd-assessment-copy">
               <h2 id="sd-assess-heading" className={T_CARD_TITLE}>
                 Pick up where you left off.
               </h2>
-              <p className={`${T_SMALL} mt-1`}>
+              <p className="sd-assessment-subtitle">
                 {total === 0
                   ? "No assessments are available yet."
                   : "Your wellbeing assessments are here whenever you’re ready."}
               </p>
             </div>
-            <p className="font-[family-name:var(--font-heading)] text-3xl font-bold leading-none text-[var(--color-text)]">
+            <p className="sd-assessment-percent font-[family-name:var(--font-heading)] text-3xl font-bold leading-none text-[var(--color-text)]">
               {percent}%
             </p>
           </div>
 
+          <div className="sd-progress-bar-row">
           <div
             role="progressbar"
             aria-label="Assessments completed"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={percent}
-            className="mt-5 h-3 w-full overflow-hidden rounded-full bg-[var(--color-border)]"
+            className="h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--color-border)]"
           >
             <div
               className="h-full rounded-full bg-[var(--color-primary)] transition-[width] duration-500 motion-reduce:transition-none"
               style={{ width: `${percent}%` }}
             />
           </div>
+          <button
+            onClick={() => navigate(resumeId ? `/student/assessment/${resumeId}` : "/student/assessments")}
+            className={BTN_PRIMARY}
+          >{resumeId ? "Continue assessment" : "View assessments"}</button>
+          </div>
 
-          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className={T_SMALL}>
-              {completed} completed &middot; {data?.assessments?.inProgress ?? 0} in progress
-              &middot; {data?.assessments?.notStarted ?? 0} not started
-            </p>
-            <button
-              onClick={() =>
-                navigate(resumeId ? `/student/assessment/${resumeId}` : "/student/assessments")
-              }
-              className={BTN_PRIMARY}
-            >
-              {resumeId ? "Continue Assessment" : "View Assessments"}
-            </button>
+          <div className="sd-progress-counts">
+            <div className="student-glass student-glass-row"><strong>{completed}</strong><span>Completed</span></div>
+            <div className="student-glass student-glass-row"><strong>{data?.assessments?.inProgress ?? 0}</strong><span>In progress</span></div>
+            <div className="student-glass student-glass-row"><strong>{data?.assessments?.notStarted ?? 0}</strong><span>Not started</span></div>
           </div>
                   </DashboardReadState>
         </section>
@@ -455,7 +399,7 @@ export function StudentDashboardPage() {
               <li key={action.label}>
                 <button
                   onClick={() => navigate(action.to)}
-                  className={`group flex w-full items-center gap-3 rounded-[var(--radius-md)] px-2 py-3 text-left transition-colors duration-150 hover:bg-[var(--color-primary-pastel)] ${FOCUS_INSET}`}
+                  className={`student-glass student-glass-row group flex w-full items-center gap-3 rounded-[var(--radius-md)] px-2 py-3 text-left transition-colors duration-150 hover:bg-[var(--color-primary-pastel)] ${FOCUS_INSET}`}
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-primary-pastel)] text-[var(--color-primary)]">
                     <Icon path={action.icon} />
@@ -484,10 +428,10 @@ export function StudentDashboardPage() {
             <div>
               <h3 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Published assessment progress</h3>
               <AnalyticsDonut title="Published assessment progress" rows={[
-                { label: "Completed", value: data?.assessments?.progressDistribution.completed ?? 0 },
-                { label: "In progress", value: data?.assessments?.progressDistribution.inProgress ?? 0 },
-                { label: "Completed with an active retake", value: data?.assessments?.progressDistribution.activeRetakes ?? 0 },
-                { label: "Not started", value: data?.assessments?.progressDistribution.notStarted ?? 0 },
+                { label: "Completed", value: data?.assessments?.progressDistribution.completed ?? 0, color: '#fff' },
+                { label: "In progress", value: data?.assessments?.progressDistribution.inProgress ?? 0, color: 'rgba(255,255,255,.22)' },
+                { label: "Completed with an active retake", value: data?.assessments?.progressDistribution.activeRetakes ?? 0, color: 'rgba(255,255,255,.22)' },
+                { label: "Not started", value: data?.assessments?.progressDistribution.notStarted ?? 0, color: 'rgba(255,255,255,.22)' },
               ]} />
             </div>
             <div>
@@ -506,7 +450,7 @@ export function StudentDashboardPage() {
         </DashboardReadState>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="student-lower-grid grid grid-cols-1 gap-6 md:grid-cols-2">
         <section aria-labelledby="sd-upcoming-heading" className={CARD}>
           <DashboardReadState section={sections.appointments} label="appointments" retry={reload}>
           <div className="flex items-center justify-between gap-3">
@@ -521,16 +465,19 @@ export function StudentDashboardPage() {
           </div>
 
           {upcoming.length === 0 ? (
-            <EmptyState
-              icon={ICON.calendar}
-              title="No upcoming appointments"
-              text="You don't have any appointments scheduled yet."
-              action={
-                <button onClick={() => navigate("/student/appointments")} className={BTN_PRIMARY}>
-                  Book an Appointment
-                </button>
-              }
-            />
+            <>
+              <EmptyState
+                icon={ICON.calendar}
+                title="No upcoming appointments"
+                text="You don't have any appointments scheduled yet."
+                action={
+                <button onClick={() => navigate("/student/appointments")} className={`${BTN_PRIMARY} student-main-button`}>
+                    Book an Appointment
+                  </button>
+                }
+              />
+              <button className="sd-suggested-link" onClick={() => navigate("/student/facilitators")}>Suggested facilitators <Icon path={ICON.chevronRight} /></button>
+            </>
           ) : (
             <ul className="mt-4 space-y-3">
               {upcoming.map((apt) => (
@@ -578,12 +525,12 @@ export function StudentDashboardPage() {
                 <li key={item.key}>
                   <button
                     onClick={item.onOpen}
-                    className={`flex w-full items-start gap-3 rounded-[var(--radius-md)] px-2 py-3 text-left transition-colors duration-150 hover:bg-[var(--color-primary-pastel)] ${FOCUS_INSET}`}
+                    className={`sd-activity-button flex w-full items-start gap-3 rounded-[var(--radius-md)] px-2 py-3 text-left transition-colors duration-150 hover:bg-[var(--color-primary-pastel)] ${FOCUS_INSET}`}
                   >
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-pastel)] text-[var(--color-primary)]">
+                    <span className={`sd-activity-icon ${item.kind === "message" ? "message" : /complet|accepted/i.test(`${item.title} ${item.detail}`) ? "completed" : "notification"} mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full`}>
                       <Icon path={item.kind === "message" ? ICON.chat : ICON.bell} />
                     </span>
-                    <span className="min-w-0 flex-1">
+                    <span className="sd-activity-copy">
                       <span className="sr-only">{item.unread ? "Unread " : ""}</span>
                       <span
                         className={`block truncate text-[15px] ${
@@ -597,21 +544,9 @@ export function StudentDashboardPage() {
                       {item.detail && (
                         <span className={`${T_SMALL} line-clamp-1 block`}>{item.detail}</span>
                       )}
-                      <span className={`${T_SMALL} block`}>
-                        {item.kind === "message" ? "Message" : "Notification"}
-                        {item.when ? ` · ${formatWhen(item.when)}` : ""}
-                      </span>
+                      <span className={`${T_SMALL} block`}>{item.kind === "message" ? "Message" : "Notification"}</span>
                     </span>
-                    {item.kind === "message" ? (
-                      <CountBadge count={item.unreadCount} label="unread messages" />
-                    ) : (
-                      item.unread && (
-                        <span
-                          aria-hidden="true"
-                          className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--color-primary)]"
-                        />
-                      )
-                    )}
+                    <span className="sd-activity-meta">{item.when ? formatWhen(item.when) : ""}{item.unread && <span aria-label="Unread" className="sd-activity-dot" />}</span>
                   </button>
                 </li>
               ))}

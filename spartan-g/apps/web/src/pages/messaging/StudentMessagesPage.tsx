@@ -6,6 +6,7 @@ import { useConversationList } from '../../hooks/useConversationList';
 import { useAuth } from '../../hooks/useAuth';
 import { appointmentService } from '@spartan-g/shared-services';
 import type { AppointmentDocument } from '@spartan-g/shared-types';
+import { Avatar } from '../../components/ui/Avatar';
 
 export function StudentMessagesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -96,22 +97,27 @@ export function StudentMessagesPage() {
   const hasNoConversations = !isLoading && !error && conversations.length === 0;
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-card">
+    <div className="conversation-inbox flex h-[calc(100vh-8rem)] min-h-[480px] overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-card">
       {/* Conversation list (full width on mobile until a chat is opened) */}
       <div
-        className={`${activeConversationId ? 'hidden md:flex' : 'flex'} w-full flex-col border-r border-[var(--color-border)] md:w-80 md:shrink-0`}
+        className={`conversation-list-pane ${activeConversationId ? 'hidden md:flex' : 'flex'} w-full flex-col border-r border-[var(--color-border)] md:w-80 md:shrink-0`}
       >
-        <div className="border-b border-[var(--color-border)] p-4">
+        <div className="conversation-list-heading border-b border-[var(--color-border)] p-4">
           <h2 className="text-lg font-semibold text-[var(--color-text)]">Messages</h2>
           {conversations.length > 0 && (
+            <div className="conversation-search-wrap relative mt-3">
+            <svg className="conversation-search-icon pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" />
+            </svg>
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search chats..."
               aria-label="Search chats"
-              className="mt-3 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+              className="glass-input w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-2 pl-10 pr-3 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
+            </div>
           )}
         </div>
 
@@ -153,7 +159,7 @@ export function StudentMessagesPage() {
       <div className={`${activeConversationId ? 'flex' : 'hidden md:flex'} min-w-0 flex-1 flex-col`}>
         {activeConversationId && activeParticipantId ? (
           <>
-            <div className="flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-3">
+            <div className="conversation-thread-header flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-3">
               <button
                 type="button"
                 onClick={() => setActiveConversationId(null)}
@@ -164,14 +170,12 @@ export function StudentMessagesPage() {
                   <path d="m15 18-6-6 6-6" />
                 </svg>
               </button>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-sm font-semibold text-[var(--color-primary)]">
-                {(activeName || 'F').charAt(0).toUpperCase()}
-              </div>
+              <Avatar name={activeName || 'Facilitator'} size="md" />
               <div className="min-w-0">
                 <h3 className="truncate text-base font-semibold text-[var(--color-text)]">
                   {activeName || 'Loading...'}
                 </h3>
-                <p className="truncate text-xs text-[var(--color-text-secondary)]">
+                <p className="conversation-thread-subtitle truncate">
                   Facilitator{appointmentContext ? ` · ${appointmentContext}` : ''}
                 </p>
               </div>

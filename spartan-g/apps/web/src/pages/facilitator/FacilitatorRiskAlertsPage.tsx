@@ -30,12 +30,12 @@ const SEVERITY_ORDER: Record<AlertSeverity, number> = {
   low: 3,
 };
 
-const SEVERITY_BADGE: Record<AlertSeverity, "danger" | "warning" | "info" | "neutral"> = {
-  critical: "danger",
-  high: "warning",
-  moderate: "info",
-  medium: "info",
-  low: "neutral",
+const SEVERITY_BADGE: Record<AlertSeverity, "severity-high" | "severity-medium" | "severity-low"> = {
+  critical: "severity-high",
+  high: "severity-high",
+  moderate: "severity-medium",
+  medium: "severity-medium",
+  low: "severity-low",
 };
 
 const STATUS_BADGE: Record<string, "success" | "info" | "neutral"> = {
@@ -532,7 +532,7 @@ function AlertDetailModal({ alert, studentName, onClose, onAcknowledge, onResolv
             <div className="text-sm font-medium text-gray-900">Risk Flags</div>
             <div className="mt-2 flex flex-wrap gap-2">
               {riskFlags.map((flag, idx) => (
-                <Badge key={idx} variant={flag.severity === "critical" ? "danger" : flag.severity === "high" ? "warning" : "info"}>
+                <Badge key={idx} variant={flag.severity === "critical" || flag.severity === "high" ? "severity-high" : flag.severity === "low" ? "severity-low" : "severity-medium"}>
                   {flag.label}
                 </Badge>
               ))}

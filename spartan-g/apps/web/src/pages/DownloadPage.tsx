@@ -4,6 +4,7 @@ import { ANDROID_DOWNLOAD_PAGE, ANDROID_RELEASE } from '../lib/androidDownload';
 import { AndroidCompanionArtwork, AndroidDownloadButton } from '../components/download/AndroidDownloadSection';
 import '../styles/public-pages.css';
 import '../styles/android-download.css';
+import '../styles/portal-glass.css';
 
 export function DownloadPage() {
   useEffect(() => { document.title = 'SPARTAN-G for Android | Download'; }, []);

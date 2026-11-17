@@ -287,18 +287,12 @@ export function StudentAppointmentsPage() {
         }`}
       >
         {/* Date block */}
-        <div
-          className={`flex shrink-0 items-baseline gap-2 rounded-[var(--radius-md)] px-3 py-2 sm:w-20 sm:flex-col sm:items-center sm:justify-center sm:gap-0 ${
-            isUpcoming
-              ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
-              : 'bg-[var(--color-bg-alt)] text-[var(--color-text-secondary)]'
-          }`}
-        >
+        <div className="appointment-date-tile">
           <span className="text-xs font-bold uppercase tracking-wide">
             {start ? start.toLocaleDateString('en-US', { month: 'short' }) : ''}
           </span>
           <span className="text-2xl font-bold leading-none sm:text-3xl sm:my-0.5">{start ? start.getDate() : ''}</span>
-          <span className="text-xs">{start ? start.getFullYear() : ''}</span>
+          <span className="appointment-date-year text-xs">{start ? start.getFullYear() : ''}</span>
         </div>
 
         {/* Details */}
@@ -319,8 +313,8 @@ export function StudentAppointmentsPage() {
             <p className="mt-2 text-sm italic text-[var(--color-text-secondary)]">Your note: {apt.notes}</p>
           )}
           {reason && (
-            <div className="mt-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-2 text-sm text-[var(--color-text-secondary)]">
-              <span className="font-medium text-[var(--color-text)]">{reasonLabel}:</span> {reason}
+            <div className="appointment-cancellation-note mt-2">
+              <span>{reasonLabel}:</span> {reason}
             </div>
           )}
           {isActionNeeded && apt.rescheduleReason && (

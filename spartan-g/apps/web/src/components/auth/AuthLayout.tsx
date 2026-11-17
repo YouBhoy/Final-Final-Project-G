@@ -8,7 +8,7 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
-  const themeVars = {
+  const authStyleVars = {
     "--auth-primary": lightColors.primary,
     "--auth-primary-dark": lightColors.primaryDark,
     "--auth-surface": lightColors.surface,
@@ -19,8 +19,8 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
 
   return (
     <div
-      className="min-h-screen overflow-hidden bg-[var(--auth-background)] text-[var(--auth-text)]"
-      style={themeVars}
+      className="sg-public portal-public-auth min-h-screen overflow-hidden bg-[var(--auth-background)] text-[var(--auth-text)]"
+      style={authStyleVars}
     >
       <div className="grid min-h-screen lg:grid-cols-2">
         <section className="flex items-center justify-center px-6 py-10 sm:px-8 lg:px-12 xl:px-16">

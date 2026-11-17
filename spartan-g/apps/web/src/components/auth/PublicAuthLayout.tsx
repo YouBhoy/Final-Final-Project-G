@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import "../../styles/public-pages.css";
+import "../../styles/portal-glass.css";
 
 export function PublicAuthLayout({ title, subtitle, children, registration = false }: { title: string; subtitle?: string; children: ReactNode; registration?: boolean }) {
  useEffect(()=>{document.title=title+' | SPARTAN-G';},[title]);

@@ -124,7 +124,7 @@ export function ForgotPasswordPage() {
         <Button
           type="submit"
           isLoading={isLoading}
-          className="w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
+          className="w-full"
         >
           Send reset link
         </Button>

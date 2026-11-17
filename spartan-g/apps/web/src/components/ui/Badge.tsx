@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type Variant = "default" | "success" | "warning" | "danger" | "info" | "neutral";
+type Variant = "default" | "success" | "warning" | "danger" | "info" | "neutral" | "severity-high" | "severity-medium" | "severity-low";
 
 interface BadgeProps {
   variant?: Variant;
@@ -15,13 +15,16 @@ const variantStyles: Record<Variant, string> = {
   danger: "bg-[var(--color-error-bg)] text-[var(--color-error)] ring-[var(--color-error)]/20",
   info: "bg-[var(--color-info-bg)] text-[var(--color-info)] ring-[var(--color-info)]/20",
   neutral: "bg-[var(--color-bg-alt)] text-[var(--color-text-secondary)] ring-[var(--color-text-muted)]/20",
+  "severity-high": "",
+  "severity-medium": "",
+  "severity-low": "",
 };
 
 /** Small pill-shaped status / category indicator. */
 export function Badge({ variant = "default", children, className = "" }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${variantStyles[variant]} ${className}`}
+      className={`glass-badge glass-badge--${variant} inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${variantStyles[variant]} ${className}`}
     >
       {children}
     </span>

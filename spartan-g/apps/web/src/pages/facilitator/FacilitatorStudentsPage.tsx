@@ -17,6 +17,7 @@ import { Card, CardBody } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { InfoBanner } from "../../components/ui/InfoBanner";
 import type { Timestamp } from "firebase/firestore";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -380,6 +381,17 @@ export function FacilitatorStudentsPage() {
   const catalogCompletionRate = catalogOpportunities > 0
     ? Math.round(completedCatalogOpportunities / catalogOpportunities * 100)
     : null;
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const student of students) {
+      const key = student.displayName.trim().toLocaleLowerCase();
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [students]);
+  const studentLabel = (student: StudentUser) => duplicateNames.get(student.displayName.trim().toLocaleLowerCase())! > 1
+    ? `${student.displayName} · ID ${student.id.slice(-6)}`
+    : student.displayName;
 
   // Determine if selected student is critical for scores view
   const selectedStudentIsCritical = useMemo((): boolean => {
@@ -488,9 +500,7 @@ export function FacilitatorStudentsPage() {
   return (
     <div className="space-y-6">
       {/* Pseudonymization notice */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-        Student identities stay hidden until the student explicitly requests support and shares their identity with you. Risk scores alone never reveal a name.
-      </div>
+      <InfoBanner>Student identities stay hidden until the student explicitly requests support and shares their identity with you. Risk scores alone never reveal a name.</InfoBanner>
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
@@ -501,7 +511,7 @@ export function FacilitatorStudentsPage() {
         </p>
       </div>
 
-      <section aria-labelledby="fac-student-analytics" className="space-y-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section aria-labelledby="fac-student-analytics" className="glass space-y-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 id="fac-student-analytics" className="text-lg font-semibold text-gray-900">Assessment participation</h2>
@@ -513,32 +523,35 @@ export function FacilitatorStudentsPage() {
           }}>Refresh analytics</Button>
         </div>
         {assessmentActivity.loading ? <Spinner label="Loading assessment analytics…" /> : assessmentActivity.error ? <p role="alert" className="text-sm text-red-700">{assessmentActivity.error}</p> : <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
             {[
               ["Linked students", students.length.toLocaleString()],
               ["Published assessments", (assessmentActivity.assessmentCount ?? 0).toLocaleString()],
               ["Submitted attempts", (assessmentActivity.submittedAttempts ?? 0).toLocaleString()],
               ["Students with submissions", `${assessmentActivity.studentsWithSubmissions ?? 0} / ${students.length}`],
               ["Published catalog completion", catalogCompletionRate === null ? "Unavailable" : `${catalogCompletionRate}%`],
-            ].map(([label, value]) => <div key={label} className="rounded-lg border border-gray-100 p-3">
-              <p className="text-xs text-gray-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{value}</p>
+            ].map(([label, value]) => <div key={label} className="glass-row rounded-2xl p-3">
+              <p className="text-[13px] text-gray-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{value}</p>
             </div>)}
           </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
               <h3 className="mb-3 text-sm font-semibold text-gray-800">Published catalog submissions</h3>
-              <AnalyticsDonut title="Linked students by published assessment participation" rows={[
-                { label: "At least one completed catalog assessment", value: assessmentActivity.studentsWithSubmissions ?? 0 },
-                { label: "No completed catalog assessment found", value: Math.max(0, students.length - (assessmentActivity.studentsWithSubmissions ?? 0)) },
+              <AnalyticsDonut title="Linked students by published assessment participation" completionValue={students.length ? (assessmentActivity.studentsWithSubmissions ?? 0) / students.length : 0} rows={[
+                { label: "At least one completed catalog assessment", value: assessmentActivity.studentsWithSubmissions ?? 0, color: '#fff' },
+                { label: "No completed catalog assessment found", value: Math.max(0, students.length - (assessmentActivity.studentsWithSubmissions ?? 0)), color: 'rgba(255,255,255,.22)' },
               ]} />
             </div>
             <div>
               <h3 className="mb-3 text-sm font-semibold text-gray-800">Completed published assessments per student</h3>
               <AnalyticsBars title="Completed published catalog assessments by linked student" rows={assessmentActivity.comparisons
-                .map(row => ({ label: row.label, value: row.completedAssessments, detail: `/ ${assessmentActivity.assessmentCount ?? 0}` }))} />
+                .map(row => {
+                  const student = students.find(candidate => candidate.id === row.id);
+                  return { label: student ? studentLabel(student) : row.label, value: row.completedAssessments, detail: `/ ${assessmentActivity.assessmentCount ?? 0}` };
+                })} />
             </div>
           </div>
-          <p className="text-xs text-gray-500">Completion rate divides distinct published assessment definitions with a submitted or graded attempt by the published-catalog opportunities across linked students. The app does not assign due dates or required assessments to facilitator caseloads, so these figures do not label unsubmitted assessments as pending.</p>
+          <p className="text-[13px] leading-relaxed text-gray-500">Completion rate divides distinct published assessment definitions with a submitted or graded attempt by the published-catalog opportunities across linked students. The app does not assign due dates or required assessments to facilitator caseloads, so these figures do not label unsubmitted assessments as pending.</p>
         </>}
       </section>
 
@@ -550,8 +563,8 @@ export function FacilitatorStudentsPage() {
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="students-glass-table min-w-full divide-y divide-gray-200">
+              <thead>
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Name
@@ -567,13 +580,13 @@ export function FacilitatorStudentsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
+              <tbody>
                 {studentsWithRisk.map((student) => {
-                  const displayName = student.displayName;
+                  const displayName = studentLabel(student);
                   const displayEmail = student.email;
 
                   return (
-                    <tr key={student.id} className="hover:bg-gray-50">
+                    <tr key={student.id}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-gray-900">

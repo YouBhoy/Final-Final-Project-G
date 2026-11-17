@@ -26,14 +26,14 @@ export function MessageBubble({ message, isCurrentUser, status, showStatusLabel,
       <div
         className={`max-w-[80%] px-4 py-2 sm:max-w-[70%] ${
           isCurrentUser
-            ? 'rounded-2xl rounded-br-md bg-[var(--color-primary)] text-white'
-            : 'rounded-2xl rounded-bl-md bg-[var(--color-bg-alt)] text-[var(--color-text)]'
+          ? 'glass-message-own rounded-2xl rounded-br-md bg-[var(--color-primary)] text-white'
+            : 'glass-message-other rounded-2xl rounded-bl-md bg-[var(--color-bg-alt)] text-[var(--color-text)]'
         }`}
       >
         <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>
         <p
-          className={`mt-1 flex items-center justify-end gap-1 text-[11px] ${
-            isCurrentUser ? 'text-white/70' : 'text-[var(--color-text-muted)]'
+          className={`message-bubble-time mt-1 flex items-center justify-end gap-1 text-[11px] ${
+            isCurrentUser ? '' : 'text-[var(--color-text-muted)]'
           }`}
         >
           <span>{sentAt ? formatClock(sentAt) : ''}</span>

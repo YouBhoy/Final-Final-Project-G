@@ -4,6 +4,7 @@ import { ConversationList } from '../../components/messaging/ConversationList';
 import { MessageThread } from '../messaging/MessageThread';
 import { useConversationList } from '../../hooks/useConversationList';
 import { useAuth } from '../../hooks/useAuth';
+import { Avatar } from '../../components/ui/Avatar';
 
 export function FacilitatorMessagesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,10 +64,12 @@ export function FacilitatorMessagesPage() {
       <div className="fw-thread">
         {activeConversationId && activeParticipantId ? (
           <>
-            <div className="shrink-0 p-4 border-b">
-              <button className="fw-back" onClick={()=>setActiveConversationId(null)}>← All conversations</button><h3 className="text-lg font-semibold text-gray-900">
+            <div className="conversation-thread-header shrink-0 p-4 border-b">
+              <button type="button" aria-label="Back to conversations" className="fw-back" onClick={()=>setActiveConversationId(null)}>← All conversations</button>
+              <Avatar name={participantNames[activeParticipantId] || 'Student'} size="md" />
+              <div className="min-w-0"><h3 className="text-lg font-semibold text-gray-900">
                 {participantNames[activeParticipantId] || 'Loading...'}
-              </h3>
+              </h3><p className="conversation-thread-subtitle">Student conversation</p></div>
             </div>
             <MessageThread
               conversationId={activeConversationId}

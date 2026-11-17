@@ -5,6 +5,7 @@ import { ResourceCards, safeResourceUrl, resourceArt } from '../components/resou
 import '../styles/public-pages.css';
 import '../styles/landing-carousel.css';
 import '../styles/public-resources.css';
+import '../styles/portal-glass.css';
 export function PublicResourcesPage(){
  const {resourceId}=useParams();const {resources,loading,error,retry}=usePublicResources();
  const [search,setSearch]=useState('');const [category,setCategory]=useState('all');

@@ -31,7 +31,7 @@ export function Sidebar({ portalName, items, onNavigate }: SidebarProps) {
   const { pathname } = useLocation();
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]">
+    <aside className="glass portal-glass-sidebar flex h-screen w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* Brand Header — BatStateU Identity */}
       <div className="flex h-24 flex-col items-center justify-center border-b border-[var(--color-border)] px-5">
         {/* Seal + Wordmark */}
@@ -106,7 +106,6 @@ export function Sidebar({ portalName, items, onNavigate }: SidebarProps) {
 
       {/* Footer — crest watermark + copyright */}
       <div className="relative border-t border-[var(--color-border)] px-5 py-4">
-        {/* Watermark seal */}
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none select-none">
           <img src="/batstateu-logo.png" alt="" className="h-24 w-24" aria-hidden="true" />
         </div>

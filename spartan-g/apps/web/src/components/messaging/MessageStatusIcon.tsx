@@ -16,15 +16,14 @@ const LABELS: Record<DeliveryStatus, string> = {
 };
 
 /**
- * Colours are chosen for the maroon "sent" bubble: light pink for sending/sent/delivered
- * (delivered is slightly dimmer), light blue with a soft glow for read, and a white
- * badge with a red "!" for failed so it stays legible on maroon.
+ * Delivery ticks appear on the white sent bubble. Muted maroon is used until
+ * read; the seen state uses a blue with clear contrast on white.
  */
 const COLORS: Record<DeliveryStatus, string> = {
-  sending: '#f8d7dc',
-  sent: '#fde8eb',
-  delivered: 'rgba(253, 232, 235, 0.72)',
-  read: '#7dd3fc',
+  sending: 'rgba(122, 12, 22, 0.6)',
+  sent: 'rgba(122, 12, 22, 0.6)',
+  delivered: 'rgba(122, 12, 22, 0.6)',
+  read: '#1d6fd1',
   failed: '#ffffff',
 };
 
@@ -43,7 +42,7 @@ export function MessageStatusIcon({ status, size = 14, className }: MessageStatu
     role: 'img',
     'aria-label': label,
     className: `inline-block shrink-0 align-[-2px] ${className ?? ''}`,
-    style: status === 'read' ? { filter: 'drop-shadow(0 0 2px rgba(125, 211, 252, 0.95))' } : undefined,
+    style: undefined,
   };
 
   return (

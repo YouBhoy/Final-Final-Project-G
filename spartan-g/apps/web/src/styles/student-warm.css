@@ -1,37 +1,134 @@
-
-.student-portal-warm{--color-bg:#f7f4ef;--color-surface:#fffdfa;--color-text:#302a27;--color-text-secondary:#71665f;--color-border:#e2d7cd;--color-primary:#800000;--color-primary-dark:#63000b;--color-primary-pastel:#f3e6e4;background:#f7f4ef;color:#302a27}
-:is(.student-portal-warm,.staff-portal-warm) main>nav{background:linear-gradient(115deg,#65000d,#982539 65%,#b85c51);border:1px solid #822332;box-shadow:0 4px 14px #50000b15;padding:8px;border-radius:12px}
-:is(.student-portal-warm,.staff-portal-warm) main>nav a{color:#fff4ee;border-bottom:0;border-radius:7px;font-size:15px;padding:13px 15px}
-:is(.student-portal-warm,.staff-portal-warm) main>nav a:hover{background:#ffffff18;color:white}
-:is(.student-portal-warm,.staff-portal-warm) main>nav a[aria-current=page]{background:#fff8ef;color:#800000;box-shadow:0 2px 5px #30000020;font-weight:700}
+﻿.student-portal-warm{--color-bg:#faf6f1;--color-surface:#fff;--color-text:#302a28;--color-text-secondary:#786f6a;--color-border:#e7e1dd;--color-primary:#8b101a;--color-primary-dark:#690d16;--color-primary-pastel:#fbf0f0;background:transparent;color:#302a28}
+:is(.student-portal-warm,.staff-portal-warm) main>nav{background:linear-gradient(110deg,#710d16,#a51c2a);border:0;box-shadow:0 5px 14px #4a07151c;padding:8px;border-radius:17px}
+:is(.student-portal-warm,.staff-portal-warm) main>nav a{color:#fff5f2;border:0;border-radius:12px;font-size:14px;padding:12px 15px}
+:is(.student-portal-warm,.staff-portal-warm) main>nav a:hover{background:#ffffff19;color:white}
+:is(.student-portal-warm,.staff-portal-warm) main>nav a[aria-current=page]{background:#fff;color:#790e19;box-shadow:none;font-weight:700}
 :is(.student-portal-warm,.staff-portal-warm) main>nav a:focus-visible{outline:3px solid #e3bd82;outline-offset:-3px}
-.student-dashboard{font-size:16px}.student-dashboard h2{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:27px;line-height:1.2;letter-spacing:-.5px}
-.student-profile-banner{position:relative;display:grid;grid-template-columns:1.2fr 1fr;gap:25px 35px;border:1px solid #e0d5c9;border-radius:15px;padding:32px;background:linear-gradient(105deg,#fffaf4f5 35%,#fff9f0e0),url('/campus-background.jpg') center/cover;overflow:hidden}
-.student-profile-main{display:flex;align-items:center;gap:24px;min-width:0}.student-monogram{display:grid;place-items:center;flex-shrink:0;width:100px;height:110px;border-radius:60px 60px 14px 14px;background:#e9d8cf;border:5px solid #fffdf7;color:#800000;font:42px Georgia,serif;box-shadow:0 8px 20px #6d3e2810}
-.student-eyebrow{font-size:11px;letter-spacing:1.7px;text-transform:uppercase;font-weight:700;color:#800000;margin-bottom:10px}
-.student-profile-banner h1{font:400 42px/1.12 Georgia,serif;letter-spacing:-1.2px;overflow-wrap:anywhere}.student-email{font-size:14px;color:#71665f;margin-top:10px;overflow-wrap:anywhere}.student-role-pill{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:30px;background:#f0e3d9;color:#71382d;font-size:12px;font-weight:600}
-.student-profile-meta{border-left:1px solid #d9cfc2;padding-left:28px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-content:center}.student-profile-meta dt{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#800000;margin-bottom:7px}.student-profile-meta dd{font-size:15px;line-height:1.5;overflow-wrap:anywhere}
-.student-profile-footer{grid-column:1/-1;border-top:1px solid #ddd1c4;padding-top:18px;display:flex;gap:20px;justify-content:space-between;align-items:center;font-size:13px;color:#71665f}.student-profile-footer a{font-weight:600;color:#800000;white-space:nowrap}
-.student-support-callout{display:flex;justify-content:space-between;gap:25px;align-items:center;padding:8px 0}.student-support-callout p:not(.student-eyebrow){font-size:15px;color:#71665f;margin-top:10px;max-width:570px;line-height:1.65}.student-support-callout h2{font-size:34px}.student-support-actions{display:flex;flex-direction:column;gap:10px;flex-shrink:0}
-.student-main-button,.student-soft-button{border-radius:8px;padding:12px 20px;font-size:14px;font-weight:650;border:1px solid #790818;cursor:pointer;min-height:46px}.student-main-button{color:white;background:linear-gradient(#a52c3e,#800000);box-shadow:inset 0 1px 0 #ffffff55,0 3px 0 #53000b,0 7px 12px #71000015}.student-soft-button{color:#562c2a;border-color:#d8c7b9;background:linear-gradient(#fffefa,#f3eae1);box-shadow:inset 0 1px 0 white,0 2px 0 #cbb8a8}.student-main-button:active,.student-soft-button:active{transform:translateY(2px)}.student-main-button:focus-visible,.student-soft-button:focus-visible{outline:3px solid #800000;outline-offset:4px}
-.student-progress-card{background:#fff9f0}.student-progress-card h2{font-size:33px}.student-dashboard section[aria-label=Summary]{gap:16px}.student-dashboard section[aria-label=Summary]>div{box-shadow:none;background:#fffdf9}
-@media(max-width:800px){.student-profile-banner{grid-template-columns:1fr;padding:24px}.student-profile-banner h1{font-size:34px}.student-profile-meta{border-left:0;border-top:1px solid #d9cfc2;padding:20px 0 0}.student-monogram{width:75px;height:90px;font-size:30px}.student-support-callout{flex-direction:column;align-items:stretch}.student-support-actions{flex-direction:row;flex-wrap:wrap}.student-profile-footer{align-items:start;flex-direction:column;gap:12px}.student-profile-main{gap:16px}}
-
-/* Profile banner is informational; its single explicit action is a button-like link. */
-.student-profile-banner{cursor:default}.student-profile-footer .student-soft-button{display:inline-flex;align-items:center;gap:20px;text-decoration:none;min-height:44px;color:#642e2a}
-.student-profile-footer .student-soft-button:hover{border-color:#800000;background:#fffaf4}
-.student-dashboard section[aria-label=Summary]>div{cursor:default}
-
-.student-dashboard section[aria-label=Summary]>div{border-radius:0;background:transparent;box-shadow:none;border:0;border-top:1px solid var(--color-border);cursor:default}
-.student-dashboard section[aria-label=Summary]>div:hover{box-shadow:none;transform:none}
-.student-dashboard section[aria-labelledby=sd-actions-heading] button,.student-dashboard aside[aria-labelledby=sd-actions-heading] button{border:1px solid #d6c4b7;background:#fffaf4;margin:8px 0;padding:12px;cursor:pointer}
-.student-dashboard aside[aria-labelledby=sd-actions-heading] button:hover{border-color:#800000;background:#f5e7dc}
-
+.student-dashboard{font-size:15px}.student-dashboard h2{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:28px;line-height:1.2;letter-spacing:-.4px}
+.student-dashboard .student-profile-banner{position:relative;display:flex;align-items:center;justify-content:space-between;gap:28px;min-height:0;margin-bottom:30px;padding:30px 38px;border:0;border-radius:24px;overflow:hidden;color:white;background:rgba(255,255,255,.14);box-shadow:0 12px 24px #3210131a}
+.student-profile-main{display:flex;align-items:center;gap:22px;min-width:0}.student-monogram{display:grid;place-items:center;flex-shrink:0;width:120px;height:120px;border-radius:28px;background:#fff9f7;border:5px solid #ffffffaa;color:#8b101a;font:38px Georgia,serif;box-shadow:0 8px 20px #21050a30}
+.student-hero-copy{min-width:0}.student-dashboard .student-eyebrow{font:700 11px/1.4 'Inter',sans-serif;letter-spacing:2px;text-transform:uppercase;color:inherit;opacity:.82;margin:0 0 8px}
+.student-profile-banner h1{font:400 clamp(32px,3.4vw,48px)/1.08 Georgia,'Times New Roman',serif;letter-spacing:-1px;overflow-wrap:anywhere;color:white}.student-email{font-size:14px;color:#fff;margin-top:8px;opacity:.9;overflow-wrap:anywhere}
+.student-hero-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}.student-hero-pills span{padding:5px 11px;border:1px solid #ffffff55;border-radius:99px;background:#ffffff20;font-size:12px;color:white;backdrop-filter:blur(5px)}
+.student-hero-next{width:min(320px,36%);flex-shrink:0;padding:20px;border:1px solid #ffffff73;border-radius:17px;background:#ffffff30;backdrop-filter:blur(14px);box-shadow:0 8px 24px #2e081b25}.student-hero-next>p:not(.student-eyebrow){font-size:14px;line-height:1.6;color:white;margin:0 0 15px}
+.student-profile-banner .student-soft-button{display:inline-flex;align-items:center;gap:9px;border-radius:11px;padding:10px 16px;background:white;color:#840f1a;font-size:14px;font-weight:650;text-decoration:none}
+.student-support-callout{display:flex;justify-content:space-between;gap:25px;align-items:flex-end;padding:0 0 2px}.student-support-callout p:not(.student-eyebrow){font-size:15px;color:#786f6a;margin-top:8px;line-height:1.6}.student-support-callout h2{font-size:36px}.student-support-actions{display:flex;gap:12px;flex-shrink:0}
+.student-main-button,.student-support-callout .student-soft-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;padding:13px 20px;font-size:14px;font-weight:650;border:1px solid #e7e1dd;cursor:pointer;min-height:52px;text-decoration:none;white-space:nowrap}.student-main-button{color:white;background:linear-gradient(#a51b29,#800e19);box-shadow:0 5px 10px #49091226}.student-support-callout .student-soft-button{color:#800e19;background:white}
+.student-main-button:active,.student-soft-button:active{transform:translateY(1px)}.student-main-button:focus-visible,.student-soft-button:focus-visible{outline:3px solid #800000;outline-offset:3px}
+.student-dashboard .student-progress-card{align-self:start;height:fit-content;min-height:0;background:#fff;padding:26px;border-radius:16px}.student-dashboard .student-progress-card h2{font-size:32px}
+.student-dashboard .student-progress-card .sd-progress-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}.student-dashboard .student-progress-card .sd-progress-counts>div{padding:13px 15px;border-radius:12px;background:#faf6f1}.student-dashboard .student-progress-card .sd-progress-counts strong{display:block;font:26px Georgia,serif}.student-dashboard .student-progress-card .sd-progress-counts span{font-size:12px;color:#786f6a}
+.student-dashboard [class*="rounded-[var(--radius-lg)]"],.student-dashboard section[class*="border"]{border-color:#e7e1dd}
+.student-dashboard aside[aria-labelledby=sd-actions-heading] button{border:1px solid #e7e1dd;background:white;margin:8px 0;padding:10px 12px;cursor:pointer}.student-dashboard aside[aria-labelledby=sd-actions-heading] button:hover{border-color:#c99ba0;background:#fffafa}
+.student-dashboard section[aria-label=Summary]>div{border-radius:16px;background:white;box-shadow:none;border:1px solid #e7e1dd;cursor:default}.student-dashboard section[aria-label=Summary]>div:hover{box-shadow:none;transform:none}
 .staff-profile-banner{margin-bottom:24px;padding:26px 30px}.staff-profile-banner .student-monogram{width:80px;height:94px;font-size:34px}.staff-profile-banner h1{font-size:36px}.staff-profile-banner .student-profile-footer button{white-space:nowrap;flex-shrink:0}.staff-profile-banner button:disabled{opacity:.6;cursor:wait}
-.staff-portal-warm main>nav ul{scrollbar-width:thin;scrollbar-color:#e3b6a4 transparent}
+.staff-portal-warm main>nav ul{scrollbar-width:thin;scrollbar-color:#e3b6a4 transparent}.staff-portal-warm main>nav[data-wrap-navigation] ul{flex-wrap:wrap;overflow:visible;gap:4px;align-items:stretch}.staff-portal-warm main>nav[data-wrap-navigation] li:not([aria-hidden]){flex:1 0 auto;min-width:0;max-width:100%}.staff-portal-warm main>nav[data-wrap-navigation] li[aria-hidden]{display:none}.staff-portal-warm main>nav[data-wrap-navigation] a{justify-content:center;min-height:44px;height:100%;padding:11px 10px;font-size:14px;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:900px){.student-dashboard .student-profile-banner{align-items:stretch;flex-direction:column;min-height:0;padding:28px;gap:24px}.student-dashboard .student-profile-main{align-items:flex-start;flex-direction:column;gap:16px}.student-dashboard .student-hero-next{width:100%}.student-support-callout{align-items:flex-start;flex-direction:column}.student-support-actions{flex-wrap:wrap}}
+@media(max-width:640px){.student-dashboard .student-profile-banner{padding:22px;gap:22px}.student-dashboard .student-profile-main{gap:14px}.student-monogram{width:70px;height:75px;border-radius:20px;font-size:27px}.student-profile-banner h1{font-size:32px}.student-support-callout h2{font-size:30px}.student-support-actions{width:100%;flex-direction:column}.student-support-actions>*{width:100%}.student-dashboard .student-progress-card .sd-progress-counts{grid-template-columns:1fr}.student-dashboard .student-progress-card{padding:22px}}
 @media(max-width:800px){.staff-profile-banner{padding:24px}.staff-profile-banner h1{font-size:30px}}
-/* Staff navigation fits its container instead of requiring horizontal scrolling. */
-.staff-portal-warm main>nav[data-wrap-navigation] ul{flex-wrap:wrap;overflow:visible;gap:4px;align-items:stretch}
-.staff-portal-warm main>nav[data-wrap-navigation] li:not([aria-hidden]){flex:1 0 auto;min-width:0;max-width:100%}
-.staff-portal-warm main>nav[data-wrap-navigation] li[aria-hidden]{display:none}
-.staff-portal-warm main>nav[data-wrap-navigation] a{justify-content:center;min-height:44px;height:100%;padding:11px 10px;font-size:14px;white-space:normal;overflow-wrap:anywhere}
+
+/* Student dashboard finishing details */
+.student-portal-warm{--font-heading:'Fraunces',Georgia,serif;--font-body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--radius-lg:16px;font-family:var(--font-body)}
+.student-portal-warm main{position:relative;isolation:isolate;overflow-x:clip}
+
+.student-dashboard h1,.student-dashboard h2,.student-dashboard h3,.student-dashboard .student-monogram,.student-dashboard .sd-progress-counts strong,.student-dashboard [aria-label=Summary]>div>p:nth-child(2){font-family:'Fraunces',Georgia,serif}
+.student-dashboard .student-profile-banner h1,.student-dashboard h2{font-family:'Fraunces',Georgia,serif}
+.student-dashboard .student-profile-banner{margin-bottom:62px}
+.student-dashboard .student-support-callout .student-eyebrow{color:#8b101a;opacity:1}
+.student-dashboard .student-progress-card h2{font-size:32px}
+.student-dashboard .sd-assessment-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.student-dashboard .sd-assessment-copy{min-width:0}.student-dashboard .sd-assessment-percent{flex:0 0 auto;margin:0;color:#302a28;font-size:36px;line-height:1.1}.student-dashboard .sd-assessment-subtitle{position:static;display:block;margin:8px 0 0;color:#786f6a;font-family:'Inter',sans-serif;font-size:14px;font-weight:400;line-height:1.45;letter-spacing:normal;overflow-wrap:anywhere}
+.student-dashboard .sd-progress-bar-row{display:flex;flex-wrap:wrap;align-items:center;gap:18px;margin-top:22px}.student-dashboard .sd-progress-bar-row [role=progressbar]{flex:1 1 12rem}.student-dashboard .sd-progress-bar-row button{white-space:nowrap}
+.student-dashboard section[aria-label=Summary]>div{min-height:154px;border-radius:16px;padding:20px}.student-dashboard section[aria-label=Summary]>div>div>p{font-size:14px}.student-dashboard section[aria-label=Summary]>div>p:nth-child(2){font-size:36px;line-height:1.05;font-weight:500}
+.student-dashboard .sd-donut-figure{height:220px;display:flex;align-items:center;gap:16px;overflow:hidden}.student-dashboard .sd-donut-chart{height:190px;width:190px;flex:0 0 190px;border-radius:50%;padding:24px}.student-dashboard .sd-donut-hole{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:50%;background:#fff;color:#302a28}.student-dashboard .sd-donut-hole strong{font:600 26px/1.1 'Fraunces',Georgia,serif;color:#8b101a}.student-dashboard .sd-donut-hole span{font-size:12px;color:#786f6a}.student-dashboard .sd-donut-figure ul{min-width:0;flex:1}.student-dashboard .sd-donut-figure li{justify-content:flex-start;flex-wrap:wrap}.student-dashboard .sd-line-chart{height:220px;width:100%;overflow:visible}.student-dashboard .sd-line-chart text{font-family:'Inter',sans-serif}
+.student-dashboard .student-lower-grid{align-items:stretch}.student-dashboard .student-lower-grid>section{height:100%;min-height:370px;border-radius:16px;display:flex;flex-direction:column}.student-dashboard .sd-suggested-link{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding:12px 14px;border:1px solid #e7e1dd;border-radius:12px;color:#800e19;font-size:14px;font-weight:600;text-decoration:none}
+.student-dashboard .sd-activity-button{align-items:center}.student-dashboard .sd-activity-copy{min-width:0;flex:1}.student-dashboard .sd-activity-meta{display:flex;align-items:center;gap:8px;flex-shrink:0;color:#9b918b;font-size:12px}.student-dashboard .sd-activity-dot{width:7px;height:7px;border-radius:50%;background:#a71927}.student-dashboard .sd-activity-icon.message{background:#fbf0f0;color:#8b101a}.student-dashboard .sd-activity-icon.notification{background:#fff6df;color:#ae7615}.student-dashboard .sd-activity-icon.completed{background:#eaf7f0;color:#168456}
+.student-portal-warm header img{width:40px;height:40px}.student-portal-warm header .sd-bell-dot{position:absolute;right:7px;top:7px;width:8px;height:8px;border-radius:50%;background:#a71927;border:1.5px solid white}
+.student-dashboard .student-support-actions .student-soft-button{border-radius:11px;padding:13px 20px;min-height:52px}
+.student-dashboard .student-lower-grid>section{min-height:370px}
+@media(max-width:900px){.student-dashboard .sd-donut-figure{height:auto;min-height:220px}.student-dashboard .student-lower-grid>section{min-height:340px}}
+@media(max-width:640px){.student-dashboard .student-support-actions{align-items:stretch}.student-dashboard .sd-progress-bar-row{gap:12px;margin-top:18px}.student-dashboard .sd-progress-bar-row [role=progressbar]{flex-basis:6rem}.student-dashboard .sd-progress-bar-row button{align-self:flex-start}.student-dashboard .sd-assessment-percent{font-size:30px}.student-dashboard .sd-donut-figure{justify-content:center;flex-wrap:wrap}.student-dashboard .sd-donut-figure ul{width:100%}.student-dashboard .student-lower-grid>section{min-height:0}.student-dashboard .sd-activity-meta{flex-direction:column-reverse;gap:5px}}
+@media(max-width:380px){.student-portal-warm header>div{padding-left:10px;padding-right:10px;gap:4px}.student-portal-warm .student-header-brand{gap:8px}.student-portal-warm header button[class*="h-10"][class*="w-10"]{width:34px;height:34px}.student-portal-warm header button[class*="p-2"]{padding:5px}.student-portal-warm header span[class*="h-9"][class*="w-9"]{width:32px;height:32px}.student-portal-warm header .student-header-brand h1{font-size:14px}}
+
+/* Dashboard-specific glass details live here; global surfaces and tokens live in portal-glass.css. */
+.portal-glass-theme .student-dashboard{font-family:'Inter',sans-serif;color:#fff}
+.portal-glass-theme .student-glass{
+  --student-glass-radius:24px;
+  background:var(--student-glass-fill);
+  -webkit-backdrop-filter:blur(var(--student-glass-blur)) saturate(160%);
+  backdrop-filter:blur(var(--student-glass-blur)) saturate(160%);
+  border:1px solid var(--student-glass-border);
+  border-radius:var(--student-glass-radius);
+  box-shadow:var(--student-glass-shadow);
+  color:#fff;
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .portal-glass-theme .student-glass{background:rgba(52,6,14,.9)}
+}
+.portal-glass-theme .student-glass-row{--student-glass-radius:15px;background:rgba(255,255,255,.1)}
+.portal-glass-theme .student-dashboard.space-y-8>*+*{margin-block-start:20px!important}
+.portal-glass-theme .student-dashboard>[aria-label=Summary],.portal-glass-theme .student-dashboard>.grid{gap:20px!important}
+.portal-glass-theme .student-profile-banner.student-glass{--student-glass-radius:32px;min-height:0;height:auto;margin-bottom:0;padding:32px 40px;align-items:center;background-color:var(--student-glass-fill);background-image:none}
+.portal-glass-theme .student-profile-banner h1{font-family:'Fraunces',Georgia,serif;font-size:clamp(38px,4vw,54px);font-weight:500;line-height:1.1;color:#fff}
+.portal-glass-theme .student-hero-next{width:min(320px,36%);background-color:rgba(255,255,255,.1)}
+.portal-glass-theme .student-hero-next .student-eyebrow,.portal-glass-theme .student-eyebrow{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;letter-spacing:.16em;color:rgba(255,255,255,.9)}
+.portal-glass-theme .student-hero-pills span{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.38);border-radius:15px;color:#fff}
+.portal-glass-theme .student-dashboard h1,.portal-glass-theme .student-dashboard h2,.portal-glass-theme .student-dashboard h3,.portal-glass-theme .student-dashboard .student-monogram,.portal-glass-theme .student-dashboard [aria-label=Summary]>div>p:nth-child(2),.portal-glass-theme .student-dashboard .sd-progress-counts strong{font-family:'Fraunces',Georgia,serif;font-weight:500;color:#fff}
+.portal-glass-theme .student-dashboard h2{font-size:30px}
+.portal-glass-theme .student-dashboard p,.portal-glass-theme .student-dashboard li,.portal-glass-theme .student-dashboard button{font-family:'Inter',sans-serif}
+.portal-glass-theme .student-dashboard .student-eyebrow{color:rgba(255,255,255,.88)}
+.portal-glass-theme .student-dashboard .student-email,.portal-glass-theme .student-dashboard .student-support-callout p:not(.student-eyebrow),.portal-glass-theme .student-dashboard .student-progress-card p,.portal-glass-theme .student-dashboard .sd-progress-counts span{color:rgba(255,255,255,.82)}
+.portal-glass-theme .student-dashboard .student-monogram{background:#fff;border-color:rgba(255,255,255,.8);color:#7a0c16}
+.portal-glass-theme .student-dashboard .student-progress-card{align-self:start;height:fit-content;min-height:0;background-color:var(--student-glass-fill);padding:26px}
+.portal-glass-theme .student-dashboard .student-progress-card h2{font-size:32px;color:#fff}
+.portal-glass-theme .student-dashboard .sd-assessment-subtitle{position:static;display:block;margin:8px 0 0;color:rgba(255,255,255,.82);font-family:'Inter',sans-serif;font-size:14px;font-weight:400;line-height:1.45;letter-spacing:normal;overflow-wrap:anywhere}
+.portal-glass-theme .student-dashboard .sd-assessment-percent{color:#fff;font-family:'Fraunces',Georgia,serif;font-weight:500}
+.portal-glass-theme .student-dashboard .sd-progress-bar-row [role=progressbar]{background:rgba(255,255,255,.22)}
+.portal-glass-theme .student-dashboard .sd-progress-bar-row [role=progressbar]>div{background:#fff}
+.portal-glass-theme .student-dashboard .sd-progress-counts>div{background:rgba(255,255,255,.1);border-color:var(--student-glass-border)}
+.portal-glass-theme .student-dashboard .sd-progress-counts strong{color:#fff}
+.portal-glass-theme .student-dashboard aside[aria-labelledby=sd-actions-heading] button{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:#fff;min-height:52px}
+.portal-glass-theme .student-dashboard aside[aria-labelledby=sd-actions-heading] button>span:first-child{background:rgba(255,255,255,.16);color:#fff}
+.portal-glass-theme .student-dashboard aside[aria-labelledby=sd-actions-heading] button:hover,.portal-glass-theme .student-dashboard .student-glass-row:hover{background:rgba(255,255,255,.2)}
+.portal-glass-theme .student-main-button,.portal-glass-theme .student-profile-banner .student-soft-button,.portal-glass-theme .student-support-callout .student-soft-button,.portal-glass-theme .student-progress-card .sd-progress-bar-row button,.portal-glass-theme section[aria-labelledby=sd-upcoming-heading] .student-main-button{min-height:44px;border:1px solid rgba(255,255,255,.8);border-radius:14px;background:#fff;color:#7a0c16;font-weight:600;box-shadow:0 5px 16px rgba(20,0,5,.2)}
+.portal-glass-theme .student-main-button:hover,.portal-glass-theme .student-profile-banner .student-soft-button:hover,.portal-glass-theme .student-support-callout .student-soft-button:hover,.portal-glass-theme .student-progress-card .sd-progress-bar-row button:hover{background:#fff;color:#5b0710}
+.portal-glass-theme .student-support-callout .student-soft-button{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.5);color:#fff}
+.portal-glass-theme .student-dashboard .student-lower-grid>section{min-height:370px;background-color:var(--student-glass-fill)}
+.portal-glass-theme .student-dashboard .sd-suggested-link{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff;min-height:44px}
+.portal-glass-theme .student-dashboard .sd-activity-button{border-radius:14px}
+.portal-glass-theme .student-dashboard .sd-activity-icon.message{background:rgba(255,255,255,.17);color:#fff}
+.portal-glass-theme .student-dashboard .sd-activity-icon.notification{background:rgba(255,190,75,.2);color:#ffe1a3}
+.portal-glass-theme .student-dashboard .sd-activity-icon.completed{background:rgba(80,220,155,.18);color:#a8f4ce}
+.portal-glass-theme .student-dashboard footer{border-color:rgba(255,255,255,.3)}
+.portal-glass-theme .student-dashboard footer p{color:rgba(255,255,255,.78)}
+.portal-glass-theme .student-dashboard footer span{color:#fff}
+.portal-glass-theme .student-dashboard :focus-visible{outline:2px solid #fff;outline-offset:2px}
+.portal-glass-theme header.student-glass{--student-glass-radius:20px;position:sticky;background:rgba(40,4,10,.28);border-color:rgba(255,255,255,.3);color:#fff}
+.portal-glass-theme header.student-glass h1,.portal-glass-theme header.student-glass p,.portal-glass-theme header.student-glass button{color:#fff}
+.portal-glass-theme header.student-glass>div>div>div{background-color:rgba(255,255,255,.35)}
+.portal-glass-theme header.student-glass .student-glass{background:rgba(40,4,10,.9)}
+.portal-glass-theme header.student-glass .student-glass p,.portal-glass-theme header.student-glass .student-glass span{color:#fff}
+.portal-glass-theme main>nav.student-glass{--student-glass-radius:20px;margin-bottom:20px!important;background-color:rgba(40,4,10,.28)}
+.portal-glass-theme main>nav.student-glass ul{flex-wrap:wrap;overflow:visible;gap:4px;padding:3px}
+.portal-glass-theme main>nav.student-glass a{min-height:44px;border:0;border-radius:15px;color:rgba(255,255,255,.92)}
+.portal-glass-theme main>nav.student-glass a:hover{background:rgba(255,255,255,.18);color:#fff}
+.portal-glass-theme main>nav.student-glass a[aria-current=page]{background:#fff;color:#7a0c16}
+.portal-glass-theme .student-glass-stat{min-height:132px;background-color:var(--student-glass-fill)}
+.portal-glass-theme .student-glass-stat>div>span{background:rgba(255,255,255,.16);color:#fff}
+.portal-glass-theme .student-dashboard .sd-donut-figure .sd-donut-hole{background:rgba(40,4,10,.28);border:1px solid rgba(255,255,255,.4);color:#fff}
+.portal-glass-theme .student-dashboard .sd-donut-hole strong,.portal-glass-theme .student-dashboard .sd-donut-hole span{color:#fff}
+.portal-glass-theme .student-dashboard .sd-donut-figure li,.portal-glass-theme .student-dashboard .sd-donut-figure li span{color:rgba(255,255,255,.9)}
+.portal-glass-theme .student-dashboard .sd-donut-figure li span[aria-hidden=true]{border:1px solid rgba(255,255,255,.75)}
+.portal-glass-theme .student-dashboard figure>p,.portal-glass-theme .student-dashboard [role=alert]{color:#fff;background:rgba(40,4,10,.42)}
+.portal-glass-theme .student-dashboard .sd-line-chart line{stroke:rgba(255,255,255,.4)}
+.portal-glass-theme .student-dashboard .sd-line-chart polyline{stroke:#fff}
+.portal-glass-theme .student-dashboard .sd-line-chart circle{fill:#7a0c16;stroke:#fff}
+.portal-glass-theme .student-dashboard .sd-line-chart text{fill:rgba(255,255,255,.9)}
+.portal-glass-theme .student-dashboard .sd-activity-button{border-bottom:1px solid rgba(255,255,255,.22)}
+.portal-glass-theme .student-dashboard .sd-activity-button:hover{background:rgba(255,255,255,.12)}
+@media(max-width:640px){
+  .portal-glass-theme{background-attachment:scroll;background-position:center top}
+  .portal-glass-theme .student-dashboard .student-lower-grid>section{min-height:0}
+}
+@media(max-width:900px){.portal-glass-theme .student-profile-banner.student-glass{min-height:0;height:auto;padding:28px;align-items:stretch;flex-direction:column;gap:24px}.portal-glass-theme .student-profile-main{align-items:flex-start;flex-direction:column;gap:16px}.portal-glass-theme .student-hero-copy{width:100%}.portal-glass-theme .student-hero-next{width:100%}}
+@media(max-width:640px){.portal-glass-theme .student-profile-banner.student-glass{padding:22px;gap:22px}.portal-glass-theme .student-profile-main{gap:14px}}
+@media(max-width:767px){.portal-glass-theme{background-attachment:scroll;background-position:center top}}
+@media(prefers-reduced-motion:reduce){.portal-glass-theme *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}

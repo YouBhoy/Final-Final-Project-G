@@ -1,6 +1,6 @@
 import "../../styles/student-warm.css";
 import "../../styles/staff-warm.css";
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { Sidebar, type NavItem } from "./Sidebar";
 import { Header } from "./Header";
 import { TopNav } from "./TopNav";
@@ -56,7 +56,11 @@ export function PortalLayout({
   const drawerHideClass = topNav ? "lg:hidden" : "md:hidden";
 
   return (
-    <div className={`min-h-screen bg-[var(--color-bg)] ${studentPortal ? "student-portal-warm" : "staff-portal-warm"}`}>
+    <div
+      className={`portal-glass-theme min-h-screen ${studentPortal ? "student-portal-warm" : "staff-portal-warm"}`}
+      style={{ "--portal-photo-url": `url("${backgroundImage}")` } as CSSProperties}
+    >
+      <div className="portal-glass-background" aria-hidden="true" />
       {/* Desktop sidebar (fixed, full height) — side placement only */}
       {!topNav && (
         <div className="z-20 hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col">
@@ -72,31 +76,16 @@ export function PortalLayout({
         aria-hidden={!mobileOpen}
       >
         {/* Backdrop */}
-        <div
-          className={`absolute inset-0 bg-[var(--color-text)]/50 transition-opacity duration-200 ${
-            mobileOpen ? "opacity-100" : "opacity-0"
-          }`}
+        <div className={`absolute inset-0 bg-[var(--color-text)]/50 transition-opacity duration-200 ${mobileOpen ? "opacity-100" : "opacity-0"}`}
           onClick={() => setMobileOpen(false)}
         />
-        {/* Drawer */}
-        <div
-          className={`absolute inset-y-0 left-0 w-64 transform bg-[var(--color-surface)] shadow-dropdown transition-transform duration-200 ${
-            mobileOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
+        <div className={`absolute inset-y-0 left-0 w-64 transform bg-[var(--color-surface)] shadow-dropdown transition-transform duration-200 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <Sidebar portalName={portalName} items={navItems} onNavigate={() => setMobileOpen(false)} />
         </div>
       </div>
 
       {/* Content column — offset on desktop to make room for the fixed sidebar */}
-      <div className={`relative isolate min-h-screen ${topNav ? "" : "md:ml-64"}`}>
-        {backgroundImage && !studentPortal && portalName === "" && (
-          <div
-            aria-hidden="true"
-            className={`portal-photo-background pointer-events-none fixed bottom-0 left-0 right-0 top-16 -z-10 ${topNav ? "" : "md:left-64"}`}
-            style={{ backgroundImage: `url("${backgroundImage}")` }}
-          />
-        )}
+      <div className={`portal-glass-content relative z-10 isolate min-h-screen ${topNav ? "" : "md:ml-64"}`}>
         <Header
           portalName={portalName}
           portalTagline={portalTagline}
@@ -104,7 +93,7 @@ export function PortalLayout({
           onMenuClick={() => setMobileOpen(true)}
         />
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          {topNav && <TopNav items={navItems} className="mb-6 hidden lg:block" />}
+          {topNav && <TopNav items={navItems} className="glass student-glass portal-glass-nav mb-6 hidden lg:block" />}
           {children}
         </main>
       </div>

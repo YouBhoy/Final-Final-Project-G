@@ -9,6 +9,7 @@ import {
 } from '@spartan-g/shared-types';
 import type { Campus } from '@spartan-g/shared-types';
 import { CampusCombobox } from '../../components/ui/CampusCombobox';
+import { Avatar } from '../../components/ui/Avatar';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -196,8 +197,8 @@ export function StudentFindFacilitatorPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1100px]">
-      <h1 className="mb-2 font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-text)]">Find a Facilitator</h1>
-      <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
+      <h1 className="portal-background-copy mb-2 font-[family-name:var(--font-heading)] text-2xl font-bold text-[var(--color-text)]">Find a Facilitator</h1>
+      <p className="portal-background-copy mb-4 text-sm text-[var(--color-text-secondary)]">
         Browse facilitators across all campuses or filter to a specific campus.
         {user?.campus && (
           <> Your campus: <span className="font-medium text-[var(--color-primary)]">{campusLabel(user.campus)}</span>.</>
@@ -206,7 +207,7 @@ export function StudentFindFacilitatorPage() {
 
       {/* Search */}
       <div className="relative mb-4">
-        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[var(--color-text-muted)]">
+        <span className="facilitator-search-icon pointer-events-none absolute inset-y-0 left-3 flex items-center">
           <SearchIcon />
         </span>
         <input
@@ -215,7 +216,7 @@ export function StudentFindFacilitatorPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by facilitator name..."
           aria-label="Search facilitators by name"
-          className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-2.5 pl-10 pr-3 text-sm text-[var(--color-text)] outline-none transition-shadow placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          className="glass-input w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-2.5 pl-10 pr-3 text-sm text-[var(--color-text)] outline-none transition-shadow placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
         />
       </div>
 
@@ -228,7 +229,7 @@ export function StudentFindFacilitatorPage() {
       />
 
       {facilitators.length > 0 && (
-        <p className="mb-4 text-sm font-medium text-[var(--color-text-secondary)]" aria-live="polite">
+        <p className="portal-background-copy mb-4 text-sm font-medium text-[var(--color-text-secondary)]" aria-live="polite">
           {resultsSummary}
           <span className="font-normal text-[var(--color-text-muted)]"> · Select a facilitator to view their available hours.</span>
         </p>
@@ -266,7 +267,6 @@ export function StudentFindFacilitatorPage() {
             const schedule = (workHoursMap[fac.id] || []).filter((s) => s.isActive);
             const hoursLoading = workHoursMap[fac.id] === undefined;
             const canBook = !hoursLoading && schedule.length > 0;
-            const initial = (fac.displayName || 'F').charAt(0).toUpperCase();
             const isOpen = selectedFacilitator === fac.id;
             const toggle = () => setSelectedFacilitator((prev) => (prev === fac.id ? null : fac.id));
 
@@ -291,13 +291,7 @@ export function StudentFindFacilitatorPage() {
                     isOpen ? 'border-b border-[var(--color-border)]' : 'border-b border-transparent'
                   }`}
                 >
-                  {fac.photoURL ? (
-                    <img src={fac.photoURL} alt={fac.displayName} className="h-12 w-12 shrink-0 rounded-full object-cover" />
-                  ) : (
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10">
-                      <span className="text-lg font-bold text-[var(--color-primary)]">{initial}</span>
-                    </div>
-                  )}
+                  <Avatar name={fac.displayName} src={fac.photoURL} size="lg" />
 
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-base font-bold text-[var(--color-text)]" title={fac.displayName}>
@@ -337,7 +331,7 @@ export function StudentFindFacilitatorPage() {
 
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                      <span className="facilitator-role-badge inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">
                         Facilitator
                       </span>
                       <span className="text-[var(--color-text-muted)]">
@@ -375,7 +369,7 @@ export function StudentFindFacilitatorPage() {
                       {/* Available hours */}
                       <div>
                         <div className="mb-1 flex items-center gap-2">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                          <span className="portal-icon-tile flex h-7 w-7 items-center justify-center rounded-full">
                             <CalendarIcon size={14} />
                           </span>
                           <h4 className="text-sm font-bold text-[var(--color-text)]">Available Hours</h4>

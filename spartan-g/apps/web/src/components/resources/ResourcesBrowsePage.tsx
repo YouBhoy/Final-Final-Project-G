@@ -26,7 +26,7 @@ const ACTION_LABELS: Record<ResourceCategory, string> = {
 };
 
 const fieldClass =
-  "mt-1 block w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30";
+  "glass-input block min-h-11 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30";
 
 function getYouTubeEmbedUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -132,58 +132,68 @@ export function ResourcesBrowsePage({ actorRole }: ResourcesBrowsePageProps) {
   return (
     <div className="space-y-6">
       {/* Intro banner */}
-      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-pastel)] px-6 py-5">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text)] sm:text-3xl">
+      <div className="glass resource-page-hero">
+        <h1 className="text-[var(--color-text)]">
           Resources
         </h1>
-        <p className="mt-1 text-base font-medium text-[var(--color-text)]">
+        <p className="resource-page-tagline">
           Take a moment for yourself.
         </p>
-        <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
+        <p className="resource-page-description">
           Explore videos, articles, guides, and helplines for managing stress, building
           healthy habits, and looking after your mental well-being.
         </p>
       </div>
 
       {/* Filters */}
-      <div className="space-y-3">
+      <div className="resource-controls space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="w-full sm:max-w-xs">
-            <label htmlFor="res-search" className="block text-sm font-medium text-[var(--color-text-secondary)]">
+            <label htmlFor="res-search" className="portal-background-copy block text-sm font-medium text-[var(--color-text-secondary)]">
               Search
             </label>
+            <div className="resource-search-wrap relative mt-1">
+            <svg className="resource-search-icon pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" />
+            </svg>
             <input
               id="res-search"
               type="search"
-              className={fieldClass}
+              className={`${fieldClass} pl-10 placeholder:text-white/60`}
               placeholder="Search resources…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            </div>
           </div>
           <div className="w-full sm:max-w-xs">
-            <label htmlFor="res-cat" className="block text-sm font-medium text-[var(--color-text-secondary)]">
+            <label htmlFor="res-cat" className="portal-background-copy block text-sm font-medium text-[var(--color-text-secondary)]">
               Category
             </label>
-            <select
-              id="res-cat"
-              className={fieldClass}
-              value={category}
-              onChange={(e) => setCategory(e.target.value as ResourceCategory | "all")}
-            >
-              <option value="all">All categories</option>
-              {(Object.keys(CATEGORY_LABELS) as ResourceCategory[]).map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORY_LABELS[c]}
-                </option>
-              ))}
-            </select>
+            <div className="resource-category-wrap relative mt-1">
+              <select
+                id="res-cat"
+                className={`${fieldClass} appearance-none pr-10`}
+                value={category}
+                onChange={(e) => setCategory(e.target.value as ResourceCategory | "all")}
+              >
+                <option value="all">All categories</option>
+                {(Object.keys(CATEGORY_LABELS) as ResourceCategory[]).map((c) => (
+                  <option key={c} value={c}>
+                    {CATEGORY_LABELS[c]}
+                  </option>
+                ))}
+              </select>
+              <svg className="resource-category-chevron pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
           </div>
         </div>
 
         {allTags.length > 0 && (
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by topic">
-            <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+            <span className="portal-background-copy text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
               Topics
             </span>
             {allTags.map((t) => {
@@ -207,7 +217,7 @@ export function ResourcesBrowsePage({ actorRole }: ResourcesBrowsePageProps) {
           </div>
         )}
 
-        <p className="text-xs text-[var(--color-text-muted)]" aria-live="polite">
+        <p className="portal-background-copy text-[13px] text-[var(--color-text-muted)]" aria-live="polite">
           Showing {visible.length} of {audienceResources.length} resources
         </p>
       </div>
@@ -240,7 +250,7 @@ export function ResourcesBrowsePage({ actorRole }: ResourcesBrowsePageProps) {
               <Card key={r.id} className="flex flex-col overflow-hidden">
                 {embed && (
                   <iframe
-                    className="aspect-video w-full bg-[var(--color-bg-alt)]"
+                    className="resource-card-video aspect-video w-full bg-[var(--color-bg-alt)]"
                     src={embed}
                     title={r.title}
                     loading="lazy"
@@ -252,12 +262,12 @@ export function ResourcesBrowsePage({ actorRole }: ResourcesBrowsePageProps) {
                   <Badge variant="neutral" className="self-start">
                     {CATEGORY_LABELS[r.category] ?? r.category}
                   </Badge>
-                  <h2 className="text-base font-semibold leading-snug text-[var(--color-text)]">
+                  <h2 className="resource-card-title text-base font-semibold leading-snug text-[var(--color-text)]">
                     {r.title}
                   </h2>
 
                   {r.description && (
-                    <p className="line-clamp-2 text-sm text-[var(--color-text-secondary)]">
+                    <p className="resource-card-description text-sm text-[var(--color-text-secondary)]">
                       {r.description}
                     </p>
                   )}

@@ -39,7 +39,7 @@ export function Button({
   return (
     <button
       className={`
-        inline-flex items-center justify-center rounded-[var(--radius-md)] font-medium
+        glass-button glass-button-${variant} inline-flex items-center justify-center rounded-[var(--radius-md)] font-medium
         transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2
         disabled:opacity-50 disabled:cursor-not-allowed
         ${variantStyles[variant]}

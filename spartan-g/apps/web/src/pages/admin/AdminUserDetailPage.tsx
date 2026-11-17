@@ -20,6 +20,7 @@ import {
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card, CardBody, CardHeader } from "../../components/ui/Card";
+import { Avatar } from "../../components/ui/Avatar";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
@@ -407,9 +408,7 @@ export function AdminUserDetailPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-xl font-semibold text-indigo-700">
-              {identityHidden ? 'S' : (target.displayName || target.email || "?").charAt(0).toUpperCase()}
-            </div>
+            <Avatar name={identityHidden ? 'Student' : target.displayName || target.email || '?'} initials={identityHidden ? 'S' : undefined} size="lg" />
             <div className="min-w-0">
               <p className="truncate text-lg font-semibold text-gray-900">
                 {accountLabel || "—"}

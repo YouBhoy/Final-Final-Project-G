@@ -7,6 +7,7 @@ import { ROLE_LABELS } from '@spartan-g/shared-types';
 import type { ProfileDocument } from '@spartan-g/shared-types';
 import { GENDER_OPTIONS } from '../../components/profile/ProfileSettingsForm';
 import { Card, CardBody } from '../../components/ui/Card';
+import { Avatar } from '../../components/ui/Avatar';
 
 // ─── Icons (inline SVG, matching the rest of the app) ───────────
 
@@ -166,9 +167,7 @@ export function StudentProfilePage() {
       <Card className="mb-4">
         <CardBody>
           <div className="flex items-center gap-4 sm:gap-5">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-2xl font-semibold text-[var(--color-primary)] sm:h-20 sm:w-20 sm:text-3xl">
-              {(user.displayName || 'S').charAt(0).toUpperCase()}
-            </div>
+            <Avatar name={user.displayName || 'Student'} size="xl" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h2 className="break-words text-xl font-semibold text-[var(--color-text)]">

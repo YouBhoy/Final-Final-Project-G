@@ -1,0 +1,770 @@
+/* Shared glass design system for authenticated portals and public account pages. */
+.portal-glass-theme {
+  --portal-overlay-top: rgba(70, 6, 16, .60);
+  --portal-overlay-bottom: rgba(40, 4, 10, .78);
+  --portal-background-overlay: linear-gradient(180deg, var(--portal-overlay-top), var(--portal-overlay-bottom));
+  --glass-fill: rgba(255, 255, 255, .10);
+  --glass-tint: rgba(40, 4, 10, .30);
+  --glass-border: rgba(255, 255, 255, .34);
+  --glass-blur: 22px;
+  --glass-radius: 24px;
+  --glass-shadow: 0 12px 36px rgba(20, 0, 5, .28), inset 0 1px 0 rgba(255, 255, 255, .4);
+  --motion-panel: 200ms;
+  --ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --portal-text: #fff;
+  --portal-text-secondary: rgba(255, 255, 255, .86);
+  --portal-text-muted: rgba(255, 255, 255, .76);
+  --portal-accent: #7a0c16;
+  /* Legacy dashboard selectors consume these aliases too. */
+  --student-overlay-top: var(--portal-overlay-top);
+  --student-overlay-bottom: var(--portal-overlay-bottom);
+  --student-background-overlay: var(--portal-background-overlay);
+  --student-glass-fill: var(--glass-fill);
+  --student-glass-border: var(--glass-border);
+  --student-glass-blur: var(--glass-blur);
+  --student-glass-radius: var(--glass-radius);
+  --student-glass-shadow: var(--glass-shadow);
+  --color-bg: transparent;
+  --color-surface: var(--glass-fill);
+  --color-text: #fff;
+  --color-text-secondary: var(--portal-text-secondary);
+  --color-text-muted: var(--portal-text-muted);
+  --color-border: rgba(255, 255, 255, .22);
+  --color-primary: var(--portal-accent);
+  --color-primary-dark: #5b0710;
+  --color-primary-pastel: rgba(255, 255, 255, .16);
+  --font-heading: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  color: var(--portal-text);
+  font-family: var(--font-body);
+  background-color: #30040b;
+  position: relative;
+  isolation: isolate;
+  background-color: #2a0509 !important;
+}
+
+/* Keep the photo and overlay on their own viewport-sized layer. A scrolling
+   page wrapper cannot crop this background at the end of its first viewport. */
+html, body, #root { min-height: 100%; background-color: #2a0509 !important; }
+html { color-scheme: dark; }
+.portal-glass-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #2a0509;
+  background-image: var(--portal-background-overlay, linear-gradient(180deg, rgba(70,6,16,.60), rgba(40,4,10,.78))), var(--portal-photo-url, url('/campus-background.jpg'));
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+.portal-glass-theme.student-portal-warm,
+.portal-glass-theme.staff-portal-warm { --color-primary-pastel: rgba(255,255,255,.12) !important; }
+
+/* One reusable glass surface, with a solid fallback below. */
+.portal-glass-theme .glass,
+.portal-glass-theme .student-glass {
+  color: var(--portal-text);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)), var(--glass-fill) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(120%) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(120%) !important;
+}
+
+.portal-glass-theme .glass-overlay {
+  color: var(--portal-text);
+  background: linear-gradient(rgba(40, 4, 10, .32), rgba(40, 4, 10, .32)), rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .38);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .portal-glass-theme .glass,
+  .portal-glass-theme .student-glass { background: rgba(48, 5, 14, .94) !important; }
+  .portal-glass-theme .glass-overlay { background: rgba(35, 3, 10, .97); }
+}
+
+/* Root and page typography. */
+.portal-glass-theme main { position: relative; isolation: isolate; overflow-x: clip; max-width: 1200px; color: var(--portal-text); }
+.portal-glass-theme main:before { display: none !important; }
+.portal-glass-theme h1,
+.portal-glass-theme h2,
+.portal-glass-theme h3,
+.portal-glass-theme h4 { color: #fff; font-family: var(--font-heading); font-weight: 500; }
+.portal-glass-theme p,
+.portal-glass-theme li,
+.portal-glass-theme label,
+.portal-glass-theme small { color: inherit; }
+.portal-glass-theme main [class*="text-gray-"],
+.portal-glass-theme main [class*="text-slate-"],
+.portal-glass-theme main [class*="text-neutral-"],
+.portal-glass-theme main [class*="text-zinc-"] { color: var(--portal-text-secondary) !important; }
+.portal-glass-theme main [class*="text-[var(--color-text)]"] { color: #fff !important; }
+.portal-glass-theme main [class*="text-[var(--color-text-secondary)]"],
+.portal-glass-theme main [class*="text-[var(--color-text-muted)]"] { color: var(--portal-text-secondary) !important; }
+.portal-glass-theme main [class*="text-[var(--color-primary)]"] { color: #fff !important; }
+.portal-glass-theme main [class*="text-black"],.portal-glass-theme main [class*="text-red-"],.portal-glass-theme main [class*="text-rose-"] { color: #ffd2d5 !important; }
+.portal-glass-theme main [class*="text-amber-"],.portal-glass-theme main [class*="text-yellow-"],.portal-glass-theme main [class*="text-orange-"] { color: #ffe3a1 !important; }
+.portal-glass-theme main [class*="text-green-"],.portal-glass-theme main [class*="text-emerald-"] { color: #b4f4d3 !important; }
+.portal-glass-theme main [class*="text-blue-"],.portal-glass-theme main [class*="text-indigo-"] { color: #d5e8ff !important; }
+
+/* Shared shell: header, navigation, sidebar and footer. */
+.portal-glass-theme header.portal-glass-header {
+  color: #fff;
+  background: linear-gradient(rgba(30, 2, 8, .68), rgba(30, 2, 8, .68)), rgba(255,255,255,.08) !important;
+  border-color: rgba(255, 255, 255, .34) !important;
+  border-radius: 0 0 20px 20px;
+  box-shadow: 0 8px 28px rgba(20, 0, 5, .32);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+.portal-glass-theme header .sd-bell-dot { background: #b21f2d; border: 1.5px solid #fff; }
+.portal-glass-theme .header-icon-button {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 14px;
+  color: #fff !important;
+  background: rgba(255,255,255,.14) !important;
+  transition: background-color var(--motion-panel) var(--ease-standard), border-color var(--motion-panel) var(--ease-standard);
+}
+.portal-glass-theme .header-icon-button:hover { background: rgba(255,255,255,.24) !important; border-color: rgba(255,255,255,.52); }
+.portal-glass-theme .header-icon-button:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px; }
+.portal-glass-theme .header-profile-menu {
+  box-sizing: border-box;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.34);
+  background: linear-gradient(rgba(32,3,10,.56),rgba(32,3,10,.56)),rgba(255,255,255,.18);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+.portal-glass-theme .header-profile-menu-item { min-height: 40px; color: #fff !important; }
+.portal-glass-theme .header-profile-menu-item:hover { background: rgba(255,255,255,.14) !important; }
+.portal-glass-theme .header-profile-menu-item:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px; }
+.portal-glass-theme .header-profile-menu-item:last-child:hover { color: #ffb4b4 !important; background: rgba(220,38,38,.2) !important; }
+.portal-glass-theme .header-profile-menu [role="separator"] { border-color: rgba(255,255,255,.2) !important; }
+.portal-glass-theme .portal-header-brand h1,
+.portal-glass-theme .portal-header-brand p,
+.portal-glass-theme header button,
+.portal-glass-theme header span { color: #fff; }
+.portal-glass-theme .portal-glass-nav {
+  border-radius: 20px;
+  background: linear-gradient(rgba(40, 4, 10, .34), rgba(40, 4, 10, .34)), rgba(255,255,255,.10) !important;
+  border-color: rgba(255, 255, 255, .34) !important;
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+.portal-glass-theme .portal-glass-nav ul { flex-wrap: wrap; overflow: visible; gap: 4px; padding: 4px; }
+.portal-glass-theme .portal-glass-nav a {
+  min-height: 44px;
+  align-items: center;
+  border: 0 !important;
+  border-radius: 14px;
+  color: rgba(255, 255, 255, .94) !important;
+}
+.portal-glass-theme .portal-glass-nav a:hover { background: rgba(255, 255, 255, .16); color: #fff !important; }
+.portal-glass-theme .portal-glass-nav a[aria-current="page"] { background: #fff !important; color: var(--portal-accent) !important; }
+.portal-glass-theme .portal-glass-sidebar { background: linear-gradient(rgba(40,4,10,.55),rgba(40,4,10,.55)),rgba(255,255,255,.10) !important; border-color: var(--glass-border) !important; }
+.portal-glass-theme .portal-glass-sidebar p,
+.portal-glass-theme .portal-glass-sidebar span { color: var(--portal-text-secondary); }
+.portal-glass-theme footer { color: var(--portal-text-secondary); border-color: rgba(255, 255, 255, .3) !important; }
+.portal-glass-theme footer p,
+.portal-glass-theme footer span { color: var(--portal-text-secondary); }
+
+/* Common content surfaces. This also converts existing legacy white cards. */
+.portal-glass-theme main .glass,
+.portal-glass-theme main article,
+.portal-glass-theme main section[class*="rounded"][class*="border"],
+.portal-glass-theme main [class*="bg-white"],
+.portal-glass-theme main [class*="bg-gray-50"],
+.portal-glass-theme main [class*="bg-gray-100"],
+.portal-glass-theme main [class*="bg-slate-50"],
+.portal-glass-theme main [class*="bg-slate-100"],
+.portal-glass-theme main [class*="bg-[var(--color-surface)]"],
+.portal-glass-theme main [class*="bg-[var(--color-bg-alt)]"] {
+  color: #fff;
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)), var(--glass-fill) !important;
+  border-color: rgba(255, 255, 255, .3) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+.portal-glass-theme main article,
+.portal-glass-theme main section[class*="rounded"][class*="border"],
+.portal-glass-theme main [class*="bg-white"][class*="rounded"] { border-radius: 24px; box-shadow: var(--glass-shadow); }
+.portal-glass-theme main article:hover { border-color: rgba(255,255,255,.5) !important; background: linear-gradient(rgba(40,4,10,.24),rgba(40,4,10,.24)), rgba(255,255,255,.16) !important; }
+.portal-glass-theme main [class*="rounded-full"][class*="bg-[var(--color-primary)]/10"] { background: #fff !important; color: var(--portal-accent) !important; }
+.portal-glass-theme main [class*="bg-amber-"],.portal-glass-theme main [class*="bg-yellow-"],.portal-glass-theme main [class*="bg-orange-"] { background: rgba(255,190,75,.2) !important; border-color: rgba(255,220,140,.42) !important; }
+.portal-glass-theme main [class*="bg-green-"],.portal-glass-theme main [class*="bg-emerald-"] { background: rgba(80,220,155,.18) !important; border-color: rgba(168,244,206,.38) !important; }
+.portal-glass-theme main [class*="bg-red-"],.portal-glass-theme main [class*="bg-rose-"] { background: rgba(255,110,120,.18) !important; border-color: rgba(255,196,200,.38) !important; }
+.portal-glass-theme main [class*="bg-blue-"],.portal-glass-theme main [class*="bg-indigo-"] { background: rgba(120,180,255,.18) !important; border-color: rgba(207,228,255,.38) !important; }
+
+/* Student and facilitator inbox rows use a dedicated glass interaction state. */
+.portal-glass-theme .conversation-inbox,
+.portal-glass-theme .fw-inbox {
+  color: #fff !important;
+  display: grid;
+  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
+  border: 1px solid rgba(255,255,255,.34) !important;
+  border-radius: 24px !important;
+  overflow: hidden;
+  background: linear-gradient(var(--glass-tint),var(--glass-tint)),var(--glass-fill) !important;
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+.portal-glass-theme .conversation-list-pane,
+.portal-glass-theme .conversation-list-scroll,
+.portal-glass-theme .fw-conversation-list,
+.portal-glass-theme .fw-thread { background: transparent !important; }
+.portal-glass-theme .conversation-list-pane,
+.portal-glass-theme .fw-conversation-list { border-right: 1px solid rgba(255,255,255,.2) !important; }
+.portal-glass-theme .conversation-thread-header,
+.portal-glass-theme .fw-thread>div.border-b {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff !important;
+  border-color: rgba(255,255,255,.2) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(rgba(40,4,10,.30),rgba(40,4,10,.30)),rgba(255,255,255,.10) !important;
+}
+.portal-glass-theme .conversation-thread-header h3,
+.portal-glass-theme .fw-thread .conversation-thread-header h3 { color: #fff !important; font: 500 18px/1.35 var(--font-heading); }
+.portal-glass-theme .conversation-thread-subtitle { color: rgba(255,255,255,.82) !important; font-size: 13px; }
+.portal-glass-theme .conversation-thread-header :is(button,a):focus-visible,
+.portal-glass-theme .fw-thread :is(button,a):focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.portal-glass-theme .conversation-list-heading { background: rgba(40,4,10,.16); border-color: rgba(255,255,255,.18) !important; }
+.portal-glass-theme .conversation-list-row {
+  min-height: 76px;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,.18);
+  border-left: 3px solid transparent;
+  color: #fff;
+  background: rgba(255,255,255,.04);
+}
+.portal-glass-theme .conversation-list-row:hover { background: rgba(255,255,255,.12) !important; }
+.portal-glass-theme .conversation-list-row.is-active { border-left-color: #fff; background: rgba(255,255,255,.2) !important; }
+.portal-glass-theme .conversation-contact-name { color: #fff !important; font-size: 15px; line-height: 1.35; }
+.portal-glass-theme .conversation-list-preview { color: rgba(255,255,255,.82) !important; font-size: 13px; line-height: 1.4; }
+.portal-glass-theme .conversation-list-time { color: rgba(255,255,255,.72); font-size: 12px; text-align: right; }
+.portal-glass-theme .conversation-unread-count { color: var(--portal-accent) !important; background: #fff !important; }
+.portal-glass-theme .conversation-receipt-icon { color: rgba(255,255,255,.72); }
+.portal-glass-theme .conversation-receipt-icon:not([data-status="read"]) { stroke: rgba(255,255,255,.76) !important; }
+.portal-glass-theme .conversation-receipt-icon[data-status="read"] { stroke: rgba(255,255,255,.96) !important; filter: none !important; }
+.portal-glass-theme .conversation-search-icon { color: rgba(255,255,255,.72); }
+.portal-glass-theme .conversation-search-wrap input::placeholder { color: rgba(255,255,255,.62) !important; }
+.portal-glass-theme .conversation-search-wrap input:focus { outline: 2px solid #fff !important; outline-offset: 2px; }
+.portal-glass-theme .glass-message-own .message-bubble-time { color: #59474a !important; }
+.portal-glass-theme .glass-message-other .message-bubble-time { color: rgba(255,255,255,.82) !important; }
+.portal-glass-theme .conversation-inbox .glass-button-primary:disabled {
+  opacity: 1;
+  color: rgba(255,255,255,.82) !important;
+  background: rgba(255,255,255,.12) !important;
+  border-color: rgba(255,255,255,.3) !important;
+  cursor: not-allowed;
+}
+.portal-glass-theme .glass-composer { border-color: rgba(255,255,255,.2) !important; background: rgba(40,4,10,.2); }
+.portal-glass-theme .glass-composer .glass-input { color: #fff !important; background: rgba(40,4,10,.28) !important; border-color: rgba(255,255,255,.35) !important; }
+.portal-glass-theme .glass-composer .glass-input::placeholder { color: rgba(255,255,255,.62) !important; }
+.portal-glass-theme .glass-composer .glass-input:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px; }
+.portal-glass-theme .glass-composer .glass-button-primary:disabled { opacity: 1; color: rgba(255,255,255,.82) !important; background: rgba(255,255,255,.12) !important; border-color: rgba(255,255,255,.3) !important; }
+.portal-glass-theme .conversation-list-scroll,
+.portal-glass-theme .fw-thread [class*="overflow-y-auto"] { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.35) transparent; }
+.portal-glass-theme .conversation-list-scroll::-webkit-scrollbar,
+.portal-glass-theme .fw-thread [class*="overflow-y-auto"]::-webkit-scrollbar { width: 7px; }
+.portal-glass-theme .conversation-list-scroll::-webkit-scrollbar-track,
+.portal-glass-theme .fw-thread [class*="overflow-y-auto"]::-webkit-scrollbar-track { background: transparent; }
+.portal-glass-theme .conversation-list-scroll::-webkit-scrollbar-thumb,
+.portal-glass-theme .fw-thread [class*="overflow-y-auto"]::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(255,255,255,.35); }
+.portal-glass-theme .conversation-name-suffix { color: rgba(255,255,255,.76); font-size: 12px; font-weight: 500; }
+
+/* Identity, icon and text-on-photo primitives shared across portal routes. */
+.portal-glass-theme .portal-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.8);
+  color: #7a0c16 !important;
+  background: #fff !important;
+  font-weight: 700;
+  line-height: 1;
+}
+.portal-glass-theme .portal-avatar--circle { border-radius: 50%; }
+.portal-glass-theme .portal-avatar--tile { border-radius: 22px; }
+.portal-glass-theme .portal-avatar--xs { width: 32px; height: 32px; font-size: 12px; }
+.portal-glass-theme .portal-avatar--sm { width: 36px; height: 36px; font-size: 13px; }
+.portal-glass-theme .portal-avatar--md { width: 40px; height: 40px; font-size: 14px; }
+.portal-glass-theme .portal-avatar--lg { width: 48px; height: 48px; font-size: 17px; }
+.portal-glass-theme .portal-avatar--xl { width: 80px; height: 80px; font-size: 28px; }
+.portal-glass-theme .portal-avatar--hero { width: 120px; height: 120px; font-size: 38px; }
+.portal-glass-theme .portal-avatar__image { display: block; width: 100%; height: 100%; object-fit: cover; }
+.portal-glass-theme .portal-avatar--hero.student-monogram { border-width: 5px; }
+.portal-glass-theme .facilitator-search-icon { color: rgba(255,255,255,.72); }
+.portal-glass-theme .facilitator-search-icon svg { width: 18px; height: 18px; }
+.portal-glass-theme .portal-background-copy { text-shadow: 0 1px 3px rgba(0,0,0,.45); }
+.portal-glass-theme .resource-page-hero { padding: 32px; border-radius: var(--glass-radius); }
+.portal-glass-theme .resource-page-hero h1 { margin: 0; color: #fff !important; font: 500 clamp(34px,3.3vw,40px)/1.12 var(--font-heading); }
+.portal-glass-theme .resource-page-tagline { margin: 8px 0 0; color: #fff !important; font-size: 18px; font-weight: 500; line-height: 1.4; }
+.portal-glass-theme .resource-page-description { max-width: 70ch; margin: 8px 0 0; color: rgba(255,255,255,.82) !important; font-size: 15px; font-weight: 400; line-height: 1.5; }
+.portal-glass-theme .resource-controls label { text-shadow: 0 1px 3px rgba(0,0,0,.45); }
+.portal-glass-theme .resource-search-wrap input::placeholder { color: rgba(255,255,255,.62) !important; }
+.portal-glass-theme .resource-search-icon,.portal-glass-theme .resource-category-chevron { color: rgba(255,255,255,.72); }
+.portal-glass-theme .resource-card-title { display: -webkit-box; min-height: 4.125em; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.portal-glass-theme .resource-card-description { display: -webkit-box; min-height: 3em; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.portal-glass-theme .facilitator-role-badge { color: #fff !important; background: #684400 !important; border: 1px solid rgba(255,255,255,.3); }
+.portal-glass-theme .portal-icon-tile { color: #fff; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); }
+.portal-glass-theme main .glass-input:focus { outline: 2px solid #fff !important; outline-offset: 2px; }
+.portal-glass-theme :is(input, select, [role="combobox"]):focus-visible { outline: 2px solid #fff !important; outline-offset: 2px; }
+.portal-glass-theme main [role="option"] { color: rgba(255,255,255,.9) !important; }
+.portal-glass-theme main [role="option"]:hover,
+.portal-glass-theme main [role="option"][data-active="true"],
+.portal-glass-theme main [role="option"][aria-selected="true"] { color: var(--portal-accent) !important; background: #fff !important; }
+.portal-glass-theme main [role="option"][aria-selected="true"] { box-shadow: inset 0 0 0 2px rgba(122,12,22,.18); font-weight: 700; }
+
+/* Appointment date and cancellation primitives keep a stable readable surface
+   for every status, including the longer cancelled/rejected content. */
+.portal-glass-theme .appointment-date-tile {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 5rem;
+  width: 5rem;
+  min-height: 5.125rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 15px;
+  color: #fff;
+  background: linear-gradient(rgba(40,4,10,.3),rgba(40,4,10,.3)), rgba(255,255,255,.12);
+}
+.portal-glass-theme .appointment-date-tile .appointment-date-year { color: var(--portal-text-secondary); }
+.portal-glass-theme .appointment-cancellation-note {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 12px;
+  color: #fff;
+  background: rgba(0,0,0,.25);
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.portal-glass-theme .appointment-cancellation-note > span { color: var(--portal-text-secondary); }
+.portal-glass-theme .appointment-status-badge {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+  padding: 2px 9px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.portal-glass-theme .appointment-status-requested { color:#ffd699; background:rgba(120,75,5,.32); border-color:rgba(255,214,153,.5); }
+.portal-glass-theme .appointment-status-accepted { color:#c9ddff; background:rgba(30,80,140,.32); border-color:rgba(201,221,255,.5); }
+.portal-glass-theme .appointment-status-completed { color:#a7f3c0; background:rgba(34,197,94,.22); border-color:rgba(134,239,172,.5); }
+.portal-glass-theme .appointment-status-cancelled { color:#ffb4b4; background:rgba(220,38,38,.28); border-color:rgba(255,150,150,.5); }
+.portal-glass-theme .appointment-status-rejected { color:#ffb4b4; background:rgba(220,38,38,.22); border-color:rgba(255,150,150,.45); }
+.portal-glass-theme .appointment-status-neutral { color:#fff; background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.3); }
+.portal-glass-theme .appointment-status-no-show { color:#ffd699; background:rgba(146,91,8,.3); border-color:rgba(255,214,153,.5); }
+
+/* Inputs/selects, controls, buttons and focus visibility. */
+.portal-glass-theme .glass-input,
+.portal-glass-theme main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.portal-glass-theme main select,
+.portal-glass-theme main textarea {
+  color: #fff !important;
+  background: linear-gradient(rgba(40, 4, 10, .28), rgba(40, 4, 10, .28)), rgba(255, 255, 255, .1) !important;
+  border-color: rgba(255, 255, 255, .4) !important;
+  border-radius: 15px;
+  min-height: 44px;
+}
+.portal-glass-theme input::placeholder,
+.portal-glass-theme textarea::placeholder { color: rgba(255, 255, 255, .68) !important; opacity: 1; }
+.portal-glass-theme select option { color: #fff; background: #26040a; }
+.portal-glass-theme :is(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid #fff !important; outline-offset: 2px; }
+.portal-glass-theme .glass-button { min-height: 44px; border-radius: 14px; font-weight: 600; }
+.portal-glass-theme .glass-button-primary,
+.portal-glass-theme main button[class~="bg-[var(--color-primary)]"],
+.portal-glass-theme main a[class~="bg-[var(--color-primary)]"],
+.portal-glass-theme main button[class~="bg-blue-600"],
+.portal-glass-theme main button[class~="bg-indigo-600"] {
+  background: #fff !important; color: var(--portal-accent) !important; border-color: rgba(255,255,255,.88) !important;
+}
+.portal-glass-theme .glass-button-primary:hover,
+.portal-glass-theme main button[class~="bg-[var(--color-primary)]"]:hover,
+.portal-glass-theme main a[class~="bg-[var(--color-primary)]"]:hover { background: rgba(255,255,255,.9) !important; }
+.portal-glass-theme .glass-button-secondary,
+.portal-glass-theme .glass-button-outline,
+.portal-glass-theme .glass-button-ghost,
+.portal-glass-theme main button[class*="border-[var(--color-border)]"] {
+  color: #fff !important; background: rgba(255,255,255,.12) !important; border-color: rgba(255,255,255,.4) !important;
+}
+.portal-glass-theme .glass-button-secondary:hover,
+.portal-glass-theme .glass-button-outline:hover,
+.portal-glass-theme .glass-button-ghost:hover { background: rgba(255,255,255,.22) !important; }
+
+/* Reusable chips, list rows, tables, menus, dialogs and popovers. */
+.portal-glass-theme .glass-badge,
+.portal-glass-theme main [class*="rounded-full"][class*="border"] { color: #fff !important; background: rgba(255,255,255,.16) !important; border-color: rgba(255,255,255,.4) !important; }
+.portal-glass-theme .glass-row { color: #fff !important; background: linear-gradient(rgba(40,4,10,.24),rgba(40,4,10,.24)),rgba(255,255,255,.08) !important; border: 1px solid rgba(255,255,255,.18) !important; border-radius: 16px; box-shadow: none !important; }
+.portal-glass-theme .glass-row:hover { background: linear-gradient(rgba(40,4,10,.18),rgba(40,4,10,.18)),rgba(255,255,255,.14) !important; }
+.portal-glass-theme main [role="listitem"] { color: #fff; background: rgba(40,4,10,.2); border-color: rgba(255,255,255,.22); }
+.portal-glass-theme main table { color: #fff; border-color: rgba(255,255,255,.24); }
+.portal-glass-theme main thead { background: rgba(40,4,10,.42); color: #fff; }
+.portal-glass-theme main tr { border-color: rgba(255,255,255,.2); }
+.portal-glass-theme main tbody tr:hover { background: rgba(255,255,255,.1); }
+.portal-glass-theme main [role="progressbar"] { background: rgba(255,255,255,.22); }
+.portal-glass-theme main [role="progressbar"]>div { background: #fff; }
+.portal-glass-theme main svg text { fill: rgba(255,255,255,.9); }
+.portal-glass-theme main .recharts-cartesian-grid line { stroke: rgba(255,255,255,.28); }
+.portal-glass-theme main .recharts-cartesian-axis-tick-value { fill: rgba(255,255,255,.88); }
+.portal-glass-theme main [class*="animate-pulse"],.portal-glass-theme main [class*="bg-gray-200"],.portal-glass-theme main [class*="bg-slate-200"] { background: rgba(255,255,255,.2) !important; }
+.portal-glass-theme .glass-overlay,
+.portal-glass-theme [role="dialog"],
+.portal-glass-theme dialog,
+.portal-glass-theme [role="menu"],
+.portal-glass-theme [role="listbox"],
+.portal-glass-theme [class*="shadow-dropdown"],
+.portal-glass-theme [class*="shadow-modal"] {
+  color: #fff;
+  background-color: rgba(35, 3, 10, .92) !important;
+  border-color: rgba(255,255,255,.38) !important;
+  box-shadow: 0 16px 42px rgba(12,0,3,.42), inset 0 1px 0 rgba(255,255,255,.25);
+  -webkit-backdrop-filter: blur(22px) saturate(155%);
+  backdrop-filter: blur(22px) saturate(155%);
+}
+.portal-glass-theme [role="option"] { color: #fff; }
+.portal-glass-theme [role="option"]:hover,
+.portal-glass-theme [role="option"][aria-selected="true"] { color: var(--portal-accent); background: #fff; }
+.portal-glass-theme [role="alert"] { color: #fff; background: rgba(40,4,10,.54); }
+
+/* Older facilitator and admin workspace panels now consume the same glass tokens. */
+.portal-glass-theme .facilitator-focus .ff-panel,
+.portal-glass-theme .facilitator-focus .ff-metric,
+.portal-glass-theme .facilitator-focus .ff-messages a,
+.portal-glass-theme .facilitator-focus .ff-updates button,
+.portal-glass-theme .staff-dashboard section[aria-labelledby="admin-quick-actions"] a {
+  color: #fff !important; background: rgba(40,4,10,.28) !important; border: 1px solid rgba(255,255,255,.3) !important;
+  border-radius: 20px; box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+}
+.portal-glass-theme .facilitator-focus .ff-welcome h1,.portal-glass-theme .facilitator-focus .ff-heading h2,
+.portal-glass-theme .staff-dashboard h1,.portal-glass-theme .staff-dashboard h2 { color: #fff !important; font-family: var(--font-heading); font-weight: 500; }
+.portal-glass-theme .facilitator-focus .ff-welcome p,.portal-glass-theme .facilitator-focus .ff-panel p,
+.portal-glass-theme .facilitator-focus .ff-panel small,.portal-glass-theme .facilitator-focus .ff-panel time,
+.portal-glass-theme .staff-dashboard p { color: var(--portal-text-secondary); }
+.portal-glass-theme .facilitator-focus .ff-kicker,.portal-glass-theme .facilitator-focus .ff-link,
+.portal-glass-theme .facilitator-focus .ff-action-label,.portal-glass-theme .staff-dashboard a[class*="text-[var(--color-primary)]"] { color: #fff !important; }
+.portal-glass-theme .facilitator-focus .ff-primary,.portal-glass-theme .facilitator-focus .ff-secondary,
+.portal-glass-theme .staff-dashboard section[aria-labelledby="admin-quick-actions"] a { min-height: 44px; }
+.portal-glass-theme .facilitator-focus .ff-primary { color: var(--portal-accent) !important; background: #fff !important; border: 1px solid #fff !important; border-radius: 14px; }
+.portal-glass-theme .facilitator-focus .ff-secondary { color: #fff !important; background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.4) !important; border-radius: 14px; }
+.portal-glass-theme .facilitator-focus .ff-status { color: #a8f4ce !important; }
+.portal-glass-theme .facilitator-focus .ff-error { color: #fff; background: rgba(82,10,18,.72); border-color: rgba(255,255,255,.3); }
+.portal-glass-theme .facilitator-focus .ff-urgent { color: #fff; background: rgba(255,110,120,.18) !important; border-color: rgba(255,196,200,.4) !important; }
+.portal-glass-theme .facilitator-focus .ff-next { color: #fff; background: rgba(255,255,255,.1) !important; border-left-color: rgba(255,255,255,.5) !important; }
+.portal-glass-theme .facilitator-focus .ff-badge { color: #fff !important; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 4px 9px; }
+.portal-glass-theme .facilitator-focus .ff-message-action,.portal-glass-theme .facilitator-focus .ff-unread { color: #fff !important; }
+.portal-glass-theme .fw-inbox { color: #fff !important; }
+.portal-glass-theme .fw-conversation-list,.portal-glass-theme .fw-thread {
+  color: #fff !important; background: transparent !important; border-color: rgba(255,255,255,.2) !important;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.portal-glass-theme .fw-caption,.portal-glass-theme .fw-back { color: var(--portal-text-secondary) !important; }
+.portal-glass-theme .staff-profile-banner { color: #fff; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 32px; border: 1px solid rgba(255,255,255,.34); border-radius: 24px; background: rgba(40,4,10,.3); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); }
+.portal-glass-theme .staff-profile-banner h1,.portal-glass-theme .staff-profile-banner p,.portal-glass-theme .staff-profile-banner dd { color: #fff !important; }
+.portal-glass-theme .staff-profile-banner .student-monogram { color: var(--portal-accent); background: #fff; }
+.portal-glass-theme .staff-dashboard>section:first-child { color: #fff !important; background: rgba(40,4,10,.3) !important; border: 1px solid rgba(255,255,255,.34) !important; border-radius: 24px; box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); }
+.portal-glass-theme .staff-dashboard>section:first-child h1,.portal-glass-theme .staff-dashboard>section:first-child p { color: #fff !important; }
+.portal-glass-theme .staff-dashboard button[class~="bg-[var(--color-primary)]"] { color: var(--portal-accent) !important; background: #fff !important; }
+.portal-glass-theme .staff-dashboard section[aria-label="Platform summary"] a { color: #fff !important; background: rgba(255,255,255,.12) !important; border-color: rgba(255,255,255,.35) !important; }
+
+/* Shared metric card used on both student and facilitator dashboards. */
+.portal-glass-theme .portal-stat-card {
+  box-sizing: border-box;
+  display: flex;
+  min-width: 0;
+  min-height: 132px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 16px 18px;
+  border-radius: 16px !important;
+  color: #fff;
+  background: linear-gradient(var(--glass-tint),var(--glass-tint)),var(--glass-fill) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(120%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(120%);
+}
+.portal-glass-theme .portal-stat-card__top { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; }
+.portal-glass-theme .portal-stat-card__label { margin: 0; color: rgba(255,255,255,.9) !important; font: 500 14px/1.35 var(--font-body); }
+.portal-glass-theme .portal-stat-card__label--eyebrow { font-size: 11px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+.portal-glass-theme .portal-stat-card__value { margin: 2px 0 0; color: #fff !important; font: 500 40px/1 var(--font-heading); }
+.portal-glass-theme .portal-stat-card__caption { margin: 0; overflow: hidden; color: rgba(255,255,255,.82) !important; font: 400 13px/1.4 var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+.portal-glass-theme .portal-stat-card__icon { display: inline-flex; width: 36px; height: 36px; flex: none; align-items: center; justify-content: center; border-radius: 12px; color: #fff; background: rgba(255,255,255,.16); }
+
+/* Facilitator panels and message list use the shared tokenized glass surface.
+   These rules live after legacy page CSS so old cream backgrounds cannot win. */
+.portal-glass-theme .facilitator-focus .ff-panel {
+  color: #fff !important;
+  background: linear-gradient(var(--glass-tint),var(--glass-tint)),var(--glass-fill) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 24px !important;
+  box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(120%) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(120%) !important;
+}
+.portal-glass-theme .facilitator-focus .ff-metric { min-height: 0; padding: 15px 17px; }
+.portal-glass-theme .facilitator-focus .ff-metric .portal-stat-card__value { color: #fff !important; font: 500 40px/1 var(--font-heading) !important; }
+.portal-glass-theme .facilitator-focus .ff-metric .portal-stat-card__caption { color: rgba(255,255,255,.82) !important; font-size: 13px; }
+.portal-glass-theme .facilitator-focus .ff-messages a {
+  min-width: 0;
+  padding: 14px !important;
+  color: #fff !important;
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+  transition: background-color .16s ease,border-color .16s ease;
+}
+.portal-glass-theme .facilitator-focus .ff-messages a:hover { background: rgba(255,255,255,.14) !important; border-color: rgba(255,255,255,.34) !important; }
+.portal-glass-theme .facilitator-focus .ff-messages h3 { color: #fff !important; font-size: 15px; font-weight: 600; }
+.portal-glass-theme .facilitator-focus .ff-messages h3.ff-is-unread { font-weight: 750; }
+.portal-glass-theme .facilitator-focus .ff-messages p { color: var(--portal-text-secondary) !important; }
+.portal-glass-theme .facilitator-focus .ff-message-action { color: #fff !important; }
+.portal-glass-theme .facilitator-focus .ff-message-action b { padding: 4px 8px; border-radius: 999px; color: var(--portal-accent) !important; background: #fff !important; font-size: 11px; }
+.portal-glass-theme .facilitator-focus .ff-badge { padding: 4px 10px; color: var(--portal-accent) !important; background: #fff !important; border-color: rgba(255,255,255,.9) !important; font-size: 12px; font-weight: 600; }
+.portal-glass-theme .facilitator-focus .ff-link { color: #fff !important; }
+.portal-glass-theme .facilitator-focus .ff-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.portal-glass-theme .facilitator-focus .ff-panel > .ff-link { min-height: 44px; margin-top: 12px; padding: 4px 8px; font-size: 14px; }
+.portal-glass-theme .facilitator-focus .ff-heading { margin-bottom: 16px; }
+.portal-glass-theme .facilitator-focus .ff-side { gap: 20px; background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+.portal-glass-theme .facilitator-focus .ff-update-copy { display: inline-flex; min-width: 0; align-items: center; gap: 9px; overflow: hidden; }
+.portal-glass-theme .facilitator-focus .ff-update-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-glass-theme .facilitator-focus .ff-update-unread-dot { display: inline-block; width: 8px; height: 8px; flex: none; border-radius: 50%; background: #fff; }
+.portal-glass-theme .facilitator-focus .ff-update-title--unread { font-weight: 700; }
+.portal-glass-theme .facilitator-focus .ff-updates button.glass-row { min-height: 52px; padding: 12px 14px !important; color: #fff !important; background: rgba(255,255,255,.08) !important; border: 1px solid rgba(255,255,255,.18) !important; border-radius: 16px !important; box-shadow: none !important; }
+.portal-glass-theme .facilitator-focus .ff-updates button.glass-row:hover:not(:disabled) { background: rgba(255,255,255,.14) !important; border-color: rgba(255,255,255,.32) !important; }
+.portal-glass-theme .facilitator-focus .ff-updates button.glass-row:disabled { opacity: 1; }
+.portal-glass-theme .facilitator-focus .ff-action-label { color: #fff !important; text-decoration: none; }
+.portal-glass-theme .facilitator-focus .ff-updates button:hover .ff-action-label,
+.portal-glass-theme .facilitator-focus .ff-messages a:hover .ff-action-label { text-decoration: underline; text-underline-offset: 4px; }
+.portal-glass-theme .facilitator-focus .ff-kicker { color: rgba(255,255,255,.9) !important; }
+.portal-glass-theme .facilitator-focus .ff-panel p,
+.portal-glass-theme .facilitator-focus .ff-panel small,
+.portal-glass-theme .facilitator-focus .ff-panel time { color: var(--portal-text-secondary) !important; }
+.portal-glass-theme .facilitator-focus .ff-severity-count--high { color: #ffb4b4; }
+.portal-glass-theme .facilitator-focus .ff-severity-count--medium { color: #ffd699; }
+.portal-glass-theme .facilitator-focus .ff-severity-count--low { color: #a7f3c0; }
+.portal-glass-theme .glass-badge--severity-high { color: #ffb4b4 !important; background: rgba(90,14,24,.88) !important; border: 1px solid rgba(255,180,180,.56) !important; }
+.portal-glass-theme .glass-badge--severity-medium { color: #ffd699 !important; background: rgba(78,48,5,.92) !important; border: 1px solid rgba(255,214,153,.55) !important; }
+.portal-glass-theme .glass-badge--severity-low { color: #a7f3c0 !important; background: rgba(12,67,44,.92) !important; border: 1px solid rgba(167,243,192,.5) !important; }
+
+/* Keep the sticky app bar above scrolling page layers and prevent decorative
+   content-shell pseudo-elements from painting through its lower edge. */
+.portal-glass-theme .portal-glass-content::before,
+.portal-glass-theme .portal-glass-content::after { content: none !important; display: none !important; }
+.portal-glass-theme header.portal-glass-header { z-index: 50 !important; isolation: isolate; background: linear-gradient(rgba(40,4,10,.84),rgba(40,4,10,.84)),rgba(255,255,255,.08) !important; }
+.portal-glass-theme .staff-profile-banner {
+  display: grid;
+  grid-template-columns: minmax(0,1.3fr) minmax(220px,.8fr) minmax(220px,.9fr);
+  align-items: center;
+  gap: 28px;
+  padding: 32px;
+}
+.portal-glass-theme .staff-profile-main { min-width: 0; align-items: center; gap: 22px; }
+.portal-glass-theme .staff-profile-copy { min-width: 0; }
+.portal-glass-theme .staff-profile-copy .student-eyebrow { margin: 0 0 8px; color: rgba(255,255,255,.82) !important; font: 600 12px/1.4 var(--font-body); letter-spacing: .12em; text-transform: uppercase; }
+.portal-glass-theme .staff-profile-copy h1 { margin: 0; overflow-wrap: anywhere; line-height: 1.08; }
+.portal-glass-theme .staff-profile-copy .student-email { margin-top: 8px; color: rgba(255,255,255,.9) !important; }
+.portal-glass-theme .staff-profile-meta { display: grid; min-width: 0; gap: 18px; margin: 0; }
+.portal-glass-theme .staff-profile-meta dt { margin: 0 0 5px; color: rgba(255,255,255,.76) !important; font: 600 12px/1.4 var(--font-body); letter-spacing: .12em; text-transform: uppercase; }
+.portal-glass-theme .staff-profile-meta dd { margin: 0; color: #fff !important; font-size: 14px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.portal-glass-theme .staff-profile-footer { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: 14px; }
+.portal-glass-theme .staff-profile-footer p { margin: 0; color: rgba(255,255,255,.9) !important; line-height: 1.5; }
+.portal-glass-theme .student-profile-banner.staff-profile-banner .student-soft-button { min-height: 44px; padding: 10px 16px; border: 1px solid rgba(255,255,255,.9); border-radius: 14px; color: var(--portal-accent) !important; background: #fff !important; font-weight: 600; }
+.portal-glass-theme .analytics-bar-fill { background: #fff !important; }
+.portal-glass-theme .facilitator-focus .ff-action-label { text-decoration: none; }
+.portal-glass-theme .facilitator-focus a:hover .ff-action-label { text-decoration: underline; text-underline-offset: 4px; }
+
+/* Conversation bubbles and composer retain clear sender distinction. */
+.portal-glass-theme .glass-message-own { color: var(--portal-accent) !important; background: #fff !important; border: 1px solid rgba(255,255,255,.9); }
+.portal-glass-theme .glass-message-other { color: #fff !important; background: rgba(40,4,10,.36) !important; border: 1px solid rgba(255,255,255,.3); }
+.portal-glass-theme .glass-composer { border-color: rgba(255,255,255,.3); background: rgba(40,4,10,.3); }
+
+/* Auth pages and standalone public pages also use the same photo and glass language. */
+.portal-glass-theme .analytics-bar-track { background: rgba(255,255,255,.22) !important; }
+.portal-glass-theme .sd-donut-figure { display:flex; min-height:220px; align-items:center; gap:16px; overflow:visible; }
+.portal-glass-theme .sd-donut-chart { width:190px; height:190px; flex:0 0 190px; border-radius:50%; padding:24px; }
+.portal-glass-theme .sd-donut-hole { display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; gap:2px; border:1px solid rgba(255,255,255,.4); border-radius:50%; background:rgba(40,4,10,.44); color:#fff; text-align:center; }
+.portal-glass-theme .sd-donut-hole strong { color:#fff; font:600 26px/1.1 var(--font-heading); }
+.portal-glass-theme .sd-donut-hole span { color:rgba(255,255,255,.9); font:500 13px/1.4 var(--font-body); }
+.portal-glass-theme .sd-donut-figure ul { min-width:0; flex:1; }
+.portal-glass-theme .sd-donut-figure li { justify-content:flex-start; flex-wrap:wrap; color:rgba(255,255,255,.9); }
+.portal-glass-theme .sd-line-chart line { stroke:rgba(255,255,255,.42) !important; }
+.portal-glass-theme .sd-line-chart polyline { stroke:#fff !important; }
+.portal-glass-theme .sd-line-chart circle { fill:#7a0c16 !important; stroke:#fff !important; }
+.portal-glass-theme .sd-line-chart text { fill:rgba(255,255,255,.9) !important; }
+.portal-glass-theme .glass-info-banner { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border:1px solid rgba(201,221,255,.4); border-radius:16px; background:linear-gradient(rgba(40,4,10,.30),rgba(40,4,10,.30)),rgba(255,255,255,.10); color:rgba(255,255,255,.92); font-size:14px; line-height:1.5; box-shadow:var(--glass-shadow); -webkit-backdrop-filter:blur(22px) saturate(120%); backdrop-filter:blur(22px) saturate(120%); }
+.portal-glass-theme .glass-info-banner svg { flex:none; margin-top:1px; color:rgba(255,255,255,.9); }
+.portal-glass-theme .staff-portal-warm .students-glass-table { width:100%; border-collapse:collapse; color:#fff; }
+.portal-glass-theme .staff-portal-warm .students-glass-table th { background:rgba(40,4,10,.22); color:rgba(255,255,255,.82); border-bottom:1px solid rgba(255,255,255,.18); }
+.portal-glass-theme .staff-portal-warm .students-glass-table td { color:rgba(255,255,255,.9); border-bottom:1px solid rgba(255,255,255,.18); }
+.portal-glass-theme .staff-portal-warm .students-glass-table tbody tr { background:transparent; }
+.portal-glass-theme .staff-portal-warm .students-glass-table tbody tr:hover { background:rgba(255,255,255,.08); }
+.portal-glass-theme .staff-portal-warm .students-glass-table button[class*="outline"] { color:#fff; background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.3); }
+.portal-glass-theme .sd-donut-figure .sd-donut-hole { background:rgba(40,4,10,.44); }
+.portal-glass-theme .appointment-action-secondary,.portal-glass-theme .appointment-action-danger,.portal-glass-theme .appointment-action-warning { min-height:44px; border-radius:14px; font-weight:600; }
+.portal-glass-theme .appointment-action-danger { color:#ffb4b4 !important; background:rgba(220,38,38,.18) !important; border-color:rgba(255,150,150,.5) !important; }
+.portal-glass-theme .appointment-action-warning { color:#ffd699 !important; background:rgba(146,91,8,.2) !important; border-color:rgba(255,214,153,.5) !important; }
+.portal-glass-theme .fw-appointments .appointment-history-content { align-items:center; }
+.portal-glass-theme .fw-appointments .appointment-history-copy { min-width:0; flex:1 1 auto; }
+.portal-glass-theme .fw-appointments .appointment-history-actions { flex:none; }
+.portal-glass-theme .fw-hours .work-hours-day-row { background:linear-gradient(rgba(40,4,10,.24),rgba(40,4,10,.24)),rgba(255,255,255,.08) !important; }
+.portal-glass-theme .fw-hours .work-hours-edit { min-height:44px; }
+@media(max-width:640px){ .portal-glass-theme .sd-donut-figure { min-height:0; flex-wrap:wrap; justify-content:center; } .portal-glass-theme .sd-donut-figure ul { width:100%; flex:1 1 100%; } }
+@media(max-width:640px){ .portal-glass-theme .fw-appointments .appointment-history-content { align-items:flex-start; flex-direction:column; } .portal-glass-theme .fw-appointments .appointment-history-actions { width:100%; justify-content:flex-end; } }
+
+/* Auth pages and standalone public pages also use the same photo and glass language. */
+.sg-public {
+  --portal-overlay-top: rgba(70, 6, 16, .72);
+  --portal-overlay-bottom: rgba(40, 4, 10, .84);
+  --portal-accent: #7a0c16;
+  --glass-shadow: 0 12px 36px rgba(20,0,5,.28), inset 0 1px 0 rgba(255,255,255,.4);
+  color: #fff !important;
+  background-color: #30040b !important;
+  background-image: linear-gradient(180deg, var(--portal-overlay-top), var(--portal-overlay-bottom)), url('/campus-background.jpg') !important;
+  background-size: cover !important;
+  background-position: center top !important;
+  background-attachment: fixed;
+  font-family: 'Inter', sans-serif;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+.sg-public * { min-width: 0; }
+.sg-public h1,.sg-public h2,.sg-public h3,.sg-public h4 { color: #fff; font-family: 'Fraunces', Georgia, serif; font-weight: 500; }
+.sg-public h1 em,.sg-public h2 em { color: rgba(255,255,255,.92) !important; }
+.sg-public p,.sg-public label,.sg-public small { color: rgba(255,255,255,.86); }
+.sg-public .eyebrow,.sg-public .muted,.sg-public .resource-count,.sg-public .resource-open,.sg-public .textlink { color: rgba(255,255,255,.88) !important; }
+.sg-public .auth { background: transparent !important; }
+.sg-public.portal-public-auth aside { color: #fff; background: rgba(40,4,10,.22) !important; -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); }
+.sg-public.portal-public-auth aside>[class*="absolute"][class*="inset-0"] { background: rgba(40,4,10,.34) !important; }
+.sg-public.portal-public-auth [class*="rounded-[2rem]"][class*="bg-white"] { color: #fff !important; background: rgba(40,4,10,.4) !important; border: 1px solid rgba(255,255,255,.34) !important; box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); }
+.sg-public .glass-button-primary { color: var(--portal-accent) !important; background: #fff !important; border-color: #fff !important; }
+.sg-public.sign-in-warm .auth-story,.sg-public.sign-in-warm .auth-form { color: #fff !important; background: rgba(40,4,10,.36) !important; border-color: rgba(255,255,255,.34) !important; }
+.sg-public.sign-in-warm .auth-story h1,.sg-public.sign-in-warm .auth-story h2,.sg-public.sign-in-warm .auth-story .eyebrow,
+.sg-public.sign-in-warm .auth-story .brand,.sg-public.sign-in-warm .auth-story .brand small { color: #fff !important; }
+.sg-public .auth-form form label,.sg-public .auth-form .back-home,.sg-public .auth-form .policy-overview summary { color: rgba(255,255,255,.92) !important; }
+.sg-public .auth-form .glass-button-primary { color: var(--portal-accent) !important; background: #fff !important; }
+.sg-public .auth-form form button.glass-button-primary { color: var(--portal-accent) !important; background: #fff !important; border-color: #fff !important; }
+.sg-public .auth-form,.sg-public .auth-story,.sg-public .card,.sg-public .feature,.sg-public .quick,.sg-public .appointment,.sg-public .compact-stats,.sg-public [class*="panel"],.sg-public [class*="modal"] {
+  color: #fff !important;
+  background: rgba(40,4,10,.36) !important;
+  border: 1px solid rgba(255,255,255,.34) !important;
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+.sg-public .resource-detail,.sg-public .resource-row,.sg-public .resource-link,.sg-public .library-help,.sg-public .library-state,.sg-public .library-filters,
+.sg-public .service-item,.sg-public .faq-list details,.sg-public .journey-list li,.sg-public .closing,.sg-public .safe-space-note,
+.sg-public .android-install-card,.sg-public .android-qr-card,.sg-public .android-checksum,.sg-public .android-integrity,.sg-public .notice {
+  color: #fff !important; background: rgba(40,4,10,.34) !important; border-color: rgba(255,255,255,.32) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+}
+.sg-public .resource-tags span,.sg-public .pill,.sg-public .android-qr-badge { color: #fff !important; background: rgba(255,255,255,.16) !important; border-color: rgba(255,255,255,.35) !important; }
+.sg-public .public-header,.sg-public .android-download-header,.sg-public .header,.sg-public .topnav { color: #fff !important; background: rgba(40,4,10,.42) !important; border-color: rgba(255,255,255,.3) !important; }
+.sg-public .public-header a,.sg-public .android-download-header a,.sg-public .public-links a { color: #fff; }
+.sg-public .public-header .registration-link { color: #fff !important; }
+.sg-public .brand strong,.sg-public .brand small { color: #fff !important; }
+.sg-public .footer,.sg-public .library-main.small,.sg-public .android-download-footer { color: rgba(255,255,255,.82); border-color: rgba(255,255,255,.28); }
+.sg-public .public-main,.sg-public .library-main,.sg-public .android-download-main,.sg-public .services-section,.sg-public .resource-showcase,
+.sg-public .safe-space-note,.sg-public .how-section,.sg-public .faq-section,.sg-public .institution-line,.sg-public .closing { background: transparent !important; }
+.sg-public.landing .carousel-hero,.sg-public.landing .public-main,.sg-public .android-download-hero { background: transparent !important; }
+.sg-public.landing .frosted-copy:before { background: rgba(35,4,10,.58) !important; }
+.sg-public.landing .closing { background: rgba(40,4,10,.34) !important; border: 1px solid rgba(255,255,255,.3); border-radius: 24px; padding: 28px; }
+.sg-public.landing p { color: rgba(255,255,255,.88) !important; }
+.sg-public.landing .textlink { color: #fff !important; }
+.sg-public.landing .service-item,.sg-public.landing .resource-link,.sg-public .faq-list details,.sg-public .journey-list li {
+  color: #fff !important; background: rgba(40,4,10,.34) !important; border-color: rgba(255,255,255,.32) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(155%); backdrop-filter: blur(20px) saturate(155%);
+}
+.sg-public input,.sg-public select,.sg-public textarea { color: #fff !important; background: rgba(40,4,10,.34) !important; border-color: rgba(255,255,255,.4) !important; }
+.sg-public input::placeholder,.sg-public textarea::placeholder { color: rgba(255,255,255,.68) !important; }
+.sg-public [role="alert"],.sg-public [aria-invalid="true"]+p { color: #ffd2d5 !important; background: rgba(82,10,18,.56) !important; border-color: rgba(255,196,200,.38) !important; }
+.sg-public button[type="submit"],.sg-public .button-primary,.sg-public a.button-primary { color: var(--portal-accent) !important; background: #fff !important; border-radius: 14px; min-height: 44px; }
+.sg-public .btn { color: #fff !important; background: rgba(255,255,255,.12) !important; border-color: rgba(255,255,255,.4) !important; border-radius: 14px; }
+.sg-public .btn.primary,.sg-public .primary { color: var(--portal-accent) !important; background: #fff !important; border-color: rgba(255,255,255,.9) !important; }
+.sg-public a,.sg-public button { transition: background-color .18s ease, border-color .18s ease; }
+.sg-public :is(a,button,input,select,textarea):focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+@media (max-width: 767px) {
+  .portal-glass-theme { background-color: #2a0509 !important; }
+  .portal-glass-background { background-position: center top; }
+  .sg-public { background-attachment: scroll; background-position: center top; }
+  .portal-glass-theme main { padding-inline: 1rem; }
+  .portal-glass-theme .portal-glass-nav ul { justify-content: flex-start; }
+  .portal-glass-theme .conversation-inbox,.portal-glass-theme .fw-inbox { grid-template-columns: minmax(0,1fr); }
+  .portal-glass-theme .fw-inbox { display: grid; }
+  .portal-glass-theme .fw-conversation-list,.portal-glass-theme .fw-thread { min-width: 0; }
+  .portal-glass-theme .fw-conversation-list { border-right: 0 !important; }
+  .portal-glass-theme .conversation-thread-header { padding: 12px 16px; }
+  .portal-glass-theme header.portal-glass-header { border-radius: 0 0 16px 16px; }
+  .portal-glass-theme .staff-profile-banner { grid-template-columns: minmax(0,1fr); gap: 22px; padding: 24px; }
+  .portal-glass-theme .staff-profile-meta { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .portal-glass-theme .staff-profile-footer { align-items: flex-start; }
+  .sg-public .library-main { width: 100%; max-width: 100%; padding-inline: 20px; }
+  .sg-public .library-lead,.sg-public .library-help h2 { max-width: 100%; overflow-wrap: anywhere; }
+  .sg-public .library-filters label { width: 100%; }
+  .sg-public .auth { grid-template-columns: minmax(0, 1fr); }
+  .sg-public .auth { width: 100%; max-width: 100vw; }
+  .sg-public .auth-story,.sg-public .auth-form,.sg-public .auth-form form,.sg-public .auth-story>div { width: 100%; max-width: 100%; min-width: 0; }
+  .sg-public .auth-story,.sg-public .auth-form { box-sizing: border-box; }
+  .sg-public .auth-story h2,.sg-public .auth-story .story-copy,.sg-public .auth-form h1,.sg-public .auth-form form { width: 100%; }
+  .sg-public .auth-story h2,.sg-public .auth-form h1,.sg-public .auth-form p,.sg-public .auth-form label,
+  .sg-public .library-main h1,.sg-public .library-main h2,.sg-public .library-main p { max-width: 100%; white-space: normal !important; overflow-wrap: anywhere; }
+  .sg-public .auth-form form input,.sg-public .auth-form form select,.sg-public .auth-form form textarea { width: 100%; max-width: 100%; }
+  .sg-public .auth-form form input,.sg-public .auth-form form select,.sg-public .auth-form form textarea { box-sizing: border-box; }
+  .sg-public .auth-form form button[type="submit"],.sg-public .auth-form form button.glass-button-primary { color: var(--portal-accent) !important; background: #fff !important; }
+  .sg-public .library-main { width: 100%; max-width: 100%; box-sizing: border-box; }
+  .sg-public .library-main>* { max-width: 100%; }
+  .sg-public .library-main h1,.sg-public .library-main h2,.sg-public .library-main p { width: 100%; }
+}
+
+@media (max-width: 420px) {
+  .portal-glass-theme .portal-glass-header>div { gap: 8px; padding-inline: 12px; }
+  .portal-glass-theme .portal-glass-header>div>.flex.items-center.gap-3 { gap: 8px; }
+  .portal-glass-theme .portal-header-brand { min-width: 0; gap: 8px; }
+  .portal-glass-theme .portal-header-brand>div:last-child { min-width: 0; }
+  .portal-glass-theme .portal-header-brand p { max-width: 26vw; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .portal-glass-theme header .flex.items-center.gap-1 { gap: 4px; }
+}
+
+@media (min-width: 768px) and (max-width: 1050px) {
+  .portal-glass-theme .staff-profile-banner { grid-template-columns: minmax(0,1fr) minmax(220px,.8fr); }
+  .portal-glass-theme .staff-profile-footer { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-glass-theme *, .sg-public * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

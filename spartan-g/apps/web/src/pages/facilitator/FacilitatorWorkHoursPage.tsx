@@ -115,17 +115,17 @@ export function FacilitatorWorkHoursPage() {
             const isEditing = editingDay === index;
 
             return (
-              <div key={index} className="flex items-center gap-4 p-3 border rounded-lg">
+              <div key={index} className="glass-row work-hours-day-row flex items-center gap-4 p-3 border rounded-lg">
                 <button
                   aria-label={day+" availability"}
                   aria-pressed={isActive}
                   onClick={() => handleToggleDay(index)}
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                    isActive ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                    isActive ? 'bg-white border-white text-[#7a0c16]' : 'border-white/60'
                   }`}
                 >
                   {isActive && (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 text-[#7a0c16]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
@@ -141,25 +141,25 @@ export function FacilitatorWorkHoursPage() {
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="border rounded px-2 py-1 text-sm"
+                      className="glass-input border rounded px-2 py-1 text-sm"
                     />
                     <span className="text-gray-500">to</span>
                     <input
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="border rounded px-2 py-1 text-sm"
+                      className="glass-input border rounded px-2 py-1 text-sm"
                     />
                     <button
                       onClick={() => handleSaveTime(index)}
                       disabled={saving}
-                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
+                      className="glass-button glass-button-primary px-3 py-1 text-xs disabled:opacity-60"
                     >
                       {saving ? 'Saving...' : 'Save'}
                     </button>
                     <button
                       onClick={() => setEditingDay(null)}
-                      className="px-3 py-1 text-gray-600 text-xs hover:text-gray-800"
+                      className="glass-button glass-button-outline px-3 py-1 text-xs"
                     >
                       Cancel
                     </button>
@@ -173,7 +173,7 @@ export function FacilitatorWorkHoursPage() {
                 {!isEditing && (
                   <button
                     onClick={() => startEdit(index)}
-                    className="text-xs text-blue-600 hover:text-blue-800"
+                    className="glass-button glass-button-outline work-hours-edit px-3 py-1 text-xs"
                   >
                     {isActive ? 'Edit' : 'Set Hours'}
                   </button>

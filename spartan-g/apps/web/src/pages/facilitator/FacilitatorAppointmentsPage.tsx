@@ -181,37 +181,36 @@ export function FacilitatorAppointmentsPage() {
         ) : (
           <div className="space-y-3">
             {pendingRequests.map(apt => (
-              <div key={apt.id} className="border rounded-lg p-4">
+              <div key={apt.id} className="glass-row appointment-list-row border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
-                    <p className="text-sm text-gray-500">{formatDateTime(apt.scheduledAt)}</p>
-                    <p className="text-xs text-gray-400">{apt.durationMinutes} minutes</p>
+                    <p className="text-[15px] font-semibold text-white">{studentNames[apt.studentId] || 'Student'}</p>
+                    <p className="text-[13px] text-gray-500">{formatDateTime(apt.scheduledAt)} · {apt.durationMinutes} minutes</p>
                   </div>
                   <AppointmentStatusBadge status={apt.status} />
                 </div>
-                <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Student request</p>
-                  <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{getStudentRequestText(apt)}</p>
+                <div className="glass-row mb-3 rounded-2xl px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Student request</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-500">{getStudentRequestText(apt)}</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => handleAction('accept', apt.id)}
                     disabled={actionLoading === apt.id}
-                    className="px-4 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400"
+                    className="glass-button glass-button-primary px-4 py-1.5 text-sm disabled:bg-gray-400"
                   >
                     Accept
                   </button>
                   <button
                     onClick={() => handleAction('reschedule', apt.id)}
                     disabled={actionLoading === apt.id}
-                    className="px-4 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 disabled:bg-gray-400"
+                    className="glass-button glass-button-outline appointment-action-secondary px-4 py-1.5 text-sm disabled:bg-gray-400"
                   >
                     Reschedule
                   </button>
                   <button
                     onClick={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
-                    className="px-4 py-1.5 text-gray-700 text-sm border rounded hover:bg-gray-50"
+                    className="glass-button glass-button-outline appointment-action-secondary px-4 py-1.5 text-sm"
                   >
                     Notes
                   </button>
@@ -232,39 +231,38 @@ export function FacilitatorAppointmentsPage() {
         ) : (
           <div className="space-y-3">
             {upcoming.map(apt => (
-              <div key={apt.id} className="border rounded-lg p-4">
+              <div key={apt.id} className="glass-row appointment-list-row border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
-                    <p className="text-sm text-gray-500">{formatDateTime(apt.scheduledAt)}</p>
-                    <p className="text-xs text-gray-400">{apt.durationMinutes} minutes</p>
+                    <p className="text-[15px] font-semibold text-white">{studentNames[apt.studentId] || 'Student'}</p>
+                    <p className="text-[13px] text-gray-500">{formatDateTime(apt.scheduledAt)} · {apt.durationMinutes} minutes</p>
                   </div>
                   <AppointmentStatusBadge status={apt.status} />
                 </div>
                 <div className="flex gap-2 mt-3 flex-wrap">
                   <button
                     onClick={() => { setSelectedAppointment(apt); setOutcomeNotes(''); }}
-                    className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    className="glass-button glass-button-primary px-4 py-1.5 text-sm"
                   >
                     Complete
                   </button>
                   <button
                     onClick={() => handleAction('no-show', apt.id)}
                     disabled={actionLoading === apt.id}
-                    className="px-4 py-1.5 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:bg-gray-400"
+                    className="glass-button glass-button-outline appointment-action-warning px-4 py-1.5 text-sm disabled:bg-gray-400"
                   >
                     No Show
                   </button>
                   <button
                     onClick={() => handleAction('cancel', apt.id)}
                     disabled={actionLoading === apt.id}
-                    className="px-4 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:bg-gray-400"
+                    className="glass-button glass-button-outline appointment-action-danger px-4 py-1.5 text-sm disabled:bg-gray-400"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
-                    className="px-4 py-1.5 text-gray-700 text-sm border rounded hover:bg-gray-50"
+                    className="glass-button glass-button-outline appointment-action-secondary px-4 py-1.5 text-sm"
                   >
                     Notes
                   </button>
@@ -283,7 +281,7 @@ export function FacilitatorAppointmentsPage() {
           </h2>
           <div className="space-y-3">
             {rescheduleRequests.map(apt => (
-              <div key={apt.id} className="border rounded-lg p-4 bg-amber-50">
+              <div key={apt.id} className="glass-row appointment-list-row border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <p className="font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
@@ -317,7 +315,7 @@ export function FacilitatorAppointmentsPage() {
             {past.map(apt => {
               const isExpanded = expandedPastId === apt.id;
               return (
-                <div key={apt.id} className="border rounded-lg p-4 bg-gray-50">
+                  <div key={apt.id} className="glass-row appointment-list-row border rounded-lg p-4">
                   <div className="flex justify-between items-start gap-3">
                     <div>
                       <p className="font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
@@ -329,7 +327,7 @@ export function FacilitatorAppointmentsPage() {
                       <button
                         onClick={() => setExpandedPastId(isExpanded ? null : apt.id)}
                         aria-expanded={isExpanded}
-                        className="px-3 py-1.5 text-sm font-medium text-gray-700 border rounded hover:bg-gray-100"
+                        className="glass-button glass-button-outline appointment-action-secondary px-3 py-1.5 text-sm"
                       >
                         {isExpanded ? 'Close' : 'Edit'}
                       </button>
@@ -339,34 +337,34 @@ export function FacilitatorAppointmentsPage() {
                     <div className="flex gap-2 mt-3 flex-wrap border-t pt-3">
                       <button
                         onClick={() => { setSelectedAppointment(apt); setOutcomeNotes(''); }}
-                        className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                        className="glass-button glass-button-primary px-4 py-1.5 text-sm"
                       >
                         Complete
                       </button>
                       <button
                         onClick={() => handleAction('no-show', apt.id)}
                         disabled={actionLoading === apt.id}
-                        className="px-4 py-1.5 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:bg-gray-400"
+                        className="glass-button glass-button-outline appointment-action-warning px-4 py-1.5 text-sm disabled:bg-gray-400"
                       >
                         No Show
                       </button>
                       <button
                         onClick={() => handleAction('cancel', apt.id)}
                         disabled={actionLoading === apt.id}
-                        className="px-4 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:bg-gray-400"
+                        className="glass-button glass-button-outline appointment-action-danger px-4 py-1.5 text-sm disabled:bg-gray-400"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => handleAction('reschedule', apt.id)}
                         disabled={actionLoading === apt.id}
-                        className="px-4 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 disabled:bg-gray-400"
+                        className="glass-button glass-button-outline appointment-action-secondary px-4 py-1.5 text-sm disabled:bg-gray-400"
                       >
                         Reschedule
                       </button>
                       <button
                         onClick={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
-                        className="px-4 py-1.5 text-gray-700 text-sm border rounded hover:bg-gray-50"
+                        className="glass-button glass-button-outline appointment-action-secondary px-4 py-1.5 text-sm"
                       >
                         Notes
                       </button>
@@ -389,18 +387,18 @@ export function FacilitatorAppointmentsPage() {
             {history.map(apt => {
               const isExpanded = expandedHistoryId === apt.id;
               return (
-                <div key={apt.id} className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{studentNames[apt.studentId] || 'Student'}</p>
-                      <p className="text-xs text-gray-500">{formatDateTime(apt.scheduledAt)}</p>
+                <div key={apt.id} className="glass-row appointment-list-row border rounded-lg p-3">
+                  <div className="appointment-history-content flex items-center justify-between gap-3">
+                    <div className="appointment-history-copy">
+                      <p className="text-[15px] font-semibold text-white">{studentNames[apt.studentId] || 'Student'}</p>
+                      <p className="text-[13px] text-gray-500">{formatDateTime(apt.scheduledAt)} · {apt.durationMinutes} minutes</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="appointment-history-actions flex items-center gap-2">
                       <AppointmentStatusBadge status={apt.status} />
                       <button
                         onClick={() => setExpandedHistoryId(isExpanded ? null : apt.id)}
                         aria-expanded={isExpanded}
-                        className="px-3 py-1.5 text-sm font-medium text-gray-700 border rounded hover:bg-gray-100"
+                        className="glass-button glass-button-outline appointment-action-secondary px-3 py-1.5 text-sm"
                       >
                         {isExpanded ? 'Close' : 'Edit'}
                       </button>
@@ -411,7 +409,7 @@ export function FacilitatorAppointmentsPage() {
                       <button
                         onClick={() => handleAction('reschedule', apt.id)}
                         disabled={actionLoading === apt.id}
-                        className="px-4 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 disabled:bg-gray-400"
+                        className="glass-button glass-button-outline appointment-action-secondary px-4 py-1.5 text-sm disabled:bg-gray-400"
                       >
                         Reschedule
                       </button>
@@ -419,14 +417,14 @@ export function FacilitatorAppointmentsPage() {
                         <button
                           onClick={() => handleAction('cancel', apt.id)}
                           disabled={actionLoading === apt.id}
-                          className="px-4 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:bg-gray-400"
+                          className="glass-button glass-button-outline appointment-action-danger px-4 py-1.5 text-sm disabled:bg-gray-400"
                         >
                           Cancel
                         </button>
                       )}
                       <button
                         onClick={() => { setSelectedAppointment(apt); setFacilitatorNotes(apt.facilitatorNotes || ''); setShowNotesModal(true); }}
-                        className="px-4 py-1.5 text-gray-700 text-sm border rounded hover:bg-gray-50"
+                        className="glass-button glass-button-outline appointment-action-secondary px-4 py-1.5 text-sm"
                       >
                         Notes
                       </button>

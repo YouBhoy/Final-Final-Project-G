@@ -85,18 +85,34 @@ export function ConversationList({
     );
   }
 
+  const participantNameIds = new Map<string, Set<string>>();
+  for (const conversation of conversations) {
+    const participantId = conversation.participantIds.find((id) => id !== currentUserId) || conversation.participantIds[0];
+    const name = (participantNames[participantId] || '').trim().toLocaleLowerCase();
+    if (!name) continue;
+    const ids = participantNameIds.get(name) || new Set<string>();
+    ids.add(participantId);
+    participantNameIds.set(name, ids);
+  }
+
   return (
-    <div className="h-full overflow-y-auto">
-      {conversations.map((conversation) => (
-        <ConversationItem
-          key={conversation.id}
-          conversation={conversation}
-          participantNames={participantNames}
-          currentUserId={currentUserId}
-          isActive={conversation.id === activeConversationId}
-          onClick={() => onSelectConversation(conversation.id)}
-        />
-      ))}
+    <div className="conversation-list-scroll min-h-0 flex-1 overflow-y-auto">
+      {conversations.map((conversation) => {
+        const participantId = conversation.participantIds.find((id) => id !== currentUserId) || conversation.participantIds[0];
+        const name = (participantNames[participantId] || '').trim().toLocaleLowerCase();
+        const nameSuffix = (participantNameIds.get(name)?.size || 0) > 1 ? participantId.slice(-4) : undefined;
+        return (
+          <ConversationItem
+            key={conversation.id}
+            conversation={conversation}
+            participantNames={participantNames}
+            currentUserId={currentUserId}
+            nameSuffix={nameSuffix}
+            isActive={conversation.id === activeConversationId}
+            onClick={() => onSelectConversation(conversation.id)}
+          />
+        );
+      })}
     </div>
   );
 }

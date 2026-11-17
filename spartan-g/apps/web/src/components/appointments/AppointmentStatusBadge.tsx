@@ -4,21 +4,21 @@ interface AppointmentStatusBadgeProps {
   status: AppointmentStatus;
 }
 
-const statusConfig: Record<string, { color: string; label: string }> = {
-  requested: { color: 'bg-yellow-100 text-yellow-800', label: 'Requested' },
-  accepted: { color: 'bg-blue-100 text-blue-800', label: 'Accepted' },
-  completed: { color: 'bg-green-100 text-green-800', label: 'Completed' },
-  cancelled: { color: 'bg-red-100 text-red-800', label: 'Cancelled' },
-  rejected: { color: 'bg-gray-100 text-gray-800', label: 'Rejected' },
-  no_show: { color: 'bg-purple-100 text-purple-800', label: 'No Show' },
-  reschedule_requested: { color: 'bg-amber-100 text-amber-800', label: 'Reschedule Requested' },
-  past: { color: 'bg-gray-200 text-gray-600', label: 'Past' },
+const statusConfig: Record<string, { tone: string; label: string }> = {
+  requested: { tone: 'requested', label: 'Requested' },
+  accepted: { tone: 'accepted', label: 'Accepted' },
+  completed: { tone: 'completed', label: 'Completed' },
+  cancelled: { tone: 'cancelled', label: 'Cancelled' },
+  rejected: { tone: 'rejected', label: 'Rejected' },
+  no_show: { tone: 'no-show', label: 'No Show' },
+  reschedule_requested: { tone: 'requested', label: 'Reschedule Requested' },
+  past: { tone: 'neutral', label: 'Past' },
 };
 
 export function AppointmentStatusBadge({ status }: AppointmentStatusBadgeProps) {
-  const config = statusConfig[status] || { color: 'bg-gray-100 text-gray-800', label: status };
+  const config = statusConfig[status] || { tone: 'neutral', label: status };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+    <span className={`appointment-status-badge appointment-status-${config.tone}`}>
       {config.label}
     </span>
   );

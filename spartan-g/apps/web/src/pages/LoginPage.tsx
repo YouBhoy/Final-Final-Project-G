@@ -98,7 +98,7 @@ export function LoginPage() {
         <Button
           type="submit"
           isLoading={isLoading}
-          className="btn primary w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
+          className="btn primary w-full"
         >
           Sign in
         </Button>

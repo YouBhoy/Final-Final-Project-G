@@ -10,6 +10,7 @@ import { Input } from "../../components/ui/Input";
 import { CAMPUS_LABELS, ROLE_LABELS, ROLES } from "@spartan-g/shared-types";
 import type { Role } from "@spartan-g/shared-types";
 import { AssessmentOverrideDialog } from "../../components/admin/AssessmentOverrideDialog";
+import { Avatar } from "../../components/ui/Avatar";
 
 type RoleFilter = "all" | Role;
 
@@ -136,9 +137,7 @@ export function AdminUsersPage() {
             {filtered.map((u) => (
               <article key={u.id} className="min-w-0 space-y-3 p-4">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-                    {(u.displayName || u.email || "?").charAt(0).toUpperCase()}
-                  </span>
+                  <Avatar name={u.displayName || u.email || '?'} size="sm" />
                   <div className="min-w-0 flex-1">
                     <button type="button" onClick={() => navigate(`/admin/users/${u.id}`)} className="max-w-full truncate text-left text-sm font-semibold text-indigo-700 hover:underline">
                       {u.displayName || "—"}{u.id === actor?.uid && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
@@ -186,9 +185,7 @@ export function AdminUsersPage() {
                   >
                     <td className="break-words px-2 py-3 sm:px-3 sm:py-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-                          {(u.displayName || u.email || "?").charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar name={u.displayName || u.email || '?'} size="xs" />
                         <span className="min-w-0 break-words text-xs font-medium text-gray-900 sm:text-sm">
                           {u.displayName || "—"}
                           {u.id === actor?.uid && (
