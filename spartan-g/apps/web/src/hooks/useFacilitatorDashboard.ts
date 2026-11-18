@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { messagingService } from '@spartan-g/shared-services';
 import { useAuth } from './useAuth';
 import { useDashboardSections, type DashboardSection } from './useDashboardSections';
-import { dashboardError, mapDashboardReads, scopeKey, type DashboardScope } from '../lib/dashboardData';
+import { dashboardError, mapDashboardReads, scopeKey, SENSITIVE_DATA_MAX_AGE_MS, SUMMARY_FRESHNESS_MS, type DashboardScope } from '../lib/dashboardData';
 import { dashboardCache, dashboardScope, readDashboardAppointments, watchDashboard } from '../lib/dashboardRuntime';
 import { dashboardDate, loadDashboardNotifications } from '../lib/dashboardQueries';
 import { getAssignedRiskAlerts } from '../lib/facilitatorAccess';
@@ -55,7 +55,7 @@ export function useFacilitatorDashboard() {
       const rows = await getAssignedRiskAlerts(scope!.uid, true);
       return { high: rows.filter(row => ['high', 'critical'].includes(row.severity)).length,
         medium: rows.filter(row => row.severity === 'medium').length, low: rows.filter(row => row.severity === 'low').length };
-    }),
+    }, SUMMARY_FRESHNESS_MS, SENSITIVE_DATA_MAX_AGE_MS),
     appointments: () => loadFacilitatorAppointments(scope!),
     notifications: () => loadDashboardNotifications(scope!),
   }), [key]);

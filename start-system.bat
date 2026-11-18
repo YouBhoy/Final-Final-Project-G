@@ -17,8 +17,6 @@ if not exist "%PROJECT_DIR%\apps\web\package.json" (
     exit /b 1
 )
 
-cd /d "%PROJECT_DIR%"
-
 set "NODE_EXE="
 for /f "delims=" %%F in ('where node.exe 2^>nul') do (
     if not defined NODE_EXE set "NODE_EXE=%%~fF"
@@ -31,15 +29,14 @@ for /d %%D in ("%LOCALAPPDATA%\OpenAI\Codex\runtimes\cua_node\*") do (
 )
 
 if not defined NODE_EXE (
-    echo ERROR: Node.js and npm were not found.
+    echo ERROR: Node.js was not found.
     echo Install Node.js LTS, then reopen this terminal and run start-system.bat again.
     echo.
     pause
     exit /b 1
 )
 
-for %%F in ("%NODE_EXE%") do set "NODE_BIN=%%~dpF"
-set "PATH=%NODE_BIN%;%PATH%"
+cd /d "%PROJECT_DIR%"
 
 if exist "services\login-captcha\.env" (
     echo Starting login CAPTCHA verification service...

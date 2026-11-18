@@ -33,14 +33,13 @@ function ensurePersistence(firestore: Firestore) {
       console.warn('[Firestore] Offline persistence unavailable:', error);
     });
   }
-
   return persistencePromise;
 }
 
 export function getFirestoreDb(): Firestore {
   if (!db) {
     db = getFirestore(getFirebaseApp());
-    void ensurePersistence(db);
+    if (typeof window === 'undefined') void ensurePersistence(db);
   }
   return db;
 }

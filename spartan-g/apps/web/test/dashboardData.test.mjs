@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dashboardModules, dashboardFixture, deferred } from './helpers/dashboardModules.mjs';
-const { createDashboardCache, SUMMARY_FRESHNESS_MS, dashboardError, mapDashboardReads } = dashboardModules().load('lib/dashboardData.ts');
+const { createDashboardCache, SUMMARY_FRESHNESS_MS, SENSITIVE_DATA_MAX_AGE_MS, dashboardError, mapDashboardReads } = dashboardModules().load('lib/dashboardData.ts');
 const scope = { project: 'test', database: '(default)', uid: 'one', role: 'student' };
 function fixture() {
   let current = scope, allowed = true, now = 0, authorizations = 0;
@@ -18,7 +18,20 @@ test('15 minute freshness expires from load time, never from a cache hit', async
   const f = fixture(); let count = 0;
   const read = () => f.cache.read(scope, 'catalog', async () => ++count, 999999999);
   assert.equal(await read(), 1); f.tick(SUMMARY_FRESHNESS_MS - 1); assert.equal(await read(), 1);
-  f.tick(1); assert.equal(await read(), 2);
+  f.tick(1); assert.equal(await read(), 1);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(await read(), 2);
+});
+test('sensitive stale data refreshes in background until its maximum age', async () => {
+  const f = fixture(); let count = 0;
+  const read = () => f.cache.read(scope, 'risk', async () => ++count, SUMMARY_FRESHNESS_MS, SENSITIVE_DATA_MAX_AGE_MS);
+  assert.equal(await read(), 1);
+  f.tick(SUMMARY_FRESHNESS_MS + 1);
+  assert.equal(await read(), 1);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(await read(), 2);
+  f.tick(SUMMARY_FRESHNESS_MS);
+  assert.equal(await read(), 2);
 });
 test('concurrent authorized appointment requests coalesce, subsequent reads stay fresh', async () => {
   const f = fixture(), gate = deferred(); let count = 0;
@@ -97,10 +110,11 @@ test('runtime rejects inactive or changed roles before requesting appointment da
 test('scoped live changes invalidate appointments and listeners are removed on cleanup', async () => {
   const f = dashboardFixture('facilitator'); let changes = 0, failures = [];
   const stop = f.runtime.watchDashboard(f.scope(), () => changes++, (key, error) => failures.push([key, error.code]));
-  for (const listener of f.state.listeners) assert.deepEqual(listener.ref.constraints, [[listener.ref.name === 'notifications' ? 'userId' : 'facilitatorId', '==', 'facilitator-one']]);
+  assert.ok(f.state.listeners.every(listener => listener.ref.name !== 'risk_alerts'));
+  for (const listener of f.state.listeners.filter(listener => listener.ref.name !== 'users')) assert.deepEqual(listener.ref.constraints, [[listener.ref.name === 'notifications' ? 'userId' : 'facilitatorId', '==', 'facilitator-one']]);
   f.emit('appointments'); assert.equal(changes, 0);
   f.emit('appointments'); await new Promise(resolve => setImmediate(resolve)); assert.equal(changes, 1);
   f.emit('appointments', { code: 'permission-denied' }); assert.deepEqual(failures, [['appointments', 'permission-denied']]);
-  stop(); assert.ok(f.state.listeners.every(listener => listener.stopped));
+  stop(); assert.ok(f.state.listeners.filter(listener => listener.ref.name !== 'users').every(listener => listener.stopped));
   f.emit('appointments'); assert.equal(changes, 1);
 });

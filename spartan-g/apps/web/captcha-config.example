@@ -1,0 +1,4 @@
+# Add these to apps/web/.env.development.local for local testing.
+VITE_LOGIN_CAPTCHA_ENABLED=true
+VITE_RECAPTCHA_SITE_KEY=replace-with-your-recaptcha-v2-site-key
+VITE_CAPTCHA_VERIFY_URL=http://localhost:8787/verify-captcha

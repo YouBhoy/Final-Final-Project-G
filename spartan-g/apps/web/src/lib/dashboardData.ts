@@ -6,6 +6,8 @@ export interface DashboardScope {
   role: 'student' | 'facilitator' | 'super_admin';
 }
 export const SUMMARY_FRESHNESS_MS = 15 * 60 * 1000;
+export const DASHBOARD_MAX_AGE_MS = 60 * 60 * 1000;
+export const SENSITIVE_DATA_MAX_AGE_MS = 30 * 60 * 1000;
 export class DashboardDataError extends Error {
   constructor(public code: string) { super(code); }
 }
@@ -48,7 +50,7 @@ export function createDashboardCache(options: {
       }
     }
   }
-  async function read<T>(scope: DashboardScope, query: string, load: () => Promise<T>, ttlMs = 0): Promise<T> {
+  async function read<T>(scope: DashboardScope, query: string, load: () => Promise<T>, ttlMs = 0, maxAgeMs = DASHBOARD_MAX_AGE_MS): Promise<T> {
     const name = key(scope, query), epoch = generation, revision = revisions.get(name) ?? 0;
     revisions.set(name, revision);
     const current = () => {
@@ -66,9 +68,31 @@ export function createDashboardCache(options: {
     await authorized();
     const entry = cached.get(name);
     let operation = pending.get(name) as Promise<T> | undefined;
-    if (ttlMs > 0 && entry && now() - entry.loadedAt < Math.min(ttlMs, SUMMARY_FRESHNESS_MS)) {
-      await authorized();
-      return entry.value as T;
+    if (ttlMs > 0 && entry) {
+      const age = now() - entry.loadedAt;
+      const freshness = Math.min(ttlMs, SUMMARY_FRESHNESS_MS);
+      if (age < freshness) {
+        await authorized();
+        return entry.value as T;
+      }
+      if (age < maxAgeMs) {
+        await authorized();
+        // Return stale data immediately, then refresh in the background.
+        if (!operation) {
+          operation = (async () => {
+            const value = await load();
+            current();
+            await authorized();
+            cached.set(name, { value, loadedAt: now() });
+            return value;
+          })();
+          pending.set(name, operation);
+          void operation.catch(() => undefined).finally(() => {
+            if (pending.get(name) === operation) pending.delete(name);
+          });
+        }
+        return entry.value as T;
+      }
     }
     if (!operation) {
       operation = (async () => {

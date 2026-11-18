@@ -1,0 +1,6 @@
+# Copy to .env in this directory. Never put the secret in a VITE_ variable.
+RECAPTCHA_SECRET_KEY=replace-with-your-recaptcha-v2-secret
+CAPTCHA_ALLOWED_ORIGINS=http://localhost:5173
+CAPTCHA_ALLOWED_HOSTNAMES=localhost
+HOST=127.0.0.1
+PORT=8787

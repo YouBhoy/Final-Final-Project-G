@@ -7,6 +7,23 @@ import { createDashboardCache, DashboardDataError, scopeKey, type DashboardScope
 let session: DashboardScope | null = null;
 type DashboardObserver = { changed: () => void; failed: (section: string, cause: unknown) => void };
 const watchers = new Map<string, { observers: Set<DashboardObserver>; stop: () => void }>();
+let profileStop: (() => void) | null = null;
+
+const tabChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
+  ? new BroadcastChannel('spartan-g-session') : null;
+
+tabChannel?.addEventListener('message', event => {
+  const scope = event.data?.scope as string | null | undefined;
+  if (scope === undefined) return;
+  if ((session ? scopeKey(session) : null) !== scope) {
+    dashboardCache.clear();
+    profileReads.clear();
+    profileStop?.();
+    profileStop = null;
+    for (const entry of [...watchers.values()]) entry.stop();
+    watchers.clear();
+  }
+});
 export function dashboardScope(uid: string, role: DashboardScope['role']): DashboardScope {
   return { project: db.app.options.projectId ?? '', database: '(default)', uid, role };
 }
@@ -36,12 +53,34 @@ export const dashboardCache = createDashboardCache({ current: () => session, aut
 /** Called synchronously by portal auth transitions, including failed logout/idle expiry. */
 export function setDashboardSession(user: { uid: string; role: DashboardScope['role'] } | null) {
   const next = user ? dashboardScope(user.uid, user.role) : null;
-  if ((next ? scopeKey(next) : null) !== (session ? scopeKey(session) : null)) {
+  const previousKey = session ? scopeKey(session) : null;
+  const nextKey = next ? scopeKey(next) : null;
+  if (nextKey !== previousKey) {
     dashboardCache.clear(); profileReads.clear();
+    profileStop?.();
+    profileStop = null;
     for (const entry of [...watchers.values()]) entry.stop();
     watchers.clear();
   }
   session = next;
+  tabChannel?.postMessage({ scope: nextKey });
+
+  if (next && nextKey !== previousKey) {
+    try {
+      profileStop = onSnapshot(doc(db, 'users', next.uid), { includeMetadataChanges: true }, snapshot => {
+        if (snapshot.metadata.fromCache) return;
+        const data = snapshot.data();
+        if (!snapshot.exists() || data?.isActive !== true || data.role !== next.role) {
+          setDashboardSession(null);
+        }
+      }, () => {
+        // Permission/listener failures fail closed and invalidate sensitive data.
+        setDashboardSession(null);
+      });
+    } catch {
+      setDashboardSession(null);
+    }
+  }
 }
 export function readDashboardAppointments(scope: DashboardScope) {
   return dashboardCache.read(scope, 'appointments', () => {
@@ -78,7 +117,6 @@ export function watchDashboard(scope: DashboardScope, changed: () => void, faile
       ['appointments', 'appointments', scope.role === 'student' ? 'studentId' : 'facilitatorId'],
       ['notifications', 'notifications', 'userId'],
       ...(scope.role === 'student' ? [['assessments', 'assessment_attempts', 'studentId']] : []),
-      ...(scope.role === 'facilitator' ? [['risk', 'risk_alerts', 'facilitatorId']] : []),
     ];
     try {
       for (const [section, name, field] of sources) {
