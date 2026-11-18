@@ -13,6 +13,35 @@ export const control = 'mt-1 block w-full rounded-lg border border-gray-300 bg-w
 export const format = (value: number | null, suffix = '') => value === null ? 'Unavailable' : `${Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1)}${suffix}`;
 export const campusLabel = (key: string, label: string) => key === label ? getCampusLabel(key) : label;
 
+type OperationalBand = 'Limited' | 'Moderate' | 'Adequate' | 'Low' | 'High';
+
+function publicCount(value: number): string {
+  return value >= 1 && value <= 4 ? 'Fewer than 5' : value.toLocaleString();
+}
+
+function participationBand(rate: number | null, denominator: number): OperationalBand | 'Insufficient data' {
+  if (denominator < 20 || rate === null) return 'Insufficient data';
+  if (rate <= 30) return 'Limited';
+  if (rate <= 60) return 'Moderate';
+  return 'Adequate';
+}
+
+function demandBand(value: number, denominator: number): OperationalBand | 'Insufficient data' {
+  if (denominator < 20) return 'Insufficient data';
+  const rate = denominator ? value / denominator : null;
+  if (rate === null) return 'Insufficient data';
+  if (rate <= 0.25) return 'Low';
+  if (rate <= 0.75) return 'Moderate';
+  return 'High';
+}
+
+function completionBand(rate: number | null, starters: number): OperationalBand | 'Insufficient data' {
+  if (starters < 10 || rate === null) return 'Insufficient data';
+  if (rate <= 40) return 'Limited';
+  if (rate <= 70) return 'Moderate';
+  return 'Adequate';
+}
+
 function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
   return <Card className="p-5">
     <p className="text-sm font-medium text-gray-500">{label}</p>
@@ -95,7 +124,7 @@ export function ReferralForecastView({ forecast }: { forecast: StatisticsReport[
   return <Card className="p-5 sm:p-6">
     <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">Prototype evaluation on test data</p>
     <h3 className="mt-2 text-lg font-semibold text-gray-900">Referral demand forecasting</h3>
-    <p className="mt-2 text-sm text-gray-600">This learned model uses weekly request counts. Results are experimental and do not establish accuracy on real student demand.</p>
+    <p className="mt-2 text-sm text-gray-600">Synthetic/development demo only. This learned model uses weekly request counts and must not be used for real staffing or student-demand decisions.</p>
     {forecast.status !== 'ready' || !metrics || !forecast.forecast ? <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
       <p>{forecast.message}</p><p className="mt-2 text-xs text-gray-500">{forecast.weeks} eligible complete weeks; at least {forecast.requiredWeeks} are required for this prototype. Try a longer custom date range. This minimum allows a test run; it does not establish reliable forecasting.</p>
     </div> : <>
@@ -137,7 +166,7 @@ export function ReferralForecastView({ forecast }: { forecast: StatisticsReport[
 
 export function ReferralsView({ report }: { report: StatisticsReport }) {
   const referrals = report.referrals;
-  return <div className="space-y-5">
+  return <div className="flex flex-col space-y-5">
     <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
       <h3 className="text-sm font-semibold">Development / test-data notice</h3>
       <p className="mt-2 text-sm">Existing request history was confirmed as development/testing data on October 27, 2026. These figures do not establish real student demand.</p>
@@ -269,7 +298,35 @@ export function ParticipationView({ report }: { report: StatisticsReport }) {
   </div>;
 }
 
-export function StatisticsOverviewView({ report, activity }: { report: StatisticsReport; activity: TrendActivity }) {
+export function StatisticsOverviewView({ report, activity, aggregateRows = [], clusteringStatus = null, workloadRows = [] }: {
+  report: StatisticsReport;
+  activity: TrendActivity;
+  aggregateRows?: Array<{
+    campusKey: string;
+    campusLabel: string;
+    periodStartDate: string;
+    dataPhase: 'development' | 'real_pilot';
+    registeredStudentUsers: { value: number | null; suppressed: boolean; display: string };
+    participatingStudents: { value: number | null; suppressed: boolean; display: string };
+    appointmentRequests: { value: number | null; suppressed: boolean; display: string };
+    assessmentSubmissions: { value: number | null; suppressed: boolean; display: string };
+    participationRateBand: string;
+    appointmentDemandBand: string;
+    assessmentSubmissionBand: string;
+  }>;
+  clusteringStatus?: {
+    status: 'available' | 'disabled';
+    enabled: boolean;
+    usableRows: number;
+    usableCampuses: number;
+    stabilityMethod: string;
+    k: number;
+    publishedMembership: boolean;
+    diagnosticLabels: boolean;
+    reason: string;
+  } | null;
+  workloadRows?: any[];
+}) {
   const { accountActivity, totals } = report;
   const activeAccounts = accountActivity.activeStudentAccounts === null || accountActivity.activeFacilitatorAccounts === null
     ? null : accountActivity.activeStudentAccounts + accountActivity.activeFacilitatorAccounts;
@@ -291,10 +348,15 @@ export function StatisticsOverviewView({ report, activity }: { report: Statistic
     .filter(score => !score.suppressed && score.mean !== null)
     .map(score => ({ label: score.title, value: score.mean as number, detail: '% · ' + format(score.sample) + ' students' }));
   const withheldScoreDistributions = releasedScoreDistributions.length < report.gradedScores.length;
+  const latestAggregatePeriod = aggregateRows.reduce((latest, row) =>
+    !latest || row.periodStartDate > latest ? row.periodStartDate : latest, '');
+  const latestAggregateRows = latestAggregatePeriod
+    ? aggregateRows.filter(row => row.periodStartDate === latestAggregatePeriod)
+    : [];
 
   return <div className="space-y-5">
     {totals.participants === 0 && <p role="status" className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">No participation activity was recorded for this campus and period. Current account totals and each chart's data availability are shown separately.</p>}
-    <section aria-label="Key account metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <section aria-label="Key account metrics" className="order-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <Metric label="Total students" value={format(accountActivity.studentAccounts)} detail="Current student accounts at the selected campus." />
       <Metric label="Total facilitators" value={format(accountActivity.facilitatorAccounts)} detail="Current facilitator accounts at the selected campus." />
       <Metric label="Active accounts" value={format(activeAccounts)} detail={activeDetail} />
@@ -302,14 +364,123 @@ export function StatisticsOverviewView({ report, activity }: { report: Statistic
       <Metric label="Facilitators receiving appointment requests" value={format(accountActivity.facilitatorsWithRequests)} detail="Distinct facilitators with a request in the selected period." />
     </section>
 
-    <section aria-label="Participation summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section aria-label="Participation summary" className="order-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Participating students" value={format(totals.participants)} detail="Distinct students active in at least one supported portal activity." />
       <Metric label="Assessment completion rate" value={format(totals.completionRate, '%')} detail={totals.starters ? totals.completedStarters.toLocaleString() + ' of ' + totals.starters.toLocaleString() + ' student-assessment starters completed.' : 'No assessment starters in the selected period.'} />
       <Metric label="Valid assessment attempts" value={format(totals.attempts)} detail={totals.submissions.toLocaleString() + ' submitted; retakes are included.'} />
       <Metric label="Students submitting assessments" value={format(totals.assessmentStudents)} detail="Distinct students with a valid assessment submission in this period." />
     </section>
 
-    <section aria-label="Statistics overview visualizations" className="grid items-start gap-5 xl:grid-cols-2">
+    <section aria-label="Campus operational matrix and heatmap" className="order-6 grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,.65fr)]">
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Campus operational heatmap</h3>
+            <p className="mt-1 text-sm text-gray-500">Monthly campus-level activity. Synthetic operational demo with project-approved cutoffs.</p>
+          </div>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">Synthetic demo cutoffs</span>
+        </div>
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          Synthetic / development data — not real student demand or operational pilot results.
+        </p>
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[680px] border-separate border-spacing-y-2 text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="pb-1 pr-4">Campus</th>
+                <th className="px-3 pb-1">Registered app users</th>
+                <th className="px-3 pb-1">Participation</th>
+                <th className="px-3 pb-1">Appointment demand</th>
+                <th className="px-3 pb-1">Assessment completion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestAggregateRows.map(row => <tr key={row.campusKey}>
+                <th scope="row" className="pr-4 text-left font-semibold text-gray-800">{row.campusLabel}</th>
+                <td className="px-3 py-2 text-gray-700">{row.registeredStudentUsers.display}</td>
+                <td className="px-3 py-2">
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${row.participationRateBand === 'Adequate' ? 'bg-emerald-100 text-emerald-900' : row.participationRateBand === 'Moderate' ? 'bg-amber-100 text-amber-900' : row.participationRateBand === 'Limited' ? 'bg-slate-100 text-slate-700' : 'bg-gray-100 text-gray-500'}`}>{row.participationRateBand}</span>
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${row.appointmentDemandBand === 'Low' ? 'bg-emerald-100 text-emerald-900' : row.appointmentDemandBand === 'Moderate' ? 'bg-amber-100 text-amber-900' : row.appointmentDemandBand === 'High' ? 'bg-red-100 text-red-900' : 'bg-gray-100 text-gray-500'}`}>{row.appointmentDemandBand}</span>
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${row.assessmentSubmissionBand === 'Adequate' ? 'bg-emerald-100 text-emerald-900' : row.assessmentSubmissionBand === 'Moderate' ? 'bg-amber-100 text-amber-900' : row.assessmentSubmissionBand === 'Limited' || row.assessmentSubmissionBand === 'Low' ? 'bg-slate-100 text-slate-700' : 'bg-gray-100 text-gray-500'}`}>{row.assessmentSubmissionBand}</span>
+                </td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+        {latestAggregateRows.length === 0 && <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">No locked campus aggregate is available for the latest period. The heatmap will not use raw source records as a substitute.</p>}
+        <p className="mt-3 text-xs leading-relaxed text-gray-500">Counts from 1 to 4 are shown only as “Fewer than 5.” Gray means unavailable or insufficient denominators, not confirmed low activity. Campus rates use registered app users, not official enrollment.</p>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <h3 className="text-lg font-semibold text-gray-900">Operational support matrix</h3>
+        <p className="mt-1 text-sm text-gray-500">Assessment completion and appointment demand determine a campus-level planning label.</p>
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[390px] border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="border-b border-gray-200 p-2 text-left text-gray-500">Completion / demand</th>
+                <th className="border-b border-gray-200 p-2 text-gray-600">Low</th>
+                <th className="border-b border-gray-200 p-2 text-gray-600">Moderate</th>
+                <th className="border-b border-gray-200 p-2 text-gray-600">High</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Limited', 'Standard monitoring', 'Monitor capacity', 'Priority capacity review'],
+                ['Moderate', 'Standard monitoring', 'Operational review', 'Priority capacity review'],
+                ['Adequate', 'Operational review', 'Priority capacity review', 'Priority capacity review'],
+                ['Insufficient data', 'Insufficient data', 'Insufficient data', 'Insufficient data'],
+              ].map(row => <tr key={row[0]}>
+                <th scope="row" className="border-b border-gray-100 p-2 text-left text-gray-700">{row[0]}</th>
+                {row.slice(1).map((label, index) => <td key={index} className="border-b border-gray-100 p-2 text-center text-gray-700">{label}</td>)}
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+          This matrix is explanatory and operational only. It does not diagnose or rank student wellbeing.
+          {clusteringStatus?.enabled
+            ? ` A LOCO stability check passed for this synthetic dataset (${clusteringStatus.usableRows} rows across ${clusteringStatus.usableCampuses} campuses).`
+            : ' Campus clustering remains disabled or awaiting the stability gate.'}
+          {' '}Cutoffs are project-approved for the synthetic operational demo only.
+        </p>
+      </Card>
+    </section>
+
+    <section aria-label="Clustering and facilitator workload" className="order-7 grid gap-5 xl:grid-cols-2">
+      <Card className="p-5 sm:p-6">
+        <h3 className="text-lg font-semibold text-gray-900">Campus pattern stability</h3>
+        <p className="mt-1 text-sm text-gray-500">Exploratory campus-period patterns, not student diagnosis or ranking.</p>
+        {clusteringStatus ? <div className="mt-4 space-y-3">
+          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${clusteringStatus.enabled ? 'bg-emerald-100 text-emerald-900' : 'bg-gray-100 text-gray-600'}`}>
+            {clusteringStatus.enabled ? 'Release gate passed' : 'Clustering disabled'}
+          </span>
+          <p className="text-sm text-gray-700">{clusteringStatus.reason}</p>
+          <p className="text-xs text-gray-500">{clusteringStatus.usableRows} usable rows · {clusteringStatus.usableCampuses} campuses · method: {clusteringStatus.stabilityMethod} · k: {clusteringStatus.k}</p>
+        </div> : <p className="mt-4 text-sm text-gray-500">Clustering status is not yet published.</p>}
+      </Card>
+      <Card className="p-5 sm:p-6">
+        <h3 className="text-lg font-semibold text-gray-900">Facilitator capacity</h3>
+        <p className="mt-1 text-sm text-gray-500">Campus-level availability and demand. Individual facilitators are not listed.</p>
+        {workloadRows.length ? <div className="mt-4 space-y-2">
+          {workloadRows.slice(0, 8).map(row => <div key={row.id} className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2 text-sm">
+            <span className="font-medium text-gray-700">{campusLabel(row.campusKey, row.campusLabel)}</span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{row.capacityBand ?? 'Insufficient data'}</span>
+          </div>)}
+        </div> : <p className="mt-4 text-sm text-gray-500">No published workload aggregate is available yet.</p>}
+      </Card>
+    </section>
+
+    <section aria-label="Statistics overview visualizations" className="-order-[20] space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">Key visualizations</h3>
+        <p className="mt-1 text-sm text-gray-500">A quick visual overview before detailed account metrics and campus tables.</p>
+      </div>
+      <div className="grid items-start gap-5 xl:grid-cols-2">
       <Card className="p-5 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900">Account distribution</h3>
         <p className="mt-1 text-sm text-gray-500">Current student and facilitator accounts for the selected campus.</p>
@@ -324,6 +495,7 @@ export function StatisticsOverviewView({ report, activity }: { report: Statistic
         <p className="mt-1 text-sm text-gray-500">{activityLabels[activity]}; students may appear in multiple time buckets.</p>
         <div className="mt-5"><AnalyticsLineChart title={intervalLabel + ' ' + activityLabels[activity].toLowerCase()} rows={report.trends.map(bucket => ({ label: bucket.label, value: bucket[activity] }))} /></div>
       </Card>
+      </div>
 
       <Card className="p-5 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900">Assessment completion</h3>

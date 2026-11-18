@@ -5,6 +5,8 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { getRoleRedirect } from "../lib/auth";
+import { LoginCaptcha } from '../components/auth/LoginCaptcha';
+import { loginCaptchaEnabled, verifyLoginCaptcha } from '../lib/loginCaptcha';
 
 export function LoginPage() {
   const { login, user, error, clearError } = useAuth();
@@ -12,6 +14,9 @@ export function LoginPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const [captchaError, setCaptchaError] = useState('');
 
   // Redirect if already logged in
   if (user) {
@@ -38,16 +43,28 @@ export function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     clearError();
+    setCaptchaError('');
 
     if (!validate()) return;
 
     setIsLoading(true);
+    try {
+      await verifyLoginCaptcha(captchaToken);
+    } catch (error) {
+      setCaptchaError(error instanceof Error ? error.message : 'Login verification failed.');
+      setCaptchaToken('');
+      setCaptchaReset(value => value + 1);
+      setIsLoading(false);
+      return;
+    }
     try {
       await login({ email, password });
       // Navigation handled by redirect above
     } catch {
       // Error is set in auth context
     } finally {
+      setCaptchaToken('');
+      setCaptchaReset(value => value + 1);
       setIsLoading(false);
     }
   }
@@ -95,10 +112,14 @@ export function LoginPage() {
           </Link>
         </div>
 
+        {loginCaptchaEnabled && <LoginCaptcha onToken={setCaptchaToken} resetCount={captchaReset} />}
+        {captchaError && <p className="text-sm text-red-700" role="alert">{captchaError}</p>}
+
         <Button
           type="submit"
           isLoading={isLoading}
-          className="btn primary w-full"
+          disabled={loginCaptchaEnabled && !captchaToken}
+          className="btn primary w-full !bg-[var(--auth-primary)] !text-white hover:!bg-[var(--auth-primary-dark)] focus:!ring-[var(--auth-primary)]"
         >
           Sign in
         </Button>

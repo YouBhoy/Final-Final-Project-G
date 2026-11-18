@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fitReferralRidge, predictReferralCount, evaluateReferralForecast, buildStatistics, fitReferralPoisson, predictReferralPoisson, fitReferralSmoothing } from './helpers/statisticsModules.mjs';
+import { fitReferralRidge, predictReferralCount, evaluateReferralForecast, buildStatistics, fitReferralPoisson, predictReferralPoisson, fitReferralSmoothing, canPublishReferralForecast } from './helpers/statisticsModules.mjs';
 
 const series = counts => counts.map((requests, i) => ({ weekStart: new Date(Date.UTC(2026, 5, 29 + i * 7)).toISOString().slice(0, 10), requests }));
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
@@ -149,4 +149,32 @@ test('dashboard training excludes partial and first-observed weeks and does not 
   const unknownCampus = buildStatistics(input, { ...filters, campus: '__unknown__' }, now).referrals.forecast;
   assert.deepEqual(unknownCampus, result);
   assert.equal(buildStatistics(input, { ...filters, campus: 'lipa' }, now).referrals.forecast.status, 'insufficient');
+});
+
+test('forecast publication stays disabled until data, locks and test weeks pass the gate', () => {
+  assert.equal(canPublishReferralForecast({
+    lockedWeeks: 12, excludedHolidayWeeks: 1, excludedExamWeeks: 0,
+    testWeeks: 3, historyWeeks: 13, dataKind: 'development',
+  }).allowed, false);
+  assert.equal(canPublishReferralForecast({
+    lockedWeeks: 11, excludedHolidayWeeks: 1, excludedExamWeeks: 0,
+    testWeeks: 3, historyWeeks: 12, dataKind: 'real_pilot',
+  }).allowed, false);
+  assert.equal(canPublishReferralForecast({
+    lockedWeeks: 12, excludedHolidayWeeks: 1, excludedExamWeeks: 0,
+    testWeeks: 3, historyWeeks: 14, dataKind: 'real_pilot',
+  }).allowed, false);
+  assert.equal(canPublishReferralForecast({
+    lockedWeeks: 12, excludedHolidayWeeks: 0, excludedExamWeeks: 0,
+    testWeeks: 3, historyWeeks: 12, dataKind: 'real_pilot',
+  }).allowed, true);
+  assert.equal(canPublishReferralForecast({
+    lockedWeeks: 12, excludedHolidayWeeks: 0, excludedExamWeeks: 0,
+    testWeeks: 3, historyWeeks: 12, dataKind: 'development',
+  }).allowed, false);
+  assert.equal(canPublishReferralForecast({
+    lockedWeeks: 12, excludedHolidayWeeks: 0, excludedExamWeeks: 0,
+    testWeeks: 3, historyWeeks: 12, dataKind: 'development',
+    approvedDevelopmentDemo: true,
+  }).allowed, true);
 });

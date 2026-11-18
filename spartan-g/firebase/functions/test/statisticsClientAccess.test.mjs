@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { getApps, initializeApp as initializeAdminApp } from 'firebase-admin/app';
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getFirestore, connectFirestoreEmulator, terminate } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, terminate, doc, getDocFromServer, setDoc } from 'firebase/firestore';
 import { createFirestoreStatisticsSource, createStatisticsLoader, buildStatistics, SCALES } from './helpers/statisticsModules.mjs';
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
@@ -38,6 +38,19 @@ for (let i = 0; i < 5; i++) {
 }
 await write.commit();
 
+const aggregateDocument = adminDb.doc(`analytics/campusPeriods/records/${prefix}_lipa_monthly_2025-01-01`);
+await aggregateDocument.set({
+  campusKey: 'lipa',
+  campusLabel: 'Lipa Campus',
+  periodStartDate: '2025-01-01',
+  interval: 'monthly',
+  locked: true,
+  isComplete: true,
+  dataPhase: 'development',
+  registeredStudentUsers: { value: null, suppressed: true, display: 'Fewer than 5' },
+  participationRateBand: 'Insufficient data',
+});
+
 test('actual browser SDK reads under release rules produce scores and messaging counts without a callable', async () => {
   const source = client(`${prefix}_admin`), input = await createStatisticsLoader(source).input();
   assert.ok(!JSON.stringify(input).includes('PRIVATE'));
@@ -65,4 +78,23 @@ test('existing participants can still read their own conversation; admin read ch
   assert.ok((await adminSource.records('conversations', 1001)).length >= 5);
   await assert.rejects(setDoc(doc(clients.at(-1).db, 'messages', `${prefix}_invalid_write`), { senderId: `${prefix}_s0`, conversationId, body: 'Unauthorized admin send' }), error => error.code === 'permission-denied');
   assert.equal(source.currentUid(), `${prefix}_s0`);
+});
+
+test('only super administrators can read aggregate analytics, and every client write is denied', async () => {
+  const aggregateId = `${prefix}_lipa_monthly_2025-01-01`;
+  client(`${prefix}_s0`);
+  const studentDb = clients.at(-1).db;
+  client(`${prefix}_facilitator`);
+  const facilitatorDb = clients.at(-1).db;
+  await assert.rejects(getDocFromServer(doc(studentDb, 'analytics', 'campusPeriods', 'records', aggregateId)), error => error.code === 'permission-denied');
+  await assert.rejects(getDocFromServer(doc(facilitatorDb, 'analytics', 'campusPeriods', 'records', aggregateId)), error => error.code === 'permission-denied');
+
+  client(`${prefix}_admin`);
+  const adminDbClient = clients.at(-1).db;
+  const visible = await getDocFromServer(doc(adminDbClient, 'analytics', 'campusPeriods', 'records', aggregateId));
+  assert.equal(visible.exists(), true);
+
+  await assert.rejects(setDoc(doc(adminDbClient, 'analytics', 'campusPeriods', 'records', `${prefix}_unauthorized`), {
+    campusKey: 'lipa',
+  }), error => error.code === 'permission-denied');
 });

@@ -1,0 +1,14 @@
+{
+  "name": "analytics-privacy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test *.test.ts files/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ALL_CAMPUSES, getCampusLabel, type StatisticsFilters, type StatisticsReport } from '@spartan-g/shared-types';
 import { loadStatistics, statisticsError } from '../../lib/statistics';
+import { loadCampusPeriodAggregates, loadClusteringStatus, loadFacilitatorWorkload, type CampusPeriodAggregate, type ClusteringStatus } from '../../lib/statisticsSource';
+import { db } from '../../firebase/firebase';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Spinner } from '../ui/Spinner';
@@ -36,6 +38,9 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
   const [customDates, setCustomDates] = useState(() => ({ startDate: filters.startDate, endDate: filters.endDate }));
   const [report, setReport] = useState<StatisticsReport | null>(null);
   const [catalogue, setCatalogue] = useState<Pick<StatisticsReport, 'campuses' | 'assessments'>>({ campuses: [], assessments: [] });
+  const [aggregateRows, setAggregateRows] = useState<CampusPeriodAggregate[]>([]);
+  const [clusteringStatus, setClusteringStatus] = useState<ClusteringStatus | null>(null);
+  const [workloadRows, setWorkloadRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -58,6 +63,32 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
     }).finally(() => { if (request === sequence.current) setLoading(false); });
     return () => { ++sequence.current; };
   }, [filters, refresh]);
+  useEffect(() => {
+    if (view !== 'overview') return;
+    let active = true;
+    loadCampusPeriodAggregates(db).then(rows => {
+      if (active) setAggregateRows(rows);
+    }).catch(() => {
+      if (active) setAggregateRows([]);
+    });
+    return () => { active = false; };
+  }, [view, refresh]);
+  useEffect(() => {
+    if (view !== 'overview') return;
+    let active = true;
+    Promise.all([loadClusteringStatus(db), loadFacilitatorWorkload(db)]).then(([clustering, workload]) => {
+      if (active) {
+        setClusteringStatus(clustering);
+        setWorkloadRows(workload);
+      }
+    }).catch(() => {
+      if (active) {
+        setClusteringStatus(null);
+        setWorkloadRows([]);
+      }
+    });
+    return () => { active = false; };
+  }, [view, refresh]);
   const campusOptions = useMemo(() => {
     const options = new Map(ALL_CAMPUSES.map(key => [key, getCampusLabel(key)]));
     for (const campus of catalogue.campuses) options.set(campus.key, campusLabel(campus.key, campus.label));
@@ -124,7 +155,7 @@ export function StatisticsPanel({ view }: { view: StatisticsView }) {
       </div>
       {view === 'referrals' && report.referrals.requests === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No referral requests recorded for this campus and period. Requests without a request-time campus are available under All campuses or Unknown / Unassigned.</p>}
       {(view === 'participation' || view === 'trends') && report.totals.participants === 0 && <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">No activity recorded for this campus and period.</p>}
-      {view === 'overview' && <StatisticsOverviewView report={report} activity={activity} />}
+      {view === 'overview' && <StatisticsOverviewView report={report} activity={activity} aggregateRows={aggregateRows} clusteringStatus={clusteringStatus} workloadRows={workloadRows} />}
       {view === 'referrals' && <ReferralsView report={report} />}
       {view === 'forecast' && <ReferralForecastView forecast={report.referrals.forecast} />}
       {view === 'participation' && <ParticipationView report={report} />}

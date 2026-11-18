@@ -15,7 +15,7 @@ function Message({ loading, error, children }: { loading: boolean; error: string
 }
 
 function DashboardContent() {
-  const { users, campuses, activity, submissions, loading, refresh } = useAdminDashboard();
+  const { users, campuses, submissions, statistics, loading, refresh } = useAdminDashboard();
   const overview = dashboardOverview(users.data ?? [], campuses.data ?? [], []);
   const coverageError = users.error || campuses.error;
   const coverageLoading = users.loading || campuses.loading;
@@ -36,17 +36,27 @@ function DashboardContent() {
       </Card>)}
     </section>
 
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold text-[var(--color-text)]">Recent admin activity</h2><Link to="/admin/audit-logs" className={linkStyle}>View audit log</Link></div>
-        <p className={`mt-1 text-sm ${muted}`}>The latest six entries from the platform audit trail. Account aliases change when refreshed.</p>
-        <Message loading={activity.loading} error={activity.error}>
-          {activity.data?.length ? <ul className="mt-4 divide-y divide-[var(--color-border)]">{activity.data.map(row => <li key={row.id} className="py-4">
-            <p className="text-sm font-semibold capitalize text-[var(--color-text)]">{row.action.replace(/^SUPERADMIN_/, '').replace(/_/g, ' ').toLowerCase()}</p>
-            <p className={`mt-1 break-words text-xs ${muted}`}>{row.actorLabel} · {row.targetLabel}</p>
-            <p className={`mt-1 text-xs ${muted}`}>{row.createdAt?.toDate ? row.createdAt.toDate().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : 'Time unavailable'}</p>
-          </li>)}</ul> : <p className={`py-6 text-sm ${muted}`}>No admin activity yet. Account, campus, and resource changes will appear here.</p>}
-        </Message>
-      </Card>
+    <Card className="p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><h2 className="text-lg font-semibold text-[var(--color-text)]">Statistics at a glance</h2><p className={`mt-1 text-sm ${muted}`}>This month to date, across all campuses.</p></div>
+        <Link to="/admin/statistics" className={linkStyle}>View full statistics</Link>
+      </div>
+      <Message loading={statistics.loading} error={statistics.error}>
+        <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+          {[
+            { label: 'Participating students', value: statistics.data?.participants, description: 'Students with recorded activity' },
+            { label: 'Appointment requests', value: statistics.data?.appointmentRequests, description: 'Requests created this month' },
+            { label: 'Students messaging', value: statistics.data?.messagingStudents, description: 'Students who sent a message' },
+          ].map(metric => <div key={metric.label} className="rounded-xl border border-[var(--color-border)] p-4">
+            <dt className={`text-sm ${muted}`}>{metric.label}</dt>
+            <dd className="mt-2 text-3xl font-bold text-[var(--color-primary)]">{metric.value?.toLocaleString() ?? 'Unavailable'}</dd>
+            <dd className={`mt-2 text-xs ${muted}`}>{metric.description}</dd>
+          </div>)}
+        </dl>
+      </Message>
+    </Card>
+
+
 
     <Card className="p-6">
       <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-semibold text-[var(--color-text)]">Campus overview</h2><p className={`mt-1 text-sm ${muted}`}>Active student and facilitator accounts by campus.</p></div><Link className={linkStyle} to="/admin/campuses">Manage campuses</Link></div>
@@ -58,12 +68,6 @@ function DashboardContent() {
       </Message>
     </Card>
 
-    <section aria-labelledby="admin-quick-actions"><h2 id="admin-quick-actions" className="mb-3 text-lg font-semibold text-[var(--color-text)]">Quick actions</h2><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
-      { to: '/admin/users', title: 'Manage users', description: 'Review accounts and campus assignments' },
-      { to: '/admin/campuses', title: 'Manage campuses', description: 'Update campus details and availability' },
-      { to: '/admin/resources', title: 'Manage resources', description: 'Add or update student support resources' },
-      { to: '/admin/statistics', title: 'Open statistics', description: 'Explore participation and assessment trends' },
-    ].map(action => <Link key={action.to} to={action.to} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors hover:border-[var(--color-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"><span className="font-semibold text-[var(--color-primary)]">{action.title} <span aria-hidden="true">→</span></span><span className={`mt-1 block text-xs leading-5 ${muted}`}>{action.description}</span></Link>)}</div></section>
     <p className={`text-xs ${muted}`}>Overview loads when you open this page. Refresh to retrieve updates; assessment totals use the Statistics reporting cache.</p>
   </div>;
 }

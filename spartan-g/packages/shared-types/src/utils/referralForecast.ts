@@ -35,6 +35,31 @@ const WEEK = 7 * 86400000;
 const ALPHA = 1; // Prespecified, not tuned on held-out outcomes.
 export const MIN_REFERRAL_FORECAST_WEEKS = 11; // 2 lags + at least 6 fitting rows + 3 test weeks.
 
+export function canPublishReferralForecast(input: {
+  lockedWeeks: number;
+  excludedHolidayWeeks: number;
+  excludedExamWeeks: number;
+  testWeeks: number;
+  historyWeeks: number;
+  dataKind: 'development' | 'real_pilot';
+  approvedDevelopmentDemo?: boolean;
+}): { allowed: boolean; reason: string } {
+  const usableHistory = input.historyWeeks - input.excludedHolidayWeeks - input.excludedExamWeeks;
+  if (input.dataKind !== 'real_pilot' && input.approvedDevelopmentDemo !== true) {
+    return { allowed: false, reason: 'Forecasting requires approved real-pilot data or an approved development demo.' };
+  }
+  if (input.lockedWeeks !== usableHistory) {
+    return { allowed: false, reason: 'Every modeled week must be locked and complete.' };
+  }
+  if (usableHistory < 12) {
+    return { allowed: false, reason: 'At least 12 usable locked weeks are required after exceptions.' };
+  }
+  if (input.testWeeks < 3) {
+    return { allowed: false, reason: 'Three usable test weeks must remain after holiday and exam exclusions.' };
+  }
+  return { allowed: true, reason: 'The forecast passed the publication gate.' };
+}
+
 /** Standardize using fitting rows only; solve the two-feature ridge normal equations. */
 export function fitReferralRidge(x: number[][], y: number[]): ReferralRidgeModel {
   if (!x.length || x.length !== y.length || x.some(row => row.length !== 2 || row.some(v => !Number.isFinite(v)))

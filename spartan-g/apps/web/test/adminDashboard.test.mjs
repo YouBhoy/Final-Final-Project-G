@@ -76,21 +76,20 @@ afterEach(() => { if (root) act(() => root.unmount()); root = null; delete globa
 function setup(overrides = {}) {
   globalThis.__dashboardTest = {
     users: async () => [user('student')], campuses: async () => [], links: async () => [],
-    activity: async maximum => { assert.equal(maximum, 6); return []; },
-    statistics: async () => ({ totals: { submissions: 12 } }), ...overrides,
+    activity: async () => { throw new Error('Dashboard must not load audit entries'); },
+    statistics: async () => ({ totals: { submissions: 12, participants: 8, appointmentRequests: 5, messagingStudents: 3 } }), ...overrides,
   };
   let current;
   function Harness() { current = useAdminDashboard(); return null; }
   return { mount: async () => { await act(async () => { root = Renderer.create(React.createElement(Harness)); }); }, get current() { return current; } };
 }
 
-test('failed statistics never become zero and do not hide account or activity data', async () => {
+test('failed statistics never become zero and do not hide account data', async () => {
   const fixture = setup({ statistics: async () => { throw new Error('Statistics unavailable'); } });
   await fixture.mount();
   assert.equal(fixture.current.submissions.data, null);
   assert.equal(fixture.current.submissions.error, 'Statistics unavailable');
   assert.equal(fixture.current.users.data.length, 1);
-  assert.deepEqual(fixture.current.activity.data, []);
   assert.equal(fixture.current.loading, false);
 });
 
@@ -122,6 +121,7 @@ test('results from an older refresh cannot replace the latest data', async () =>
 const authUrl = moduleUrl('export function useAuth() { return { user: globalThis.__dashboardTest.actor }; }');
 const staffBannerUrl = moduleUrl(transpile(await readFile(new URL('../src/components/StaffProfileBanner.tsx', import.meta.url), 'utf8'))
   .replace(/(['"])react\/jsx-runtime\1/g, JSON.stringify(import.meta.resolve('react/jsx-runtime')))
+  .replace(/(['"])\.\/ui\/Avatar\1/g, JSON.stringify(moduleUrl('export function Avatar() { return null; }')))
   .replace(/(['"])\.\.\/hooks\/useAuth\1/g, JSON.stringify(authUrl))
   .replace(/(['"])@spartan-g\/shared-types\1/g, JSON.stringify(campusUrl)));
 const cardUrl = moduleUrl(transpile(await readFile(new URL('../src/components/ui/Card.tsx', import.meta.url), 'utf8'))
@@ -155,7 +155,11 @@ test('dashboard renders totals and navigation without the removed attention card
   const rendered = JSON.stringify(root.toJSON());
   assert.ok(rendered.includes('Assessments submitted'));
   assert.ok(rendered.includes('12'));
-  assert.ok(rendered.includes('No admin activity yet.'));
+  assert.ok(rendered.includes('Statistics at a glance'));
+  assert.ok(rendered.includes('Participating students'));
+  assert.ok(!rendered.includes('Quick actions'));
+  assert.ok(rendered.indexOf('Statistics at a glance') < rendered.indexOf('Campus overview'));
+  assert.ok(!rendered.includes('Recent admin activity'));
   const destinations = root.root.findAllByType('a').map(anchor => anchor.props.href);
   assert.ok(!rendered.includes('Needs attention'));
   assert.ok(!destinations.includes('/admin/users/student'));
@@ -178,6 +182,6 @@ test('dashboard state excludes real user identities and audit metadata', async (
   });
   await fixture.mount();
   assert.equal(JSON.stringify(fixture.current.users.data).includes('PRIVATE_'), false);
-  assert.equal(JSON.stringify(fixture.current.activity.data).includes('PRIVATE_'), false);
+  assert.equal(fixture.current.activity, undefined);
   assert.equal(fixture.current.loading, false);
 });

@@ -1,0 +1,20 @@
+{
+  "status": "approved",
+  "approved": true,
+  "approvedBy": "SPARTAN-G project team",
+  "approvedAt": "2026-11-18",
+  "scope": "synthetic-operational-demo",
+  "version": "campus-support-draft-1",
+  "participation": {
+    "limitedMaximum": 0.30,
+    "moderateMaximum": 0.60
+  },
+  "appointmentDemand": {
+    "lowMaximum": 0.25,
+    "moderateMaximum": 0.75
+  },
+  "assessmentSubmission": {
+    "lowMaximum": 0.10,
+    "moderateMaximum": 0.25
+  }
+}

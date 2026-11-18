@@ -1,4 +1,4 @@
-﻿# Statistics implementation and testing
+# Statistics implementation and testing
 
 The website's `/admin/statistics` route opens on **Referral Analytics**, with Participation, Trends and Assessment Scores available as supporting tabs. Reports use rule-protected Firestore reads and calculations built into the website. Statistics does not require Cloud Functions, Gemini or a Blaze upgrade. Existing Spark database and Hosting quotas still apply.
 
@@ -61,6 +61,8 @@ For the saved full-history development run: validation is August 31 through Sept
 These same development periods were already inspected during prototyping. Separating selection in code prevents future-outcome leakage within a run, but does not make the reused dataset a fresh independent confirmation. All comparisons are exploratory. A genuinely new real-data evaluation, with logging coverage and provenance established, is required. No significance tests, confidence intervals or production accuracy claims are made from four weeks.
 
 Method references: [Poisson log-link regression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.PoissonRegressor.html), [simple exponential smoothing](https://otexts.com/fpp3/ses.html), and [separating model selection from evaluation](https://scikit-learn.org/stable/modules/cross_validation.html).
+
+A useful future candidate is Croston's method, which is designed for intermittent counts with many zero periods. It estimates the interval between nonzero weeks and the request size in active weeks; we have not implemented or evaluated it. It could be compared in a future study using the same chronological validation and benchmarks. [Croston's original paper](https://www.tandfonline.com/doi/abs/10.1057/jors.1972.50).
 
 Each tab retains its own campus, period, assessment filters and report while switching views. Changing accounts discards panel state and the shared data cache. Participation and Scores default to this month; Trends defaults to the last three calendar months through today. Presets load immediately. Custom dates require **Apply dates to this tab**. Dates use Asia/Manila, with inclusive end dates and partial buckets clearly marked.
 
