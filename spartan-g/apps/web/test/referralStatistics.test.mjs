@@ -12,12 +12,15 @@ const compile = source => ts.transpileModule(source, { compilerOptions: {
   .replaceAll("'react'", JSON.stringify(import.meta.resolve('react')));
 const card = url(compile(await readFile(new URL('../src/components/ui/Card.tsx', import.meta.url), 'utf8')));
 const campuses = url(compile(await readFile(new URL('../../../packages/shared-types/src/constants/campuses.ts', import.meta.url), 'utf8')));
+const referralForecast = url(compile(await readFile(new URL('../../../packages/shared-types/src/utils/referralForecast.ts', import.meta.url), 'utf8')));
+const sharedTypes = url(`export { ALL_CAMPUSES, getCampusLabel } from ${JSON.stringify(campuses)};
+  export { estimateCampusFacilitatorNeed } from ${JSON.stringify(referralForecast)};`);
 const charts = url(compile(await readFile(new URL('../src/components/analytics/AnalyticsCharts.tsx', import.meta.url), 'utf8')));
 const views = url(compile(await readFile(new URL('../src/components/statistics/StatisticsViews.tsx', import.meta.url), 'utf8'))
-  .replaceAll("'@spartan-g/shared-types'", JSON.stringify(campuses))
+  .replaceAll("'@spartan-g/shared-types'", JSON.stringify(sharedTypes))
   .replaceAll("'../ui/Card'", JSON.stringify(card))
   .replaceAll("'../analytics/AnalyticsCharts'", JSON.stringify(charts)));
-const { ReferralsView, CoverageDetails, ReferralForecastView } = await import(views);
+const { ReferralsView, CoverageDetails, ReferralForecastView, FacilitatorStaffingView } = await import(views);
 const { evaluateReferralForecast } = await import('../../../firebase/functions/test/helpers/statisticsModules.mjs');
 
 test('referral presentation labels test data, separates statuses, and never invents model metrics', () => {
@@ -53,6 +56,72 @@ test('trained prototype displays measured errors, baseline outcome and chronolog
   assert.ok(!html.includes('100%'));
 });
 
+test('campus staffing recommendation combines demand and availability without inventing a clinical decision', async () => {
+  const { estimateCampusFacilitatorNeed } = await import('../../../firebase/functions/test/helpers/statisticsModules.mjs');
+  const staffing = estimateCampusFacilitatorNeed({
+    predictedWeeklyRequests: 12,
+    activeFacilitators: 2,
+    activeAvailabilitySlots: 8,
+  });
+  assert.equal(staffing.status, 'ready');
+  assert.equal(staffing.severity, 'high');
+  assert.equal(staffing.recommendedFacilitatorCount, 3);
+  assert.equal(staffing.additionalFacilitators, 1);
+  assert.match(staffing.reason, /planning estimate/i);
+
+  const sparse = estimateCampusFacilitatorNeed({
+    predictedWeeklyRequests: null,
+    activeFacilitators: 2,
+  });
+  assert.equal(sparse.status, 'insufficient');
+  assert.equal(sparse.recommendedFacilitatorCount, null);
+});
+
+test('all-campus staffing view renders campus charts and does not require a campus filter', () => {
+  const report = {
+    filters: { campus: '' },
+    referrals: { forecast: { forecast: null } },
+  };
+  const workloadRows = [
+    { id: 'lipa', campusKey: 'lipa', campusLabel: 'Lipa Campus', facilitatorCount: { value: 5 }, activeAvailabilitySlots: { value: 10 }, monthlyRequests: { value: 20 } },
+    { id: 'alangilan', campusKey: 'alangilan', campusLabel: 'Alangilan', facilitatorCount: { value: 3 }, activeAvailabilitySlots: { value: 6 }, monthlyRequests: { value: 30 } },
+  ];
+  const html = renderToStaticMarkup(React.createElement(FacilitatorStaffingView, { report, workloadRows }));
+  assert.ok(html.includes('Recommended facilitators by campus'));
+  assert.ok(html.includes('Predicted weekly referrals by campus'));
+  assert.ok(html.includes('Lipa Campus'));
+  assert.ok(html.includes('Alangilan'));
+  assert.ok(!html.includes('Select one campus above'));
+});
+
+test('all-campus staffing uses a clearly labeled synthetic fallback when workload aggregates are empty', () => {
+  const report = {
+    filters: { campus: '' },
+    campuses: [
+      { key: 'lipa', label: 'Lipa Campus' },
+      { key: 'alangilan', label: 'Alangilan' },
+    ],
+    referrals: { forecast: { forecast: null } },
+  };
+  const html = renderToStaticMarkup(React.createElement(FacilitatorStaffingView, { report, workloadRows: [] }));
+  assert.ok(html.includes('Synthetic showcase data'));
+  assert.ok(html.includes('Recommended facilitators by campus'));
+  assert.ok(!html.includes('No campus workload aggregates'));
+});
+
+test('selected-campus staffing also uses synthetic workload fallback instead of insufficient data', () => {
+  const report = {
+    filters: { campus: 'lipa' },
+    campuses: [{ key: 'lipa', label: 'Lipa Campus' }],
+    referrals: { forecast: { forecast: null } },
+  };
+  const html = renderToStaticMarkup(React.createElement(FacilitatorStaffingView, { report, workloadRows: [] }));
+  assert.ok(html.includes('Synthetic showcase data'));
+  assert.ok(html.includes('Recommended facilitators'));
+  assert.ok(html.includes('Lipa Campus'));
+  assert.ok(!html.includes('Insufficient forecast or facilitator data'));
+});
+
 test('statistics opens on Overview and keeps the existing analytics tabs', async () => {
   const fixture = url(`import React from ${JSON.stringify(import.meta.resolve('react'))};
     export const useAuth = () => ({ user: { uid: 'admin', role: 'super_admin' } });
@@ -64,7 +133,7 @@ test('statistics opens on Overview and keeps the existing analytics tabs', async
   const html = renderToStaticMarkup(React.createElement(AdminStatisticsPage));
   assert.ok(html.includes('data-view="overview"'));
   assert.ok(html.includes('aria-selected="true" aria-controls="statistics-panel-overview"'));
-  for (const label of ['Referral Analytics', 'Referral Forecast', 'Participation', 'Trends', 'Assessment Scores']) assert.ok(html.includes(label));
+  for (const label of ['Referral Analytics', 'Referral Forecast', 'Facilitator Staffing', 'Participation', 'Trends', 'Assessment Scores']) assert.ok(html.includes(label));
 });
 
 test('extended comparison shows candidate selection, sparse validation warning and retrospective limitations', () => {

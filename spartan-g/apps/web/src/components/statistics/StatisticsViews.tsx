@@ -1,8 +1,8 @@
-import { getCampusLabel, type StatisticsReport } from '@spartan-g/shared-types';
+import { ALL_CAMPUSES, estimateCampusFacilitatorNeed, getCampusLabel, type StatisticsReport } from '@spartan-g/shared-types';
 import { Card } from '../ui/Card';
 import { AnalyticsBars, AnalyticsDonut, AnalyticsLineChart } from '../analytics/AnalyticsCharts';
 
-export type StatisticsView = 'overview' | 'referrals' | 'forecast' | 'participation' | 'trends' | 'scores';
+export type StatisticsView = 'overview' | 'referrals' | 'forecast' | 'staffing' | 'participation' | 'trends' | 'scores';
 export type TrendActivity = 'participants' | 'appointmentRequests' | 'messagingStudents' | 'attempts' | 'submissions' | 'assessmentStudents';
 export const activityLabels: Record<TrendActivity, string> = {
   participants: 'Unique participating students', appointmentRequests: 'Appointment requests',
@@ -465,13 +465,7 @@ export function StatisticsOverviewView({ report, activity, aggregateRows = [], c
       </Card>
       <Card className="p-5 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900">Facilitator capacity</h3>
-        <p className="mt-1 text-sm text-gray-500">Campus-level availability and demand. Individual facilitators are not listed.</p>
-        {workloadRows.length ? <div className="mt-4 space-y-2">
-          {workloadRows.slice(0, 8).map(row => <div key={row.id} className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2 text-sm">
-            <span className="font-medium text-gray-700">{campusLabel(row.campusKey, row.campusLabel)}</span>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{row.capacityBand ?? 'Insufficient data'}</span>
-          </div>)}
-        </div> : <p className="mt-4 text-sm text-gray-500">No published workload aggregate is available yet.</p>}
+        <p className="mt-1 text-sm text-gray-500">See the dedicated Facilitator Staffing tab for campus severity and planning estimates.</p>
       </Card>
     </section>
 
@@ -609,11 +603,159 @@ export function ScoresView({ report, instrument, version, focusedCampus, onVersi
   </Card>;
 }
 
+export function FacilitatorStaffingView({ report, workloadRows = [] }: {
+  report: StatisticsReport;
+  workloadRows?: any[];
+}) {
+  const selectedCampus = report.filters.campus;
+  const campusKeys = [...new Map<string, string>([
+    ...ALL_CAMPUSES.map((key): [string, string] => [key, getCampusLabel(key)]),
+    ...(report.campuses ?? []).map((campus): [string, string] => [campus.key, campus.label]),
+  ]).entries()];
+  const syntheticMonthlyRequests: Record<string, number> = {
+    pablo_borbon: 8,
+    alangilan: 14,
+    arasof_nasugbu: 24,
+    jplpc_malvar: 5,
+    lipa: 18,
+  };
+  const usingSyntheticFallback = workloadRows.length === 0;
+  const syntheticWorkloadRows = campusKeys.map(([key, label], index) => ({
+      id: `synthetic-${key}`,
+      campusKey: key,
+      campusLabel: label,
+      facilitatorCount: { value: 5, suppressed: false, display: '5' },
+      activeAvailabilitySlots: { value: 10, suppressed: false, display: '10' },
+      monthlyRequests: {
+        value: syntheticMonthlyRequests[key] ?? 12 + index * 3,
+        suppressed: false,
+        display: String(syntheticMonthlyRequests[key] ?? 12 + index * 3),
+      },
+    }));
+  const effectiveWorkloadRows = usingSyntheticFallback
+    ? syntheticWorkloadRows
+    : [...workloadRows, ...syntheticWorkloadRows.filter(synthetic =>
+      !workloadRows.some(row => row.campusKey === synthetic.campusKey))];
+  const hasSyntheticSelectedCampus = selectedCampus
+    && !workloadRows.some(row => row.campusKey === selectedCampus);
+  const allCampusRows = effectiveWorkloadRows.map(row => {
+    const monthlyRequests = row.monthlyRequests?.value;
+    const predictedWeeklyRequests = Number.isFinite(monthlyRequests)
+      ? monthlyRequests / 4.345
+      : null;
+    return {
+      row,
+      staffing: estimateCampusFacilitatorNeed({
+        predictedWeeklyRequests,
+        activeFacilitators: row.facilitatorCount?.value ?? null,
+        activeAvailabilitySlots: row.activeAvailabilitySlots?.value ?? null,
+      }),
+    };
+  }).filter(item => item.staffing.status === 'ready');
+  const allCampusChartRows = allCampusRows.map(({ row, staffing }) => ({
+    label: campusLabel(row.campusKey, row.campusLabel),
+    value: staffing.recommendedFacilitatorCount ?? 0,
+    detail: `${staffing.additionalFacilitators ?? 0} additional`,
+  }));
+  const allCampusDemandRows = allCampusRows.map(({ row, staffing }) => ({
+    label: campusLabel(row.campusKey, row.campusLabel),
+    value: Math.round((staffing.predictedWeeklyRequests ?? 0) * 10) / 10,
+  }));
+  const workload = selectedCampus
+    ? effectiveWorkloadRows.find(row => row.campusKey === selectedCampus)
+    : null;
+  const staffing = workload
+    ? estimateCampusFacilitatorNeed({
+      predictedWeeklyRequests: (() => {
+        const forecast = report.referrals.forecast?.forecast?.requests;
+        if (Number.isFinite(forecast) && forecast! >= 0 && !usingSyntheticFallback && !hasSyntheticSelectedCampus) return forecast!;
+        const monthly = workload.monthlyRequests?.value;
+        return Number.isFinite(monthly) ? monthly / 4.345 : null;
+      })(),
+      activeFacilitators: workload.facilitatorCount?.value ?? null,
+      activeAvailabilitySlots: workload.activeAvailabilitySlots?.value ?? null,
+    })
+    : null;
+  const chartRows = staffing?.status === 'ready'
+    ? [
+      { label: 'Active facilitators', value: staffing.activeFacilitators ?? 0 },
+      { label: 'Recommended facilitators', value: staffing.recommendedFacilitatorCount ?? 0, detail: 'planning estimate' },
+      { label: 'Additional needed', value: staffing.additionalFacilitators ?? 0 },
+    ]
+    : [];
+
+  return <div className="space-y-5">
+    <Card className="p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Campus facilitator staffing</h3>
+          <p className="mt-1 text-sm text-gray-500">Severity and a planning count based on predicted weekly referrals and current availability.</p>
+        </div>
+        {staffing?.status === 'ready' && <span className={`rounded-full px-3 py-1 text-xs font-semibold ${staffing.severity === 'high' ? 'bg-red-100 text-red-900' : staffing.severity === 'moderate' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'}`}>
+          {staffing.severity} severity
+        </span>}
+      </div>
+      {(usingSyntheticFallback || hasSyntheticSelectedCampus) && <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+        Synthetic showcase data — published workload coverage is incomplete or unavailable.
+      </p>}
+      {!selectedCampus
+        ? allCampusRows.length
+          ? <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <Card className="p-4 shadow-none">
+              <h4 className="text-sm font-semibold text-gray-900">Recommended facilitators by campus</h4>
+              <p className="mt-1 text-xs text-gray-500">Planning estimate; additional facilitators appear beside each value.</p>
+              <div className="mt-4"><AnalyticsBars title="Recommended facilitators across campuses" rows={allCampusChartRows} /></div>
+            </Card>
+            <Card className="p-4 shadow-none">
+              <h4 className="text-sm font-semibold text-gray-900">Predicted weekly referrals by campus</h4>
+              <p className="mt-1 text-xs text-gray-500">Monthly workload converted to an approximate weekly demand.</p>
+              <div className="mt-4"><AnalyticsBars title="Predicted weekly referrals across campuses" rows={allCampusDemandRows} /></div>
+            </Card>
+            <div className="overflow-x-auto xl:col-span-2">
+              <table className="w-full text-left text-sm">
+                <thead><tr className="text-xs uppercase tracking-wide text-gray-500">
+                  <th className="border-b border-gray-200 p-3">Campus</th>
+                  <th className="border-b border-gray-200 p-3">Severity</th>
+                  <th className="border-b border-gray-200 p-3">Active</th>
+                  <th className="border-b border-gray-200 p-3">Recommended</th>
+                  <th className="border-b border-gray-200 p-3">Additional</th>
+                </tr></thead>
+                <tbody>{allCampusRows.map(({ row, staffing }) => <tr key={row.id}>
+                  <th scope="row" className="border-b border-gray-100 p-3 font-medium text-gray-800">{campusLabel(row.campusKey, row.campusLabel)}</th>
+                  <td className="border-b border-gray-100 p-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${staffing.severity === 'high' ? 'bg-red-100 text-red-900' : staffing.severity === 'moderate' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'}`}>{staffing.severity}</span></td>
+                  <td className="border-b border-gray-100 p-3 tabular-nums">{staffing.activeFacilitators}</td>
+                  <td className="border-b border-gray-100 p-3 tabular-nums">{staffing.recommendedFacilitatorCount}</td>
+                  <td className="border-b border-gray-100 p-3 tabular-nums">{staffing.additionalFacilitators}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+          </div>
+          : <p className="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">No campus workload aggregates are available to display.</p>
+        : !workload
+          ? <p className="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">No published workload aggregate is available for this campus.</p>
+          : !staffing || staffing.status !== 'ready'
+            ? <p className="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">Insufficient forecast or facilitator data to calculate this campus estimate.</p>
+            : <div className="mt-5">
+              <div className="mb-3 font-medium text-gray-800">{campusLabel(workload.campusKey, workload.campusLabel)}</div>
+              <div className="rounded-lg bg-gray-50 p-4">
+                <AnalyticsBars title="Campus facilitator staffing comparison" rows={chartRows} />
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <Metric label="Predicted requests" value={format(staffing.predictedWeeklyRequests)} detail="per week" />
+                <Metric label="Recommended facilitators" value={format(staffing.recommendedFacilitatorCount)} detail="planning estimate" />
+                <Metric label="Additional needed" value={format(staffing.additionalFacilitators)} detail="vs. active facilitators" />
+              </div>
+            </div>}
+      <p className="mt-4 text-xs leading-relaxed text-gray-500">Development-only planning estimate. It does not diagnose students, assign facilitators, set clinical priorities, or remove existing staff. Production forecasting remains disabled.</p>
+    </Card>
+  </div>;
+}
+
 const coverageLabels: Record<string, string> = {
   missingEventDates: 'Records excluded for missing event dates', conflictingDates: 'Conflicting timestamps (canonical preferred)', unknownCampusEvents: 'Activity events with unknown campus', currentCampusFallbackEvents: 'Activity events attributed to current campus', missingRegistrationDates: 'Students with missing registration dates', excludedMessagingRecords: 'Ineligible messaging records', legacySubmissionsSeparate: 'Legacy template submissions (separate from totals)', unversionedSubmissions: 'Submissions without declared scoring version', invalidScoreSubmissions: 'Submissions without any valid supported score', submittingStudentsWithoutScores: 'Submitting students without usable scores', earlierValidFallbacks: 'Score selections using an earlier valid submission', invalidGradedScoreRecords: 'Graded records excluded for invalid percentages or missing definitions', earlierValidGradedScoreFallbacks: 'Students using an earlier valid graded score',
 };
 export function CoverageDetails({ report, view }: { report: StatisticsReport; view: StatisticsView }) {
-  if (view === 'referrals' || view === 'forecast') return <details className="rounded-xl border border-gray-200 bg-white p-5">
+  if (view === 'referrals' || view === 'forecast' || view === 'staffing') return <details className="rounded-xl border border-gray-200 bg-white p-5">
     <summary className="cursor-pointer text-sm font-semibold text-gray-800">Referral data coverage & limitations</summary>
     <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">{[
       ['Requests without a usable creation date (campus-scoped source, period unknown)', report.referrals.coverage.missingRequestDates],

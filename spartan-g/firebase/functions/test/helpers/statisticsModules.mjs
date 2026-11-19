@@ -17,7 +17,7 @@ async function load(path) {
   return import(`data:text/javascript;base64,${Buffer.from(resolved).toString('base64')}`);
 }
 export const { buildStatistics, validateFilters, dateBoundary, validatedScore, SCALES } = await load('../../../../packages/shared-types/src/utils/statistics.ts');
-export const { fitReferralRidge, predictReferralCount, evaluateReferralForecast, fitReferralPoisson, predictReferralPoisson, fitReferralSmoothing, canPublishReferralForecast } = await load('../../../../packages/shared-types/src/utils/referralForecast.ts');
+export const { fitReferralRidge, predictReferralCount, evaluateReferralForecast, fitReferralPoisson, predictReferralPoisson, fitReferralSmoothing, canPublishReferralForecast, estimateCampusFacilitatorNeed } = await load('../../../../packages/shared-types/src/utils/referralForecast.ts');
 export const { createStatisticsLoader, STATISTICS_FIELDS, MAX_STATISTICS_RECORDS } = await load('../../../../apps/web/src/lib/statisticsData.ts');
 export const { createFirestoreStatisticsSource } = await load('../../../../apps/web/src/lib/statisticsSource.ts');
 export const { createPseudonymizer, pseudonymizeAuditRows } = await load('../../../../apps/web/src/lib/pseudonymization.ts');

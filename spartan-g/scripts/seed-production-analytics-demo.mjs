@@ -27,6 +27,7 @@ const campuses = [
 const assessmentIds = ['synthetic-analytics-assessment-wellbeing'];
 const questionIds = ['q1', 'q2', 'q3', 'q4', 'q5'];
 const now = new Date();
+const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1));
 const months = Array.from({ length: 12 }, (_, index) => new Date(Date.UTC(
   monthStart.getUTCFullYear(),
@@ -58,6 +59,10 @@ async function taggedReferences() {
 
 if (deleteMode) {
   const references = await taggedReferences();
+  for (const [campus] of campuses) {
+    references.push(db.collection('analytics').doc('facilitatorWorkload').collection('records')
+      .doc(`${campus}_monthly_${periodStart.toISOString().slice(0, 10)}`));
+  }
   for (let index = 0; index < references.length; index += 400) {
     const batch = db.batch();
     references.slice(index, index + 400).forEach(reference => batch.delete(reference));
@@ -74,20 +79,24 @@ const set = (reference, data) => {
   writes++;
 };
 
-for (const [campus, label] of campuses) {
-  const facilitatorId = syntheticId('facilitator', campus, 0);
-  set(db.collection('users').doc(facilitatorId), {
-    uid: facilitatorId,
-    email: `${facilitatorId}@example.invalid`,
-    displayName: `Synthetic facilitator – ${label}`,
-    role: 'facilitator',
-    campus,
-    isActive: true,
-    createdAt: stamp(monthStart),
-    updatedAt: stamp(now),
+for (const [campusIndex, [campus, label]] of campuses.entries()) {
+  const facilitatorIds = Array.from({ length: 5 }, (_, facilitatorIndex) => syntheticId('facilitator', campus, facilitatorIndex));
+  facilitatorIds.forEach(facilitatorId => {
+    set(db.collection('users').doc(facilitatorId), {
+      uid: facilitatorId,
+      email: `${facilitatorId}@example.invalid`,
+      displayName: `Synthetic facilitator – ${label}`,
+      role: 'facilitator',
+      campus,
+      isActive: true,
+      createdAt: stamp(monthStart),
+      updatedAt: stamp(now),
+    });
   });
+  let monthlyRequests = 0;
 
   for (let studentIndex = 0; studentIndex < 10; studentIndex++) {
+    const facilitatorId = facilitatorIds[studentIndex % facilitatorIds.length];
     const studentId = syntheticId('student', campus, studentIndex);
     const createdAt = monthDate(months[Math.min(studentIndex % 8, 7)], 2 + (studentIndex % 10));
     set(db.collection('users').doc(studentId), {
@@ -119,6 +128,7 @@ for (const [campus, label] of campuses) {
       const month = months[monthIndex];
       const active = ((studentIndex * 3 + monthIndex + campus.length) % 7) < 3;
       if (active) {
+        if (monthIndex === months.length - 1) monthlyRequests++;
         const appointmentId = syntheticId('appointment', campus, studentIndex * 12 + monthIndex);
         const eventDate = monthDate(month, 4 + ((studentIndex + monthIndex) % 20));
         set(db.collection('appointments').doc(appointmentId), {
@@ -165,6 +175,31 @@ for (const [campus, label] of campuses) {
         }
       }
     }
+
+    const showcaseMonthlyRequests = [8, 14, 24, 5, 18][campusIndex];
+    monthlyRequests = Math.max(monthlyRequests, showcaseMonthlyRequests);
+    const availabilitySlots = facilitatorIds.length * 2;
+    const ratio = availabilitySlots ? monthlyRequests / availabilitySlots : null;
+    const capacityBand = ratio === null ? 'Insufficient data'
+      : ratio <= 2 ? 'Limited' : ratio <= 5 ? 'Moderate' : 'Adequate';
+    set(db.collection('analytics').doc('facilitatorWorkload').collection('records')
+      .doc(`${campus}_monthly_${periodStart.toISOString().slice(0, 10)}`), {
+      campusKey: campus,
+      campusLabel: label,
+      periodStartDate: periodStart.toISOString().slice(0, 10),
+      interval: 'monthly',
+      locked: true,
+      isComplete: true,
+      dataPhase: 'development',
+      cutoffVersion: 'synthetic-workload-demo-v1',
+      cutoffStatus: 'synthetic-demo',
+      aggregationVersion: '1',
+      computedAt: stamp(now),
+      facilitatorCount: { value: facilitatorIds.length, suppressed: false, display: String(facilitatorIds.length) },
+      activeAvailabilitySlots: { value: availabilitySlots, suppressed: false, display: String(availabilitySlots) },
+      monthlyRequests: { value: monthlyRequests, suppressed: false, display: String(monthlyRequests) },
+      capacityBand,
+    });
   }
 }
 

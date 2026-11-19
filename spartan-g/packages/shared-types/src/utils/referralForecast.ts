@@ -31,6 +31,58 @@ export interface ReferralPoissonModel {
   intercept: number; coefficients: number[]; featureMeans: number[]; featureScales: number[];
   zeroOnly: boolean; converged: boolean; iterations: number;
 }
+
+export type CampusStaffingSeverity = 'insufficient-data' | 'low' | 'moderate' | 'high';
+export interface CampusStaffingRecommendation {
+  status: 'ready' | 'insufficient';
+  severity: CampusStaffingSeverity;
+  predictedWeeklyRequests: number | null;
+  activeFacilitators: number | null;
+  activeAvailabilitySlots: number | null;
+  targetRequestsPerFacilitatorPerWeek: number;
+  recommendedFacilitatorCount: number | null;
+  additionalFacilitators: number | null;
+  reason: string;
+}
+
+export function estimateCampusFacilitatorNeed(input: {
+  predictedWeeklyRequests: number | null | undefined;
+  activeFacilitators: number | null | undefined;
+  activeAvailabilitySlots?: number | null;
+  targetRequestsPerFacilitatorPerWeek?: number;
+}): CampusStaffingRecommendation {
+  const target = input.targetRequestsPerFacilitatorPerWeek ?? 5;
+  const predicted = input.predictedWeeklyRequests;
+  const facilitators = input.activeFacilitators;
+  const slots = input.activeAvailabilitySlots ?? null;
+  if (!Number.isFinite(predicted) || !Number.isFinite(facilitators) || !Number.isFinite(target)
+    || predicted! < 0 || facilitators! < 0 || target <= 0) {
+    return { status: 'insufficient', severity: 'insufficient-data', predictedWeeklyRequests: null,
+      activeFacilitators: null, activeAvailabilitySlots: slots, targetRequestsPerFacilitatorPerWeek: target,
+      recommendedFacilitatorCount: null, additionalFacilitators: null,
+      reason: 'A valid forecast and active facilitator count are required.' };
+  }
+  if (!Number.isSafeInteger(facilitators) || !Number.isSafeInteger(Math.ceil(predicted!))) {
+    return { status: 'insufficient', severity: 'insufficient-data', predictedWeeklyRequests: predicted!,
+      activeFacilitators: facilitators!, activeAvailabilitySlots: slots, targetRequestsPerFacilitatorPerWeek: target,
+      recommendedFacilitatorCount: null, additionalFacilitators: null,
+      reason: 'Counts must be finite, nonnegative integers.' };
+  }
+  const demandPerFacilitator = facilitators === 0 ? Infinity : predicted! / facilitators!;
+  const slotRatio = slots !== null && slots > 0 ? predicted! / slots : null;
+  let severity: CampusStaffingSeverity = 'low';
+  if (demandPerFacilitator > target || slotRatio !== null && slotRatio > 3
+    || facilitators === 0 && predicted! > 0) severity = 'high';
+  else if (demandPerFacilitator >= target * .75 || slotRatio !== null && slotRatio > 1) severity = 'moderate';
+  const recommended = predicted! === 0 ? facilitators === 0 ? 0 : 0
+    : Math.ceil(predicted! / target);
+  return { status: 'ready', severity, predictedWeeklyRequests: predicted!,
+    activeFacilitators: facilitators!, activeAvailabilitySlots: slots,
+    targetRequestsPerFacilitatorPerWeek: target,
+    recommendedFacilitatorCount: recommended,
+    additionalFacilitators: Math.max(0, recommended - facilitators!),
+    reason: 'Planning estimate from predicted weekly demand and current covered capacity. Not an assignment or clinical decision.' };
+}
 const WEEK = 7 * 86400000;
 const ALPHA = 1; // Prespecified, not tuned on held-out outcomes.
 export const MIN_REFERRAL_FORECAST_WEEKS = 11; // 2 lags + at least 6 fitting rows + 3 test weeks.

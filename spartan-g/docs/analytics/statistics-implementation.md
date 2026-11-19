@@ -22,6 +22,17 @@ The existing browser loader additionally retains the request `status` field; no 
 
 Validate this change with `npm.cmd run test:referral-statistics --workspace=@spartan-g/web`, the website/shared-types typechecks and the production website build. Automated tests validate calculations and training/evaluation mechanics; real-world forecast validity remains unverified. The previous deployment notes below describe the earlier release, not deployment of these local changes.
 
+## Experimental campus staffing estimate
+
+When one campus is selected, the overview combines the campus's next-week referral forecast with the campus workload aggregate. The planning formula uses a fixed target of five predicted weekly requests per facilitator:
+
+```text
+recommended facilitator count = ceiling(predicted weekly requests / 5)
+additional facilitators = max(0, recommended count - active facilitator count)
+```
+
+Severity is `low`, `moderate`, or `high` based on predicted demand per active facilitator and, when available, demand per active availability slot. Missing forecasts or suppressed facilitator counts return `insufficient-data`. The estimate does not rank campuses, prescribe clinical care, select a facilitator, or justify removing existing staff. It remains development-only while referral forecasting is disabled.
+
 ## Learned forecasting prototype
 
 `packages/shared-types/src/utils/referralForecast.ts` fits standardized ridge regression with two features: the previous week's count and the count two weeks ago. Coefficients and an unpenalized intercept are learned from the input outcomes. Regularization alpha=1 and the two lags are fixed in advance, not selected using the evaluation results. The closed-form two-feature solve minimizes squared residuals plus alpha times the squared standardized coefficients. The saved coefficients/intercept are converted back to original count units. Prediction clips negative estimates to zero; it does not round before evaluation.
